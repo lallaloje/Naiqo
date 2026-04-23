@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* NAIQO Design System - Professional nail salon SaaS platform
+All colors MUST be HSL. Based on brand gradient: magenta to purple.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* NAIQO Brand Colors - Based on logo gradient */
+    --primary: 321 100% 52%; /* Magenta */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 321 100% 65%;
+    --primary-dark: 321 100% 35%;
+
+    --secondary: 291 64% 42%; /* Purple */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 291 64% 55%;
+    --secondary-dark: 291 64% 25%;
+
+    /* Brand Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(var(--primary) / 0.05), hsl(var(--secondary) / 0.05));
+
+    /* Neutral palette for professional UI */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 321 100% 96%;
+    --accent-foreground: 321 100% 20%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 321 100% 52%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 321 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 321 100% 68%;
+    --primary-dark: 321 100% 40%;
+
+    --secondary: 291 64% 45%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 291 64% 58%;
+    --secondary-dark: 291 64% 30%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 321 100% 15%;
+    --accent-foreground: 321 100% 85%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 321 100% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Safe area support for notched devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Touch-friendly minimum sizes */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+
+  /* Form inputs - appropriate keyboards */
+  input[type="email"] {
+    text-transform: lowercase;
+  }
+  
+  input[type="tel"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Beautiful scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+
+  /* Smooth transitions - fast for mobile */
+  * {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Touch manipulation for better scrolling */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Pull to refresh prevention on body */
+  html {
+    overscroll-behavior-y: contain;
+  }
+}
+
+@layer components {
+  /* Mobile-first card styles */
+  .mobile-card {
+    @apply bg-card rounded-2xl p-4 shadow-sm border border-border active:scale-[0.98] transition-transform;
+  }
+
+  /* Touch-friendly list items */
+  .touch-list-item {
+    @apply flex items-center gap-4 p-4 min-h-[64px] active:bg-muted/50 transition-colors rounded-xl;
+  }
+
+  /* Sticky bottom action bar */
+  .sticky-bottom-action {
+    @apply fixed bottom-16 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent;
+  }
+
+  /* Skeleton loading */
+  .skeleton-pulse {
+    @apply animate-pulse bg-muted rounded;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Haptic feedback simulation */
+  .haptic-light {
+    @apply active:scale-[0.98];
+  }
+  
+  .haptic-medium {
+    @apply active:scale-[0.95];
+  }
+}
