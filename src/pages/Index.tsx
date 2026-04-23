@@ -1,14 +1,14 @@
 import { Header } from "@/components/Header";
-import { HeroSection } from "@/components/landing/HeroSection";
-import { ProblemSection } from "@/components/landing/ProblemSection";
-import { SolutionSection } from "@/components/landing/SolutionSection";
-import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { HeroSection } from "@/components/HeroSection";
+import { ProblemSection } from "@/components/ProblemSection";
+import { SolutionSection } from "@/components/SolutionSection";
+import { FeaturesSection } from "@/components/FeaturesSection";
 import { DemoSection } from "@/components/DemoSection";
-import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
-import { PricingSection } from "@/components/landing/PricingSection";
-import { FAQSection } from "@/components/landing/FAQSection";
-import { CTASection } from "@/components/landing/CTASection";
-import { Footer } from "@/components/landing/Footer";
+import { TestimonialsSection } from "@/components/TestimonialsSection";
+import { PricingSection } from "@/components/PricingSection";
+import { FAQSection } from "@/components/FAQSection";
+import { CTASection } from "@/components/CTASection";
+import { Footer } from "@/components/Footer";
 import ChatSupport from "@/components/ChatSupport";
 
 const Index = () => {
