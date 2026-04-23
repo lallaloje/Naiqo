@@ -289,7 +289,7 @@ const NailHealthAnalyzer = () => {
 
       setAnalysisStage('analyzing');
 
-      const { data, error } = await supabase.functions.invoke('analyze-nail-health', {
+      const { data, error } = await supabase.functions.invoke('analyze-nail', {
         body: {
           imageUrl: imageUrl,
           sessionId: sessionId
