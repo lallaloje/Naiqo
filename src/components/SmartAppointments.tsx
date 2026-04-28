@@ -262,9 +262,10 @@ const SmartAppointments = () => {
       setShowForm(false);
       loadDayAppointments(); loadWeekAppointments();
       toast({ title: '✅ Cita creada', description: `${form.client_name} — ${form.appointment_time}` });
-    } catch (e) {
+    } catch (e: any) {
       logError('SmartAppointments:create', e);
-      toast({ title: 'Error', description: 'No se pudo crear la cita.', variant: 'destructive' });
+      const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Error desconocido';
+      toast({ title: 'Error al crear cita', description: msg, variant: 'destructive' });
     } finally { setIsLoading(false); }
   };
 
