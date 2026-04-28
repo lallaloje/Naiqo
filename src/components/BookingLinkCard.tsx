@@ -10,35 +10,35 @@ import { logError, logInfo } from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
 
 const BookingLinkCard = () => {
-  const [centerId, setCenterId] = useState<string>('');
-  const [centerName, setCenterName] = useState<string>('');
+  const [salonId, setSalonId] = useState<string>('');
+  const [salonName, setSalonName] = useState<string>('');
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadCenterInfo = async () => {
+    const loadSalonInfo = async () => {
       if (!user) return;
 
       try {
         const { data } = await supabase
-          .from('center_owners')
-          .select('center_id, centers(name)')
+          .from('salons')
+          .select('id, salon_name')
           .eq('user_id', user.id)
           .single();
 
         if (data) {
-          setCenterId(data.center_id);
-          setCenterName((data as any).centers?.name || '');
+          setSalonId(data.id);
+          setSalonName(data.salon_name || '');
         }
       } catch (error) {
-        logError('BookingLinkCard:loadCenterInfo', error);
+        logError('BookingLinkCard:loadSalonInfo', error);
       }
     };
 
-    loadCenterInfo();
+    loadSalonInfo();
   }, [user]);
 
-  const bookingUrl = `${window.location.origin}/reservar/${centerId}`;
+  const bookingUrl = `${window.location.origin}/reservar/${salonId}`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(bookingUrl);
@@ -52,7 +52,7 @@ const BookingLinkCard = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Reserva tu cita en ${centerName}`,
+          title: `Reserva tu cita en ${salonName}`,
           text: 'Reserva tu cita de manera fácil y rápida',
           url: bookingUrl,
         });
@@ -74,11 +74,10 @@ const BookingLinkCard = () => {
           light: '#FFFFFF'
         }
       });
-      
-      // Create download link
+
       const link = document.createElement('a');
       link.href = qrDataUrl;
-      link.download = `booking-qr-${centerId}.png`;
+      link.download = `reservas-${salonId}.png`;
       link.click();
     } catch (error) {
       logError('BookingLinkCard:downloadQR', error);
@@ -90,30 +89,30 @@ const BookingLinkCard = () => {
     }
   };
 
-  if (!centerId) return null;
+  if (!salonId) return null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Share2 className="w-5 h-5" />
-          Enlace de Reservas
+          Tu Enlace de Reservas
         </CardTitle>
         <CardDescription>
-          Comparte este enlace con tus clientes para que puedan reservar citas
+          Comparte este enlace con tus clientes para que puedan ver tu disponibilidad
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
-          <Input 
-            value={bookingUrl} 
-            readOnly 
+          <Input
+            value={bookingUrl}
+            readOnly
             className="font-mono text-sm"
           />
-          <Button onClick={copyToClipboard} variant="outline" size="icon">
+          <Button onClick={copyToClipboard} variant="outline" size="icon" title="Copiar enlace">
             <Copy className="w-4 h-4" />
           </Button>
-          <Button onClick={shareLink} variant="outline" size="icon">
+          <Button onClick={shareLink} variant="outline" size="icon" title="Compartir">
             <Share2 className="w-4 h-4" />
           </Button>
         </div>
@@ -123,9 +122,9 @@ const BookingLinkCard = () => {
             <QrCode className="w-4 h-4 mr-2" />
             Descargar QR
           </Button>
-          <Button 
-            onClick={() => window.open(bookingUrl, '_blank')} 
-            variant="outline" 
+          <Button
+            onClick={() => window.open(bookingUrl, '_blank')}
+            variant="outline"
             className="flex-1"
           >
             <ExternalLink className="w-4 h-4 mr-2" />
@@ -134,11 +133,11 @@ const BookingLinkCard = () => {
         </div>
 
         <div className="bg-muted p-4 rounded-lg text-sm text-muted-foreground">
-          <p className="font-medium mb-2">💡 Consejos para compartir:</p>
+          <p className="font-medium mb-2">💡 Cómo usar tu enlace:</p>
           <ul className="space-y-1 list-disc list-inside">
             <li>Imprime el código QR y colócalo en tu salón</li>
-            <li>Comparte el enlace en tus redes sociales</li>
-            <li>Envíalo por WhatsApp o email a tus clientes</li>
+            <li>Compártelo en Instagram, WhatsApp o email</li>
+            <li>Tus clientes podrán ver tu disponibilidad y solicitar cita</li>
           </ul>
         </div>
       </CardContent>

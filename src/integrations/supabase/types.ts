@@ -581,7 +581,8 @@ export type Database = {
           active: boolean
           buffer_after: number
           buffer_before: number
-          center_id: string
+          center_id: string | null
+          salon_id: string | null
           created_at: string
           description: string | null
           duration_minutes: number
@@ -593,7 +594,8 @@ export type Database = {
           active?: boolean
           buffer_after?: number
           buffer_before?: number
-          center_id: string
+          center_id?: string | null
+          salon_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number
@@ -605,7 +607,8 @@ export type Database = {
           active?: boolean
           buffer_after?: number
           buffer_before?: number
-          center_id?: string
+          center_id?: string | null
+          salon_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number
@@ -619,6 +622,13 @@ export type Database = {
             columns: ["center_id"]
             isOneToOne: false
             referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_salon_id_fkey"
+            columns: ["salon_id"]
+            isOneToOne: false
+            referencedRelation: "salons"
             referencedColumns: ["id"]
           },
         ]
