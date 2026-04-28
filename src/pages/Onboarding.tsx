@@ -109,27 +109,103 @@ export const Onboarding = ({ onComplete, onSkip }: OnboardingProps) => {
   const tourItems = [
     {
       icon: Camera,
-      title: 'Análisis de uñas',
-      description: 'Aquí subes una foto de la uña de tu clienta para obtener un diagnóstico IA',
-      color: 'text-primary'
+      title: 'Análisis de uñas con IA',
+      description: 'Sube una foto de la uña de tu clienta y en segundos obtienes un diagnóstico completo.',
+      color: 'text-primary',
+      preview: (
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+          <div className="flex items-center gap-2 font-medium text-green-600">
+            <CheckCircle className="h-4 w-4" /> Resultado del análisis
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between"><span className="text-muted-foreground">Puntuación de salud</span><span className="font-bold text-primary">78/100</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Problema detectado</span><span className="font-medium">Deshidratación leve</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cutículas</span><span className="font-medium text-yellow-600">Necesitan cuidado</span></div>
+          </div>
+          <div className="pt-1 border-t">
+            <p className="text-xs font-medium mb-1">Recomendaciones:</p>
+            <p className="text-xs text-muted-foreground">✓ Aceite de cutícula diario</p>
+            <p className="text-xs text-muted-foreground">✓ Tratamiento hidratante intensivo</p>
+          </div>
+        </div>
+      )
     },
     {
       icon: MessageCircle,
       title: 'Asistente IA',
-      description: 'El asistente responde todas tus dudas sobre tratamientos y condiciones',
-      color: 'text-blue-500'
+      description: 'Consulta dudas sobre tratamientos y condiciones ungueales al instante.',
+      color: 'text-blue-500',
+      preview: (
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+          <div className="flex gap-2">
+            <div className="bg-muted rounded-lg px-3 py-2 text-xs max-w-[80%]">
+              ¿Qué tratamiento recomiendas para uñas frágiles?
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <div className="bg-primary/10 rounded-lg px-3 py-2 text-xs max-w-[80%] text-right">
+              Para uñas frágiles recomiendo un tratamiento con queratina y biotina. Evita acetona y usa base fortalecedora en cada servicio. 💅
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="bg-muted rounded-lg px-3 py-2 text-xs max-w-[80%]">
+              ¿Cada cuánto tiempo aplicarlo?
+            </div>
+          </div>
+        </div>
+      )
     },
     {
       icon: History,
-      title: 'Historial',
-      description: 'Tu historial completo de análisis realizados',
-      color: 'text-green-500'
+      title: 'Historial de análisis',
+      description: 'Guarda el historial de cada clienta para hacer seguimiento de su evolución.',
+      color: 'text-green-500',
+      preview: (
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+          {[
+            { name: 'Ana López', date: 'Hoy', issue: 'Uñas saludables', score: 92 },
+            { name: 'Carmen Ruiz', date: 'Ayer', issue: 'Onicomicosis leve', score: 65 },
+            { name: 'Laura Martínez', date: 'Hace 2 días', issue: 'Deshidratación', score: 78 },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center justify-between border-b border-muted pb-1 last:border-0">
+              <div>
+                <p className="font-medium text-xs">{item.name}</p>
+                <p className="text-xs text-muted-foreground">{item.date} · {item.issue}</p>
+              </div>
+              <span className={`text-xs font-bold ${item.score >= 80 ? 'text-green-600' : item.score >= 70 ? 'text-yellow-600' : 'text-red-500'}`}>
+                {item.score}/100
+              </span>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: CalendarDays,
-      title: 'Gestión',
-      description: 'Gestiona citas, inventario y más',
-      color: 'text-purple-500'
+      title: 'Gestión de citas',
+      description: 'Gestiona tu agenda de citas de forma inteligente.',
+      color: 'text-purple-500',
+      preview: (
+        <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+          <p className="text-xs font-medium text-muted-foreground">HOY — LUNES</p>
+          {[
+            { time: '10:00', client: 'María García', service: 'Gel completo', status: 'Confirmada' },
+            { time: '12:00', client: 'Sofía Pérez', service: 'Manicura clásica', status: 'Pendiente' },
+            { time: '16:00', client: 'Elena Torres', service: 'Pedicura spa', status: 'Confirmada' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-2 border-b border-muted pb-1 last:border-0">
+              <span className="text-xs font-bold text-primary w-10">{item.time}</span>
+              <div className="flex-1">
+                <p className="text-xs font-medium">{item.client}</p>
+                <p className="text-xs text-muted-foreground">{item.service}</p>
+              </div>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${item.status === 'Confirmada' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                {item.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )
     }
   ];
 
@@ -252,57 +328,55 @@ export const Onboarding = ({ onComplete, onSkip }: OnboardingProps) => {
 
           {/* Step 3: Tour */}
           {currentStep === 'tour' && (
-            <div className="space-y-6 animate-in fade-in duration-500">
-              <div className="text-center space-y-2">
-                <h2 className="text-xl font-bold">Tour guiado</h2>
-                <p className="text-sm text-muted-foreground">Conoce las funciones principales</p>
+            <div className="space-y-4 animate-in fade-in duration-500">
+              {/* Indicador de paso */}
+              <div className="flex items-center justify-between">
+                <div className="flex gap-1">
+                  {tourItems.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1.5 w-6 rounded-full transition-all ${i === tourStep ? 'bg-primary' : i < tourStep ? 'bg-primary/40' : 'bg-muted'}`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground">{tourStep + 1} de {tourItems.length}</span>
               </div>
 
-              <div className="space-y-4">
-                {tourItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-4 p-4 rounded-lg border transition-all duration-300 ${
-                      tourStep === index 
-                        ? 'border-primary bg-primary/5 scale-[1.02]' 
-                        : tourStep > index 
-                          ? 'border-muted bg-muted/30 opacity-60'
-                          : 'border-muted'
-                    }`}
-                  >
-                    <div className={`h-10 w-10 rounded-full bg-background flex items-center justify-center ${item.color}`}>
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                    </div>
-                    {tourStep > index && (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                    )}
+              {/* Función actual */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-full bg-muted flex items-center justify-center ${tourItems[tourStep].color}`}>
+                    {(() => { const Icon = tourItems[tourStep].icon; return <Icon className="h-5 w-5" />; })()}
                   </div>
-                ))}
+                  <div>
+                    <h2 className="text-lg font-bold">{tourItems[tourStep].title}</h2>
+                    <p className="text-sm text-muted-foreground">{tourItems[tourStep].description}</p>
+                  </div>
+                </div>
+
+                {/* Preview visual */}
+                {tourItems[tourStep].preview}
               </div>
 
-              <div className="flex gap-2">
-                <Button 
+              <div className="flex gap-2 pt-2">
+                <Button
                   variant="outline"
-                  onClick={() => setCurrentStep('analysis')} 
+                  onClick={() => setCurrentStep('analysis')}
                   className="flex-1"
                 >
-                  Omitir tour
+                  Omitir
                 </Button>
-                <Button 
+                <Button
                   onClick={() => {
                     if (tourStep < tourItems.length - 1) {
                       setTourStep(tourStep + 1);
                     } else {
                       setCurrentStep('analysis');
                     }
-                  }} 
+                  }}
                   className="flex-1"
                 >
-                  {tourStep < tourItems.length - 1 ? 'Siguiente' : 'Entendido'}
+                  {tourStep < tourItems.length - 1 ? 'Siguiente →' : 'Entendido ✓'}
                 </Button>
               </div>
             </div>
