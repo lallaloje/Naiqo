@@ -214,7 +214,7 @@ const SmartAppointments = () => {
 
   const loadDayAppointments = async () => {
     const { data } = await supabase.from('appointments').select('*')
-      .eq('salon_id', salonId).gte('start_time', `${selectedDate}T00:00:00`).lte('start_time', `${selectedDate}T23:59:59`)
+      .eq('user_id', user!.id).gte('start_time', `${selectedDate}T00:00:00`).lte('start_time', `${selectedDate}T23:59:59`)
       .order('start_time');
     setAppointments(data || []);
   };
@@ -224,7 +224,7 @@ const SmartAppointments = () => {
     const from = days[0] + 'T00:00:00';
     const to   = days[6] + 'T23:59:59';
     const { data } = await supabase.from('appointments').select('*')
-      .eq('salon_id', salonId).gte('start_time', from).lte('start_time', to);
+      .eq('user_id', user!.id).gte('start_time', from).lte('start_time', to);
     const byDay: Record<string, Appointment[]> = {};
     days.forEach(d => { byDay[d] = []; });
     (data || []).forEach(a => {
@@ -236,7 +236,7 @@ const SmartAppointments = () => {
 
   const loadServices = async () => {
     const { data } = await supabase.from('services').select('*')
-      .eq('salon_id', salonId).eq('active', true).order('name');
+      .eq('user_id', user!.id).eq('active', true).order('name');
     setServices(data || []);
   };
 
@@ -252,11 +252,11 @@ const SmartAppointments = () => {
       const end   = new Date(start.getTime() + dur * 60000);
 
       const { error } = await supabase.from('appointments').insert({
-        salon_id: salonId, service_id: form.service_id || null,
+        salon_id: salonId, user_id: user!.id, service_id: form.service_id || null,
         client_name: form.client_name, client_email: form.client_email || null,
         client_phone: form.client_phone || null, start_time: start.toISOString(),
         end_time: end.toISOString(), status: 'scheduled', notes: form.notes || null,
-      });
+      } as any);
       if (error) throw error;
       setForm({ client_name:'', client_email:'', client_phone:'', service_id:'', appointment_time:'', notes:'' });
       setShowForm(false);
@@ -291,7 +291,7 @@ const SmartAppointments = () => {
     setIsLoading(true);
     try {
       const { error } = await supabase.from('services').insert({
-        salon_id: salonId, name: svcForm.name,
+        salon_id: salonId, user_id: user!.id, name: svcForm.name,
         duration_minutes: Number(svcForm.duration_minutes),
         price: svcForm.price ? Number(svcForm.price) : null,
         description: svcForm.description || null, active: true,
@@ -313,7 +313,7 @@ const SmartAppointments = () => {
     setIsLoading(true);
     try {
       await supabase.from('services').insert(
-        DEFAULT_SERVICES.map(s => ({ ...s, salon_id: salonId, active: true, center_id: null })) as any
+        DEFAULT_SERVICES.map(s => ({ ...s, salon_id: salonId, user_id: user!.id, active: true, center_id: null })) as any
       );
       loadServices();
       toast({ title: '✅ 8 servicios añadidos' });
