@@ -15,8 +15,6 @@ interface Salon {
   id: string;
   salon_name: string | null;
   phone: string | null;
-  address: string | null;
-  city: string | null;
   user_id: string;
 }
 
@@ -84,39 +82,33 @@ const PublicBooking = () => {
     client_name: '', client_email: '', client_phone: '', notes: ''
   });
 
-  // ── Cargar salón ────────────────────────────────────────────────
+  // ── Cargar salón (via RPC para evitar RLS) ─────────────────────
   useEffect(() => {
     if (!salonId) return;
     const load = async () => {
-      const { data } = await supabase.from('salons').select('id,salon_name,phone,address,city,user_id')
-        .eq('id', salonId).single();
-      if (data) setSalon(data as Salon);
-      else setNotFound(true);
+      const { data, error } = await supabase.rpc('get_salon_for_booking', { p_salon_id: salonId });
+      if (error || !data || data.length === 0) { setNotFound(true); return; }
+      setSalon(data[0] as Salon);
     };
     load();
   }, [salonId]);
 
-  // ── Cargar servicios ────────────────────────────────────────────
+  // ── Cargar servicios (via RPC) ──────────────────────────────────
   useEffect(() => {
     if (!salon) return;
     const load = async () => {
-      const { data } = await supabase.from('services').select('id,name,description,duration_minutes,price')
-        .eq('salon_id', salonId).eq('active', true).order('name');
+      const { data } = await supabase.rpc('get_services_for_booking', { p_salon_id: salonId });
       setServices((data as Service[]) || []);
     };
     load();
   }, [salon]);
 
-  // ── Cargar citas ocupadas cuando cambia fecha o servicio ────────
+  // ── Cargar citas ocupadas (via RPC) ────────────────────────────
   useEffect(() => {
     if (!salonId || !selectedService) return;
     const dateStr = selectedDate.toISOString().split('T')[0];
     const load = async () => {
-      const { data } = await supabase.from('appointments').select('start_time,end_time')
-        .eq('salon_id', salonId)
-        .gte('start_time', `${dateStr}T00:00:00`)
-        .lte('start_time', `${dateStr}T23:59:59`)
-        .neq('status', 'cancelled');
+      const { data } = await supabase.rpc('get_busy_slots', { p_salon_id: salonId, p_date: dateStr });
       setBusyApts((data as SlimApt[]) || []);
     };
     load();
