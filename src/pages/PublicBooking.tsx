@@ -130,7 +130,7 @@ const PublicBooking = () => {
     setSelectedSlot('');
   }, [busyApts, selectedService, selectedDate]);
 
-  // ── Confirmar reserva ───────────────────────────────────────────
+  // ── Confirmar reserva con pago Stripe ──────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedService || !selectedSlot || !salon) return;
@@ -141,9 +141,34 @@ const PublicBooking = () => {
       const start   = new Date(`${dateStr}T${selectedSlot}:00`);
       const end     = new Date(start.getTime() + selectedService.duration_minutes * 60000);
 
+      // Si el servicio tiene precio → cobrar señal via Stripe
+      if (selectedService.price && selectedService.price > 0) {
+        const { data, error } = await supabase.functions.invoke('create-booking-checkout', {
+          body: {
+            salonId,
+            userId:       salon.user_id,
+            serviceId:    selectedService.id,
+            serviceName:  selectedService.name,
+            servicePrice: selectedService.price,
+            clientName:   form.client_name,
+            clientEmail:  form.client_email,
+            clientPhone:  form.client_phone,
+            startTime:    start.toISOString(),
+            endTime:      end.toISOString(),
+            notes:        form.notes,
+            origin:       window.location.origin,
+          }
+        });
+        if (error || !data?.url) throw new Error(data?.error || 'Error al crear el pago');
+        // Redirigir a Stripe Checkout
+        window.location.href = data.url;
+        return;
+      }
+
+      // Si no tiene precio → crear cita directamente (sin pago)
       const { error } = await supabase.from('appointments').insert({
         salon_id:     salonId,
-        user_id:      salon.user_id,   // dueño del salón
+        user_id:      salon.user_id,
         service_id:   selectedService.id,
         client_name:  form.client_name,
         client_email: form.client_email || null,
@@ -154,7 +179,6 @@ const PublicBooking = () => {
         source:       'online',
         notes:        form.notes || null,
       } as any);
-
       if (error) throw error;
       setDone(true);
     } catch (err: any) {
@@ -400,10 +424,20 @@ const PublicBooking = () => {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? 'Enviando...' : '✅ Confirmar cita'}
+                  {isLoading ? 'Redirigiendo al pago...' :
+                    selectedService?.price
+                      ? `💳 Pagar señal €${(selectedService.price * 0.5).toFixed(2)} y confirmar cita`
+                      : '✅ Solicitar cita'}
                 </Button>
+                {selectedService?.price && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
+                    <p className="font-semibold">ℹ️ Política de señal</p>
+                    <p>Se te cobra el <strong>50% ahora (€{(selectedService.price * 0.5).toFixed(2)})</strong> para reservar el hueco.</p>
+                    <p>Los <strong>€{(selectedService.price * 0.5).toFixed(2)} restantes</strong> los pagas en el salón el día de la cita.</p>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
-                  El salón confirmará tu cita. Si necesitas cancelar, contáctanos directamente.
+                  Pago seguro con Stripe 🔒
                 </p>
               </form>
             </CardContent>

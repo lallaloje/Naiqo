@@ -18,6 +18,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import CookiesPolicy from "./pages/CookiesPolicy";
 import PublicBooking from "./pages/PublicBooking";
+import BookingSuccess from "./pages/BookingSuccess";
 import NotFound from "./pages/NotFound";
 
 // Protected pages
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/privacidad" element={<PrivacyPolicy />} />
             <Route path="/cookies" element={<CookiesPolicy />} />
             <Route path="/reservar/:centerId" element={<PublicBooking />} />
+            <Route path="/reservar/exito" element={<BookingSuccess />} />
 
             {/* Protected routes */}
             <Route path="/dashboard" element={
