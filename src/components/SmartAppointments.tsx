@@ -248,7 +248,9 @@ const SmartAppointments = () => {
     try {
       const svc = services.find(s => s.id === form.service_id);
       const dur = svc?.duration_minutes || 60;
-      const start = new Date(`${selectedDate}T${form.appointment_time}:00`);
+      const timeValue = form.appointment_time || prefillTime;
+      if (!timeValue) throw new Error('Por favor selecciona una hora');
+      const start = new Date(`${selectedDate}T${timeValue}:00`);
       const end   = new Date(start.getTime() + dur * 60000);
 
       const { error } = await supabase.from('appointments').insert({
@@ -664,7 +666,9 @@ const SmartAppointments = () => {
                           <div>
                             <Label className="text-xs">Hora *</Label>
                             <Input type="time" value={form.appointment_time || prefillTime}
-                              onChange={e => setForm({...form, appointment_time: e.target.value})} required />
+                              onChange={e => setForm({...form, appointment_time: e.target.value})}
+                              onBlur={e => { if (!form.appointment_time && prefillTime) setForm(f => ({...f, appointment_time: prefillTime})); }}
+                              required />
                           </div>
                           <div>
                             <Label className="text-xs">Teléfono (WhatsApp)</Label>
