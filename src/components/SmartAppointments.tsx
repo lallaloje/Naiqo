@@ -64,6 +64,7 @@ interface Appointment {
   end_time: string;
   status: string;
   notes: string | null;
+  source: string | null;
   created_at: string;
 }
 
@@ -84,10 +85,12 @@ interface AptPosition {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  scheduled: 'Programada', confirmed: 'Confirmada',
-  completed: 'Completada', cancelled: 'Cancelada', no_show: 'No asistió',
+  pending:    '⏳ Pendiente',
+  scheduled:  'Programada', confirmed: 'Confirmada',
+  completed:  'Completada', cancelled: 'Cancelada', no_show: 'No asistió',
 };
 const STATUS_COLOR: Record<string, string> = {
+  pending:    'bg-orange-100 text-orange-800 border-orange-300',
   scheduled:  'bg-blue-100 text-blue-800 border-blue-200',
   confirmed:  'bg-green-100 text-green-800 border-green-200',
   completed:  'bg-gray-100 text-gray-600 border-gray-200',
@@ -186,6 +189,7 @@ const SmartAppointments = () => {
   const [isLoading,    setIsLoading]       = useState(false);
   const [pageLoading,  setPageLoading]    = useState(true);
   const [showNewSvc,   setShowNewSvc]      = useState(false);
+  const [pendingApts,  setPendingApts]     = useState<Appointment[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const { user }  = useAuth();
@@ -201,7 +205,7 @@ const SmartAppointments = () => {
 
   // ─── Load on mount ──────────────────────────────────────────────
   useEffect(() => { if (user) loadSalon(); }, [user]);
-  useEffect(() => { if (salonId) { loadDayAppointments(); loadWeekAppointments(); loadServices(); } }, [salonId, selectedDate]);
+  useEffect(() => { if (salonId) { loadDayAppointments(); loadWeekAppointments(); loadServices(); loadPendingAppointments(); } }, [salonId, selectedDate]);
 
   const loadSalon = async () => {
     setPageLoading(true);
@@ -232,6 +236,12 @@ const SmartAppointments = () => {
       if (byDay[d]) byDay[d].push(a);
     });
     setWeekApts(byDay);
+  };
+
+  const loadPendingAppointments = async () => {
+    const { data } = await supabase.from('appointments').select('*')
+      .eq('user_id', user!.id).eq('status', 'pending').order('start_time');
+    setPendingApts(data || []);
   };
 
   const loadServices = async () => {
@@ -273,7 +283,7 @@ const SmartAppointments = () => {
 
   const updateStatus = async (id: string, status: string) => {
     await supabase.from('appointments').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-    loadDayAppointments(); loadWeekAppointments();
+    loadDayAppointments(); loadWeekAppointments(); loadPendingAppointments();
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     toast({ title: 'Estado actualizado', description: STATUS_LABEL[status] });
   };
@@ -453,6 +463,47 @@ const SmartAppointments = () => {
           {/* Booking link */}
           <BookingLinkCard />
 
+          {/* ── Pending online bookings alert ── */}
+          {(() => {
+            const pending = pendingApts;
+            if (pending.length === 0) return null;
+            return (
+              <div className="bg-orange-50 border border-orange-300 rounded-xl p-3 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-orange-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {pending.length} cita{pending.length !== 1 ? 's' : ''} online pendiente{pending.length !== 1 ? 's' : ''} de confirmar
+                </p>
+                <div className="flex flex-col gap-1.5">
+                  {pending.map(apt => {
+                    const svc = services.find(s => s.id === apt.service_id);
+                    const dt  = new Date(apt.start_time);
+                    return (
+                      <div key={apt.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-200">
+                        <div>
+                          <p className="text-sm font-medium text-orange-900">{apt.client_name}</p>
+                          <p className="text-xs text-orange-600">
+                            {dt.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})} · {dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}
+                            {svc ? ` · ${svc.name}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs px-2"
+                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); }}>
+                            <CheckCircle className="w-3 h-3 mr-1" /> Confirmar
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-7 text-red-600 border-red-200 hover:bg-red-50 text-xs px-2"
+                            onClick={() => updateStatus(apt.id, 'cancelled')}>
+                            <XCircle className="w-3 h-3 mr-1" /> Rechazar
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Date navigation bar */}
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => changeDate(view === 'week' ? -7 : -1)}>
@@ -599,10 +650,12 @@ const SmartAppointments = () => {
                           const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
                           const isSelected = selectedApt?.id === apt.id;
 
+                          const isPending = apt.status === 'pending';
                           return (
                             <div
                               key={apt.id}
-                              className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none ${pal.bg} ${pal.border} ${pal.text}
+                              className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none
+                                ${isPending ? 'bg-orange-100 border-l-orange-500 text-orange-900 animate-pulse' : `${pal.bg} ${pal.border} ${pal.text}`}
                                 ${apt.status === 'cancelled' ? 'opacity-40 line-through' : ''}
                                 ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
                               style={{
@@ -613,8 +666,13 @@ const SmartAppointments = () => {
                               }}
                               onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); }}
                             >
-                              <p className="font-semibold text-xs leading-tight truncate">{apt.client_name}</p>
-                              {pos.height > 38 && svc && (
+                              <p className="font-semibold text-xs leading-tight truncate">
+                                {isPending && '⏳ '}{apt.client_name}
+                              </p>
+                              {isPending && pos.height > 28 && (
+                                <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>
+                              )}
+                              {!isPending && pos.height > 38 && svc && (
                                 <p className="text-xs opacity-75 truncate leading-tight">{svc.name}</p>
                               )}
                               {pos.height > 58 && apt.client_phone && (
@@ -805,8 +863,27 @@ const SmartAppointments = () => {
                               </p>
                             </div>
 
+                            {/* Pending online booking actions */}
+                            {apt.status === 'pending' && (
+                              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+                                <p className="text-xs font-semibold text-orange-800 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5" /> Cita online — requiere tu aprobación
+                                </p>
+                                <div className="flex gap-2">
+                                  <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => updateStatus(apt.id, 'confirmed')}>
+                                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> Confirmar
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => updateStatus(apt.id, 'cancelled')}>
+                                    <XCircle className="w-3.5 h-3.5 mr-1" /> Rechazar
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Status actions */}
-                            {apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                            {apt.status !== 'completed' && apt.status !== 'cancelled' && apt.status !== 'pending' && (
                               <div>
                                 <p className="text-xs font-medium text-muted-foreground mb-2">Cambiar estado</p>
                                 <div className="flex flex-wrap gap-2">
