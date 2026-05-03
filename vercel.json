@@ -1,5 +1,13 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "app.naiqo.es" }],
+      "destination": "https://app.naiqo.es/cliente",
+      "permanent": false
+    }
   ]
 }
