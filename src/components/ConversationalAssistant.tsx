@@ -9,75 +9,73 @@ interface ConversationalAssistantProps {
   initialMessage?: string;
 }
 
+const Header = () => (
+  <div style={{
+    background: 'linear-gradient(135deg, #e879a0, #a855f7)',
+    padding: '12px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexShrink: 0,
+  }}>
+    <div style={{ position: 'relative' }}>
+      <div style={{
+        width: 38, height: 38, borderRadius: '50%',
+        background: 'rgba(255,255,255,0.2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 20,
+      }}>💅</div>
+      <div style={{
+        position: 'absolute', bottom: 0, right: 0,
+        width: 10, height: 10, borderRadius: '50%',
+        background: '#4ade80', border: '2px solid white',
+      }} />
+    </div>
+    <div style={{ flex: 1 }}>
+      <p style={{ color: 'white', fontWeight: 700, fontSize: 15, margin: 0, lineHeight: 1.2 }}>
+        Sofia — Asistente NAIQO
+      </p>
+      <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, margin: 0 }}>
+        Experta en salud ungueal · En línea
+      </p>
+    </div>
+    <span style={{
+      fontSize: 11, background: 'rgba(255,255,255,0.2)',
+      color: 'white', padding: '3px 8px', borderRadius: 20,
+    }}>● Activa</span>
+  </div>
+);
+
 const ConversationalAssistant: React.FC<ConversationalAssistantProps> = () => {
   const isMobile = useIsMobile();
 
   if (isMobile) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-        {/* Header */}
-        <div style={{
-          background: 'linear-gradient(135deg, #e879a0, #a855f7)',
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          flexShrink: 0,
-        }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18,
-            }}>💅</div>
-            <div style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 10, height: 10, borderRadius: '50%',
-              background: '#4ade80', border: '2px solid white',
-            }} />
-          </div>
-          <div>
-            <p style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: 0 }}>Sofia — Asistente NAIQO</p>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, margin: 0 }}>Experta en salud ungueal · En línea</p>
-          </div>
-        </div>
-
-        {/* iframe ocupa todo el espacio restante */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Header />
         <iframe
           src={RELEVANCE_URL}
-          style={{ flex: 1, width: '100%', border: 'none', minHeight: 0 }}
-          allow="microphone"
+          style={{ flex: 1, width: '100%', border: 'none' }}
+          allow="microphone; clipboard-read; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           title="Sofia - Asistente NAIQO"
         />
       </div>
     );
   }
 
-  // Desktop
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/20 flex flex-col" style={{ height: '75vh' }}>
-        {/* Header */}
-        <div className="bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-4 flex items-center gap-3 shrink-0">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">💅</div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse" />
-          </div>
-          <div>
-            <p className="text-white font-bold text-base leading-tight">Sofia — Asistente Especializada</p>
-            <p className="text-pink-100 text-xs">Experta en Salud Ungueal · NAIQO</p>
-          </div>
-          <div className="ml-auto">
-            <span className="text-xs bg-white/20 text-white px-2 py-1 rounded-full">● En línea</span>
-          </div>
-        </div>
-
-        {/* iframe */}
+      <div
+        className="rounded-2xl overflow-hidden shadow-2xl border-2 border-primary/20 flex flex-col"
+        style={{ height: '75vh' }}
+      >
+        <Header />
         <iframe
           src={RELEVANCE_URL}
           style={{ flex: 1, width: '100%', border: 'none', minHeight: 0 }}
-          allow="microphone"
+          allow="microphone; clipboard-read; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           title="Sofia - Asistente NAIQO"
         />
       </div>

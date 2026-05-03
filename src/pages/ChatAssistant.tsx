@@ -1,6 +1,5 @@
 import React from 'react';
 import ConversationalAssistant from '@/components/ConversationalAssistant';
-import { MobileLayout } from '@/components/MobileLayout';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -8,18 +7,23 @@ import { useIsMobile } from '@/hooks/use-mobile';
 const ChatAssistant = () => {
   const isMobile = useIsMobile();
 
-  // Mobile layout - full screen chat
+  // Móvil: pantalla completa sin MobileLayout
   if (isMobile) {
     return (
-      <MobileLayout title="Asistente Sofia" showBack={true}>
-        <div className="h-full">
-          <ConversationalAssistant />
-        </div>
-      </MobileLayout>
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#fff',
+        zIndex: 50,
+      }}>
+        <ConversationalAssistant />
+      </div>
     );
   }
 
-  // Desktop layout
+  // Desktop
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <Header />
