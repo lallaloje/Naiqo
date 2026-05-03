@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { QrCode, Copy, Share2, ExternalLink } from "lucide-react";
+import { QrCode, Copy, Share2, ExternalLink, Bell, BellOff } from "lucide-react";
 import QRCode from 'qrcode';
 import { logError, logInfo } from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const BookingLinkCard = () => {
   const [salonId, setSalonId] = useState<string>('');
   const [salonName, setSalonName] = useState<string>('');
   const { user } = useAuth();
   const { toast } = useToast();
+  const { subscribed, subscribe, unsubscribe, permission } = usePushNotifications();
+  const [pushLoading, setPushLoading] = useState(false);
 
   useEffect(() => {
     const loadSalonInfo = async () => {
@@ -131,6 +134,38 @@ const BookingLinkCard = () => {
             Vista Previa
           </Button>
         </div>
+
+        {/* Push notifications toggle */}
+        {'Notification' in window && permission !== 'denied' && (
+          <div className={`flex items-center justify-between p-3 rounded-lg border ${subscribed ? 'bg-green-50 border-green-200' : 'bg-muted border-muted-foreground/20'}`}>
+            <div className="flex items-center gap-2">
+              {subscribed ? <Bell className="w-4 h-4 text-green-600" /> : <BellOff className="w-4 h-4 text-muted-foreground" />}
+              <div>
+                <p className="text-sm font-medium">{subscribed ? '🔔 Notificaciones activadas' : 'Activar notificaciones'}</p>
+                <p className="text-xs text-muted-foreground">{subscribed ? 'Te avisaremos cuando llegue una reserva' : 'Recibe un aviso al instante en tu móvil'}</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant={subscribed ? 'outline' : 'default'}
+              disabled={pushLoading}
+              onClick={async () => {
+                setPushLoading(true);
+                if (subscribed) {
+                  await unsubscribe();
+                  toast({ title: 'Notificaciones desactivadas' });
+                } else {
+                  const ok = await subscribe();
+                  if (ok) toast({ title: '🔔 Notificaciones activadas', description: 'Te avisaremos cuando llegue una reserva online' });
+                  else toast({ title: 'No se pudieron activar', description: 'Comprueba los permisos del navegador', variant: 'destructive' });
+                }
+                setPushLoading(false);
+              }}
+            >
+              {pushLoading ? '...' : subscribed ? 'Desactivar' : 'Activar'}
+            </Button>
+          </div>
+        )}
 
         <div className="bg-muted p-4 rounded-lg text-sm text-muted-foreground">
           <p className="font-medium mb-2">💡 Cómo usar tu enlace:</p>

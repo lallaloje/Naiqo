@@ -77,6 +77,28 @@ serve(async (req) => {
 
     if (insertError) throw new Error(insertError.message);
 
+    // 4. Enviar push notification al salón
+    const dt   = new Date(meta.start_time);
+    const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseService}`,
+        },
+        body: JSON.stringify({
+          user_id: meta.user_id,
+          title:   '💅 Nueva reserva online',
+          body:    `${meta.client_name} · ${meta.service_name} · ${date} a las ${time}`,
+          url:     '/gestion-citas',
+        }),
+      });
+    } catch (pushErr) {
+      console.error('Push notification error (non-fatal):', pushErr);
+    }
+
     return new Response(JSON.stringify({
       paid: true,
       appointment: apt,

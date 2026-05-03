@@ -10,6 +10,29 @@ const resendApiKey   = Deno.env.get('RESEND_API_KEY')!;
 const supabaseUrl    = Deno.env.get('SUPABASE_URL')!;
 const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+async function sendPushReminder(clientEmail: string, salonName: string, serviceName: string, startTime: string, hoursAhead: number) {
+  const dt   = new Date(startTime);
+  const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const when = hoursAhead <= 2 ? 'en menos de 2 horas' : 'mañana';
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseService}`,
+      },
+      body: JSON.stringify({
+        client_email: clientEmail,
+        title: `💅 Recuerda tu cita ${when}`,
+        body:  `${serviceName} en ${salonName} a las ${time}`,
+        url:   '/cliente/mis-citas',
+      }),
+    });
+  } catch (e) {
+    console.error('Push reminder error:', e);
+  }
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -145,6 +168,7 @@ serve(async (req) => {
         await supabase.from('appointments').update({ reminder_24h_sent: true }).eq('id', apt.id);
         sent24++;
       }
+      await sendPushReminder(apt.client_email!, salonName, serviceName, apt.start_time, 24);
     }
 
     // ── Recordatorio 2h ──────────────────────────────────────────
@@ -179,6 +203,7 @@ serve(async (req) => {
         await supabase.from('appointments').update({ reminder_2h_sent: true }).eq('id', apt.id);
         sent2++;
       }
+      await sendPushReminder(apt.client_email!, salonName, serviceName, apt.start_time, 2);
     }
 
     console.log(`Recordatorios enviados: ${sent24} de 24h, ${sent2} de 2h`);
