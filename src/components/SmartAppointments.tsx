@@ -66,6 +66,9 @@ interface Appointment {
   notes: string | null;
   source: string | null;
   created_at: string;
+  stripe_payment_method_id: string | null;
+  stripe_customer_id: string | null;
+  cancellation_charged: boolean | null;
 }
 
 interface Service {
@@ -286,6 +289,21 @@ const SmartAppointments = () => {
     loadDayAppointments(); loadWeekAppointments(); loadPendingAppointments();
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     toast({ title: 'Estado actualizado', description: STATUS_LABEL[status] });
+  };
+
+  const chargeNoShow = async (aptId: string, price: number) => {
+    if (!confirm(`¿Cobrar €${(price * 0.5).toFixed(2)} de penalización por cancelación/no-show?`)) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('charge-cancellation', {
+        body: { appointmentId: aptId },
+      });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || 'Error desconocido');
+      toast({ title: `✅ Cobrado €${data.amount_euros}`, description: 'La penalización se ha procesado correctamente.' });
+      loadDayAppointments(); loadWeekAppointments();
+      setSelectedApt(null);
+    } catch (err: any) {
+      toast({ title: 'Error al cobrar', description: err.message, variant: 'destructive' });
+    }
   };
 
   const deleteAppointment = async (id: string) => {
@@ -913,6 +931,33 @@ const SmartAppointments = () => {
                                 onClick={() => updateStatus(apt.id, 'scheduled')}>
                                 Volver a programar
                               </Button>
+                            )}
+
+                            {/* Cobrar penalización cancelación/no-show */}
+                            {apt.stripe_payment_method_id &&
+                              !apt.cancellation_charged &&
+                              (apt.status === 'no_show' || apt.status === 'cancelled') &&
+                              svc?.price && (
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                                <p className="text-xs font-semibold text-red-800">
+                                  💳 Tarjeta guardada — política de cancelación
+                                </p>
+                                <p className="text-xs text-red-700">
+                                  Penalización: <strong>€{(svc.price * 0.5).toFixed(2)}</strong> (50% de €{svc.price})
+                                </p>
+                                <Button
+                                  size="sm"
+                                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                  onClick={() => chargeNoShow(apt.id, svc.price!)}
+                                >
+                                  Cobrar penalización (50%)
+                                </Button>
+                              </div>
+                            )}
+                            {apt.cancellation_charged && (
+                              <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-center">
+                                <p className="text-xs text-gray-600">✅ Penalización ya cobrada</p>
+                              </div>
                             )}
 
                             {/* Delete */}

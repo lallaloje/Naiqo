@@ -13,14 +13,14 @@ const BookingSuccess = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (!sessionId) { setStatus('error'); setErrorMsg('Sesión de pago no encontrada.'); return; }
+    if (!sessionId) { setStatus('error'); setErrorMsg('Sesión no encontrada.'); return; }
 
     const confirm = async () => {
       try {
-        const { data: result, error } = await supabase.functions.invoke('confirm-booking', {
+        const { data: result, error } = await supabase.functions.invoke('confirm-setup-booking', {
           body: { sessionId },
         });
-        if (error || !result?.paid) throw new Error(result?.error || error?.message || 'Pago no completado');
+        if (error || !result?.success) throw new Error(result?.error || error?.message || 'No se pudo confirmar la reserva');
         setData(result);
         setStatus('ok');
       } catch (err: any) {
@@ -49,7 +49,7 @@ const BookingSuccess = () => {
           <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
           <h2 className="text-lg font-bold">Algo salió mal</h2>
           <p className="text-muted-foreground text-sm">{errorMsg}</p>
-          <p className="text-sm">Si ya has pagado, contacta con el salón directamente.</p>
+          <p className="text-sm">Si crees que es un error, contacta con el salón directamente.</p>
           <Button variant="outline" onClick={() => window.history.back()}>Volver</Button>
         </CardContent>
       </Card>
@@ -68,8 +68,10 @@ const BookingSuccess = () => {
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold mb-1">¡Cita confirmada! 🎉</h2>
-            <p className="text-muted-foreground text-sm">Tu señal ha sido procesada correctamente.</p>
+            <h2 className="text-2xl font-bold mb-1">¡Cita solicitada! 🎉</h2>
+            <p className="text-muted-foreground text-sm">
+              Tu tarjeta ha sido guardada correctamente. El salón confirmará tu cita en breve.
+            </p>
           </div>
 
           <div className="bg-muted rounded-xl p-4 text-left space-y-2 text-sm">
@@ -83,15 +85,15 @@ const BookingSuccess = () => {
             <p>👤 {data?.client_name}</p>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm space-y-1">
-            <p className="font-semibold text-green-800">💳 Señal pagada: <span className="text-lg">€{data?.deposit_euros}</span></p>
-            {data?.remaining_euros && parseFloat(data.remaining_euros) > 0 && (
-              <p className="text-green-700">Pagarás <strong>€{data.remaining_euros}</strong> restantes en el salón el día de la cita.</p>
-            )}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm space-y-1 text-left">
+            <p className="font-semibold text-amber-900">💳 Tarjeta guardada — sin cargo por ahora</p>
+            <p className="text-amber-800 text-xs">
+              Recuerda que si cancelas con menos de 24 h o no acudes, se aplicará una penalización del 50% del servicio.
+            </p>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Recibirás un recordatorio antes de tu cita. Si necesitas cancelar o cambiar, contacta con el salón.
+            Recibirás un recordatorio antes de tu cita. Para cambios o cancelaciones, contacta con el salón.
           </p>
         </CardContent>
       </Card>

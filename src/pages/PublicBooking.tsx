@@ -133,9 +133,9 @@ const PublicBooking = () => {
       const start   = new Date(`${dateStr}T${selectedSlot}:00`);
       const end     = new Date(start.getTime() + selectedService.duration_minutes * 60000);
 
-      // Si el servicio tiene precio → cobrar señal via Stripe
+      // Si el servicio tiene precio → guardar tarjeta via Stripe (sin cobro)
       if (selectedService.price && selectedService.price > 0) {
-        const { data, error } = await supabase.functions.invoke('create-booking-checkout', {
+        const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
           body: {
             salonId,
             userId:       salon.user_id,
@@ -151,8 +151,8 @@ const PublicBooking = () => {
             origin:       window.location.origin,
           }
         });
-        if (error || !data?.url) throw new Error(data?.error || 'Error al crear el pago');
-        // Redirigir a Stripe Checkout
+        if (error || !data?.url) throw new Error(data?.error || 'Error al procesar la reserva');
+        // Redirigir a Stripe para guardar la tarjeta
         window.location.href = data.url;
         return;
       }
@@ -416,20 +416,20 @@ const PublicBooking = () => {
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                  {isLoading ? 'Redirigiendo al pago...' :
+                  {isLoading ? 'Preparando reserva...' :
                     selectedService?.price
-                      ? `💳 Pagar señal €${(selectedService.price * 0.5).toFixed(2)} y confirmar cita`
+                      ? '💳 Guardar tarjeta y confirmar cita (gratis)'
                       : '✅ Solicitar cita'}
                 </Button>
                 {selectedService?.price && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1">
-                    <p className="font-semibold">ℹ️ Política de señal</p>
-                    <p>Se te cobra el <strong>50% ahora (€{(selectedService.price * 0.5).toFixed(2)})</strong> para reservar el hueco.</p>
-                    <p>Los <strong>€{(selectedService.price * 0.5).toFixed(2)} restantes</strong> los pagas en el salón el día de la cita.</p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1">
+                    <p className="font-semibold">ℹ️ Política de cancelación</p>
+                    <p>La reserva es <strong>completamente gratuita</strong>. Solo guardamos tu tarjeta para proteger el hueco.</p>
+                    <p>Si cancelas <strong>con menos de 24 h de antelación</strong> o no acudes, se cobrará el <strong>50% del servicio (€{(selectedService.price * 0.5).toFixed(2)})</strong>.</p>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground text-center">
-                  Pago seguro con Stripe 🔒
+                  Validación segura con Stripe 🔒 — no se realiza ningún cargo ahora
                 </p>
               </form>
             </CardContent>
