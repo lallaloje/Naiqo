@@ -131,5 +131,45 @@
       src="https://app.relevanceai.com/embed/chat-bubble.js"
       data-share-styles="starting_message_prompts=%C2%BFEn+que+me+puedes+ayudar%3F&starting_message_prompts=%C2%BFC%C3%B3mo+puedo+programar+una+cita%3F&starting_message_prompts=Expl%C3%ADcame+como+funciona+el+an%C3%A1lisis+de+salud+ungueal&hide_tool_steps=true&hide_file_uploads=true&hide_conversation_list=true&bubble_style=agent&primary_color=%23FF1F8E&bubble_icon=pd%2Fchat&input_placeholder_text=Escribe+tu+consulta&hide_logo=true&hide_description=false">
     </script>
+    <!-- Sube la burbuja de Sofia por encima del menú móvil -->
+    <script>
+      (function () {
+        var MOBILE_BREAKPOINT = 768;
+        var BOTTOM_OFFSET = '82px'; // altura nav (64px) + margen
+
+        function nudge() {
+          if (window.innerWidth >= MOBILE_BREAKPOINT) return;
+          Array.from(document.body.children).forEach(function (el) {
+            if (el.id === 'root' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+            var s = window.getComputedStyle(el);
+            if (s.position === 'fixed') {
+              el.style.setProperty('bottom', BOTTOM_OFFSET, 'important');
+            }
+            // también revisa hijos directos (por si el widget envuelve el botón)
+            Array.from(el.children).forEach(function (child) {
+              var cs = window.getComputedStyle(child);
+              if (cs.position === 'fixed') {
+                child.style.setProperty('bottom', BOTTOM_OFFSET, 'important');
+              }
+            });
+          });
+        }
+
+        // Observa cuando el script de Relevance AI inyecte su widget en body
+        var obs = new MutationObserver(function () {
+          setTimeout(nudge, 150);
+          setTimeout(nudge, 800);
+        });
+
+        window.addEventListener('load', function () {
+          obs.observe(document.body, { childList: true });
+          // Intentos de seguridad por si el widget ya existe
+          setTimeout(nudge, 1200);
+          setTimeout(nudge, 3000);
+        });
+
+        window.addEventListener('resize', nudge);
+      })();
+    </script>
   </body>
 </html>
