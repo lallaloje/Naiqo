@@ -57,7 +57,6 @@ const ConversationalAssistant: React.FC<ConversationalAssistantProps> = () => {
           src={RELEVANCE_URL}
           style={{ flex: 1, width: '100%', border: 'none' }}
           allow="microphone; clipboard-read; clipboard-write"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           title="Sofia - Asistente NAIQO"
         />
       </div>
@@ -75,7 +74,6 @@ const ConversationalAssistant: React.FC<ConversationalAssistantProps> = () => {
           src={RELEVANCE_URL}
           style={{ flex: 1, width: '100%', border: 'none', minHeight: 0 }}
           allow="microphone; clipboard-read; clipboard-write"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           title="Sofia - Asistente NAIQO"
         />
       </div>
