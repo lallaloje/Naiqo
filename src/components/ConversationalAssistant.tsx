@@ -16,6 +16,15 @@ const ConversationalAssistant: React.FC<ConversationalAssistantProps> = () => {
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    // Limpiar cualquier sesión corrupta de Relevance AI guardada en localStorage
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.toLowerCase().includes('relevance') || key.toLowerCase().includes('rai_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (_) {}
+
     // Avoid injecting twice
     if (document.getElementById(SCRIPT_ID)) return;
 
@@ -161,18 +170,48 @@ const ConversationalAssistant: React.FC<ConversationalAssistantProps> = () => {
         <div style={{
           marginTop: 48,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 8,
-          color: '#9ca3af',
-          fontSize: 13,
+          gap: 12,
         }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: '50%',
-            background: '#4ade80',
-            display: 'inline-block',
-            animation: 'pulse 2s infinite',
-          }} />
-          Sofia está en línea · El chat aparecerá abajo a la derecha
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9ca3af', fontSize: 13 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: '#4ade80',
+              display: 'inline-block',
+            }} />
+            Sofia está en línea · Pulsa el botón rosa abajo a la derecha
+          </div>
+          <button
+            onClick={() => {
+              // Limpiar caché de Relevance AI y recargar
+              try {
+                Object.keys(localStorage).forEach(key => {
+                  if (key.toLowerCase().includes('relevance') || key.toLowerCase().includes('rai_')) {
+                    localStorage.removeItem(key);
+                  }
+                });
+                Object.keys(sessionStorage).forEach(key => {
+                  if (key.toLowerCase().includes('relevance') || key.toLowerCase().includes('rai_')) {
+                    sessionStorage.removeItem(key);
+                  }
+                });
+              } catch (_) {}
+              window.location.reload();
+            }}
+            style={{
+              fontSize: 12,
+              color: '#e879a0',
+              background: 'none',
+              border: '1px solid #f0c0e0',
+              borderRadius: 20,
+              padding: '6px 14px',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
+          >
+            🔄 ¿Chat congelado? Reiniciar conversación
+          </button>
         </div>
       </div>
     </div>
