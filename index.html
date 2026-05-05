@@ -124,12 +124,26 @@
         });
       }
     </script>
-    <!-- Sofia — Asistente NAIQO (Relevance AI) -->
-    <script
-      defer
-      data-relevanceai-share-id="d7b62b/cfa356af-ce01-43c2-9b72-3108989f04d1/b57fb9a8-8f82-4932-80fd-2c44337080e2"
-      src="https://app.relevanceai.com/embed/chat-bubble.js"
-      data-share-styles="starting_message_prompts=%C2%BFEn+que+me+puedes+ayudar%3F&starting_message_prompts=%C2%BFC%C3%B3mo+puedo+programar+una+cita%3F&starting_message_prompts=Expl%C3%ADcame+como+funciona+el+an%C3%A1lisis+de+salud+ungueal&hide_tool_steps=true&hide_file_uploads=true&hide_conversation_list=true&bubble_style=agent&primary_color=%23FF1F8E&bubble_icon=pd%2Fchat&input_placeholder_text=Escribe+tu+consulta&hide_logo=true&hide_description=false">
+    <!-- Sofia — Asistente NAIQO: inyectada dinámicamente para forzar sesión nueva -->
+    <script>
+      (function() {
+        var SHARE_ID = 'd7b62b/cfa356af-ce01-43c2-9b72-3108989f04d1/b57fb9a8-8f82-4932-80fd-2c44337080e2';
+        var sessionId = 'naiqo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        var styles = 'starting_message_prompts=%C2%BFEn+que+me+puedes+ayudar%3F'
+          + '&starting_message_prompts=%C2%BFC%C3%B3mo+puedo+programar+una+cita%3F'
+          + '&starting_message_prompts=Expl%C3%ADcame+como+funciona+el+an%C3%A1lisis+de+salud+ungueal'
+          + '&hide_tool_steps=true&hide_file_uploads=true&hide_conversation_list=true'
+          + '&bubble_style=agent&primary_color=%23FF1F8E&bubble_icon=pd%2Fchat'
+          + '&input_placeholder_text=Escribe+tu+consulta&hide_logo=true&hide_description=false'
+          + '&session_id=' + encodeURIComponent(sessionId)
+          + '&user_id=' + encodeURIComponent(sessionId);
+        var s = document.createElement('script');
+        s.defer = true;
+        s.setAttribute('data-relevanceai-share-id', SHARE_ID);
+        s.setAttribute('data-share-styles', styles);
+        s.src = 'https://app.relevanceai.com/embed/chat-bubble.js';
+        document.body.appendChild(s);
+      })();
     </script>
     <!-- Sube la burbuja de Sofia por encima del menú móvil -->
     <script>
