@@ -37,7 +37,7 @@ interface Analysis {
   id: string;
   created_at: string;
   image_url: string;
-  diagnosis: unknown;
+  detected_issues: string[] | null;
   client_name: string | null;
 }
 
@@ -81,7 +81,7 @@ export default function Dashboard() {
         id: a.id,
         created_at: a.created_at,
         image_url: a.image_url,
-        diagnosis: a.diagnosis,
+        detected_issues: a.detected_issues || null,
         client_name: a.client_name,
       }));
       setRecentAnalyses(convertedAnalyses);
@@ -131,8 +131,9 @@ export default function Dashboard() {
 
       // Fetch recent analyses
       const { data: analyses } = await supabase
-        .from('analyses')
-        .select('id, created_at, image_url, diagnosis, client_name')
+        .from('nail_analysis')
+        .select('id, created_at, image_url, detected_issues, client_name')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -143,8 +144,9 @@ export default function Dashboard() {
       const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
       
       const { count: todayAnalyses } = await supabase
-        .from('analyses')
+        .from('nail_analysis')
         .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
         .gte('created_at', startOfDay);
 
       const { count: todayAppointments } = await supabase
@@ -163,8 +165,9 @@ export default function Dashboard() {
       const days = eachDayOfInterval({ start: weekStart, end: new Date() });
       
       const { data: weekAnalyses } = await supabase
-        .from('analyses')
+        .from('nail_analysis')
         .select('created_at')
+        .eq('user_id', user.id)
         .gte('created_at', weekStart.toISOString());
 
       const dailyStats = days.map(day => {
@@ -195,7 +198,7 @@ export default function Dashboard() {
       const channel = supabase
         .channel('dashboard-analyses')
         .on('postgres_changes', 
-          { event: 'INSERT', schema: 'public', table: 'analyses' },
+          { event: 'INSERT', schema: 'public', table: 'nail_analysis' },
           (payload) => {
             setRecentAnalyses(prev => [payload.new as Analysis, ...prev.slice(0, 4)]);
             setTodayStats(prev => ({ ...prev, analyses: prev.analyses + 1 }));
@@ -444,7 +447,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <Badge variant="secondary" className="flex-shrink-0 text-xs">
-                    {analysis.diagnosis ? 'OK' : '...'}
+                    {analysis.detected_issues?.length ? analysis.detected_issues[0].slice(0, 20) : '⏳'}
                   </Badge>
                 </div>
               ))}
