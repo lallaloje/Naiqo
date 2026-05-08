@@ -6,9 +6,74 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const resendApiKey   = Deno.env.get('RESEND_API_KEY')!;
-const supabaseUrl    = Deno.env.get('SUPABASE_URL')!;
+const resendApiKey    = Deno.env.get('RESEND_API_KEY')!;
+const supabaseUrl     = Deno.env.get('SUPABASE_URL')!;
 const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const waToken         = Deno.env.get('WHATSAPP_TOKEN');
+const waPhoneId       = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+
+async function sendWhatsAppReminder(params: {
+  clientPhone: string;
+  clientName: string;
+  salonName: string;
+  serviceName: string;
+  startTime: string;
+  salonPhone: string | null;
+  hoursAhead: number;
+}) {
+  if (!waToken || !waPhoneId) return;
+
+  // Normalizar teléfono — añadir +34 si no tiene código de país
+  let phone = params.clientPhone.replace(/[\s\-().]/g, '');
+  if (phone.startsWith('00')) phone = '+' + phone.slice(2);
+  if (!phone.startsWith('+')) phone = '+34' + phone;
+  phone = phone.replace('+', ''); // La API espera sin el +
+
+  const dt   = new Date(params.startTime);
+  const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  // Usamos la plantilla 'recordatorio_cita' (debe estar aprobada en Meta)
+  const body = {
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'template',
+    template: {
+      name: 'recordatorio_cita',
+      language: { code: 'es' },
+      components: [{
+        type: 'body',
+        parameters: [
+          { type: 'text', text: params.clientName },
+          { type: 'text', text: params.serviceName },
+          { type: 'text', text: params.salonName },
+          { type: 'text', text: date },
+          { type: 'text', text: time },
+          { type: 'text', text: params.salonPhone || params.salonName },
+        ],
+      }],
+    },
+  };
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${waPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${waToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('WhatsApp API error:', err);
+    } else {
+      console.log(`WhatsApp enviado a ${phone}`);
+    }
+  } catch (e) {
+    console.error('WhatsApp send error:', e);
+  }
+}
 
 async function sendPushReminder(clientEmail: string, salonName: string, serviceName: string, startTime: string, hoursAhead: number) {
   const dt   = new Date(startTime);
@@ -169,6 +234,16 @@ serve(async (req) => {
         sent24++;
       }
       await sendPushReminder(apt.client_email!, salonName, serviceName, apt.start_time, 24);
+      if (apt.client_phone) {
+        await sendWhatsAppReminder({
+          clientPhone: apt.client_phone,
+          clientName: apt.client_name,
+          salonName, serviceName,
+          startTime: apt.start_time,
+          salonPhone,
+          hoursAhead: 24,
+        });
+      }
     }
 
     // ── Recordatorio 2h ──────────────────────────────────────────
@@ -204,6 +279,16 @@ serve(async (req) => {
         sent2++;
       }
       await sendPushReminder(apt.client_email!, salonName, serviceName, apt.start_time, 2);
+      if (apt.client_phone) {
+        await sendWhatsAppReminder({
+          clientPhone: apt.client_phone,
+          clientName: apt.client_name,
+          salonName, serviceName,
+          startTime: apt.start_time,
+          salonPhone,
+          hoursAhead: 2,
+        });
+      }
     }
 
     console.log(`Recordatorios enviados: ${sent24} de 24h, ${sent2} de 2h`);
