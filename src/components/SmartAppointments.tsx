@@ -530,10 +530,12 @@ const SmartAppointments = () => {
             <Button variant="outline" size="sm" onClick={() => setSelectedDate(toDateStr(new Date()))}>
               Hoy
             </Button>
-            <div className="flex-1 text-center font-medium capitalize text-sm hidden md:block">
+            <div className="flex-1 text-center font-medium capitalize text-sm">
               {view === 'week'
                 ? `${new Date(weekDays[0]+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})} – ${new Date(weekDays[6]+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}`
-                : new Date(selectedDate+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+                : selectedDate === today
+                  ? <span className="text-primary font-bold">Hoy · {new Date(selectedDate+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+                  : new Date(selectedDate+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})
               }
             </div>
             <Button variant="outline" size="icon" onClick={() => changeDate(view === 'week' ? 7 : 1)}>
