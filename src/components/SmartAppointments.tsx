@@ -35,10 +35,9 @@ import {
 import { logError } from '@/lib/logger';
 
 // ─── Calendar layout constants ───────────────────────────────────
-const HOUR_HEIGHT = 64;   // px per hour
-const START_HOUR  = 8;    // 08:00
-const END_HOUR    = 22;   // 22:00
-const TOTAL_HOURS = END_HOUR - START_HOUR;
+const HOUR_HEIGHT   = 64;   // px per hour
+const DEFAULT_START = 10;
+const DEFAULT_END   = 21;
 
 // ─── Service color palette ────────────────────────────────────────
 const PALETTES = [
@@ -78,6 +77,17 @@ interface Service {
   duration_minutes: number;
   price: number | null;
   active: boolean;
+  category: string | null;
+  description: string | null;
+}
+
+interface BlockedSlot {
+  id: string;
+  salon_id: string;
+  user_id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
 }
 
 interface AptPosition {
@@ -127,23 +137,35 @@ function getWeekDays(dateStr: string): string[] {
   });
 }
 
-function aptPosition(apt: Appointment): AptPosition {
+function aptPosition(apt: Appointment, startHour: number): AptPosition {
   const s = new Date(apt.start_time);
   const e = new Date(apt.end_time);
   const sh = s.getHours() + s.getMinutes() / 60;
   const eh = e.getHours() + e.getMinutes() / 60;
-  const top    = (sh - START_HOUR) * HOUR_HEIGHT;
+  const top    = (sh - startHour) * HOUR_HEIGHT;
   const height = Math.max((eh - sh) * HOUR_HEIGHT, 28);
   return { top, height, col: 0, totalCols: 1 };
 }
 
-function assignColumns(apts: Appointment[]): Map<string, AptPosition> {
+function getMonthDays(year: number, month: number): (string | null)[] {
+  const firstDay  = new Date(year, month, 1);
+  const lastDay   = new Date(year, month + 1, 0);
+  const startDow  = (firstDay.getDay() + 6) % 7; // Mon=0
+  const days: (string | null)[] = [];
+  for (let i = 0; i < startDow; i++) days.push(null);
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dd = new Date(year, month, d);
+    days.push(toDateStr(dd));
+  }
+  return days;
+}
+
+function assignColumns(apts: Appointment[], startHour: number): Map<string, AptPosition> {
   const map = new Map<string, AptPosition>();
   const sorted = [...apts].sort((a, b) =>
     new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
 
-  // Group overlapping appointments
   const groups: Appointment[][] = [];
   sorted.forEach(apt => {
     const as_ = new Date(apt.start_time).getTime();
@@ -162,7 +184,7 @@ function assignColumns(apts: Appointment[]): Map<string, AptPosition> {
 
   groups.forEach(g => {
     g.forEach((apt, idx) => {
-      map.set(apt.id, { ...aptPosition(apt), col: idx, totalCols: g.length });
+      map.set(apt.id, { ...aptPosition(apt, startHour), col: idx, totalCols: g.length });
     });
   });
   return map;
@@ -176,6 +198,15 @@ function whatsappUrl(phone: string, message: string) {
 function mailtoUrl(email: string, subject: string, body: string) {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+const SERVICE_CATEGORIES = ['Manicura', 'Pedicura', 'Nail Art', 'Tratamientos', 'Otros'];
 
 // ─── Component ────────────────────────────────────────────────────
 const SmartAppointments = () => {
@@ -193,6 +224,15 @@ const SmartAppointments = () => {
   const [pageLoading,  setPageLoading]    = useState(true);
   const [showNewSvc,   setShowNewSvc]      = useState(false);
   const [pendingApts,  setPendingApts]     = useState<Appointment[]>([]);
+  const [blockedSlots, setBlockedSlots]   = useState<BlockedSlot[]>([]);
+  const [showBlockForm,setShowBlockForm]  = useState(false);
+  const [blockForm,    setBlockForm]      = useState({ title: 'Descanso', time_start: '14:00', time_end: '16:00' });
+  const [workStart,    setWorkStart]      = useState(DEFAULT_START);
+  const [workEnd,      setWorkEnd]        = useState(DEFAULT_END);
+  const [miniCalDate,  setMiniCalDate]    = useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const [showMiniCal,  setShowMiniCal]   = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const { user }  = useAuth();
@@ -203,18 +243,34 @@ const SmartAppointments = () => {
     service_id: '', appointment_time: '', notes: '',
   });
   const [svcForm, setSvcForm] = useState({
-    name: '', duration_minutes: 60, price: '', description: '',
+    name: '', duration_minutes: 60, price: '', description: '', category: '',
+  });
+  const [editingSvc, setEditingSvc] = useState<Service | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '', duration_minutes: 60, price: '', description: '', category: '',
   });
 
   // ─── Load on mount ──────────────────────────────────────────────
   useEffect(() => { if (user) loadSalon(); }, [user]);
-  useEffect(() => { if (salonId) { loadDayAppointments(); loadWeekAppointments(); loadServices(); loadPendingAppointments(); } }, [salonId, selectedDate]);
+  useEffect(() => {
+    if (salonId) {
+      loadDayAppointments(); loadWeekAppointments();
+      loadServices(); loadPendingAppointments(); loadBlockedSlots();
+    }
+  }, [salonId, selectedDate]);
 
   const loadSalon = async () => {
     setPageLoading(true);
     try {
-      const { data } = await supabase.from('salons').select('id, salon_name').eq('user_id', user!.id).single();
-      if (data) { setSalonId(data.id); setSalonName(data.salon_name || 'Mi salón'); }
+      const { data } = await supabase.from('salons')
+        .select('id, salon_name, work_start_hour, work_end_hour')
+        .eq('user_id', user!.id).single();
+      if (data) {
+        setSalonId(data.id);
+        setSalonName(data.salon_name || 'Mi salón');
+        if ((data as any).work_start_hour != null) setWorkStart((data as any).work_start_hour);
+        if ((data as any).work_end_hour   != null) setWorkEnd((data as any).work_end_hour);
+      }
     } catch (e) { logError('SmartAppointments:loadSalon', e); }
     finally { setPageLoading(false); }
   };
@@ -245,6 +301,52 @@ const SmartAppointments = () => {
     const { data } = await supabase.from('appointments').select('*')
       .eq('user_id', user!.id).eq('status', 'pending').order('start_time');
     setPendingApts(data || []);
+  };
+
+  const loadBlockedSlots = async () => {
+    const { data } = await supabase.from('blocked_slots').select('*')
+      .eq('user_id', user!.id)
+      .gte('start_time', `${selectedDate}T00:00:00`)
+      .lte('start_time', `${selectedDate}T23:59:59`);
+    setBlockedSlots(data || []);
+  };
+
+  const createBlockedSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salonId) return;
+    setIsLoading(true);
+    try {
+      const start = new Date(`${selectedDate}T${blockForm.time_start}:00`);
+      const end   = new Date(`${selectedDate}T${blockForm.time_end}:00`);
+      if (end <= start) throw new Error('La hora de fin debe ser posterior a la de inicio');
+      const { error } = await supabase.from('blocked_slots').insert({
+        salon_id: salonId, user_id: user!.id,
+        title: blockForm.title,
+        start_time: start.toISOString(),
+        end_time:   end.toISOString(),
+      } as any);
+      if (error) throw error;
+      setShowBlockForm(false);
+      loadBlockedSlots();
+      toast({ title: '🚫 Tiempo bloqueado', description: `${blockForm.title} · ${blockForm.time_start}–${blockForm.time_end}` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally { setIsLoading(false); }
+  };
+
+  const deleteBlockedSlot = async (id: string) => {
+    await supabase.from('blocked_slots').delete().eq('id', id);
+    loadBlockedSlots();
+    toast({ title: 'Bloqueo eliminado' });
+  };
+
+  const saveWorkHours = async () => {
+    if (!salonId) return;
+    await supabase.from('salons').update({
+      work_start_hour: workStart,
+      work_end_hour: workEnd,
+    } as any).eq('id', salonId);
+    toast({ title: '✅ Horario guardado', description: `${workStart}:00 – ${workEnd}:00` });
   };
 
   const loadServices = async () => {
@@ -324,17 +426,41 @@ const SmartAppointments = () => {
         salon_id: salonId, user_id: user!.id, name: svcForm.name,
         duration_minutes: Number(svcForm.duration_minutes),
         price: svcForm.price ? Number(svcForm.price) : null,
-        description: svcForm.description || null, active: true,
+        description: svcForm.description || null,
+        category: svcForm.category || null,
+        active: true,
         center_id: null,
       } as any);
       if (error) throw error;
-      setSvcForm({ name: '', duration_minutes: 60, price: '', description: '' });
+      setSvcForm({ name: '', duration_minutes: 60, price: '', description: '', category: '' });
       setShowNewSvc(false);
       loadServices();
       toast({ title: '✅ Servicio añadido', description: svcForm.name });
     } catch (e) {
       logError('SmartAppointments:createService', e);
       toast({ title: 'Error', description: 'No se pudo crear el servicio.', variant: 'destructive' });
+    } finally { setIsLoading(false); }
+  };
+
+  const updateService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSvc) return;
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('services').update({
+        name: editForm.name,
+        duration_minutes: Number(editForm.duration_minutes),
+        price: editForm.price ? Number(editForm.price) : null,
+        description: editForm.description || null,
+        category: editForm.category || null,
+      } as any).eq('id', editingSvc.id);
+      if (error) throw error;
+      setEditingSvc(null);
+      loadServices();
+      toast({ title: '✅ Servicio actualizado', description: editForm.name });
+    } catch (e) {
+      logError('SmartAppointments:updateService', e);
+      toast({ title: 'Error', description: 'No se pudo actualizar el servicio.', variant: 'destructive' });
     } finally { setIsLoading(false); }
   };
 
@@ -382,13 +508,14 @@ const SmartAppointments = () => {
     return `Hola ${apt.client_name},\n\nTe recordamos que tienes cita en ${salonName} el ${date} a las ${time}${svc ? ` para ${svc.name}` : ''}.\n\n¡Te esperamos!\n\nSi necesitas cambiar tu cita, por favor contáctanos con antelación.\n\nUn saludo,\n${salonName}`;
   };
 
-  // ─── Current time helpers ───────────────────────────────────────
-  const isToday = selectedDate === toDateStr(new Date());
+  // ─── Dynamic calendar helpers ────────────────────────────────────
+  const TOTAL_HOURS = workEnd - workStart;
+  const isToday     = selectedDate === toDateStr(new Date());
   const nowTop = (() => {
     const now = new Date();
     const h = now.getHours() + now.getMinutes() / 60;
-    if (h < START_HOUR || h > END_HOUR) return null;
-    return (h - START_HOUR) * HOUR_HEIGHT;
+    if (h < workStart || h > workEnd) return null;
+    return (h - workStart) * HOUR_HEIGHT;
   })();
 
   const serviceColor = (serviceId: string | null) => {
@@ -397,7 +524,18 @@ const SmartAppointments = () => {
     return PALETTES[Math.max(idx, 0) % PALETTES.length];
   };
 
-  const positions = assignColumns(appointments);
+  const positions = assignColumns(appointments, workStart);
+
+  const blockedPosition = (slot: BlockedSlot) => {
+    const s  = new Date(slot.start_time);
+    const e  = new Date(slot.end_time);
+    const sh = s.getHours() + s.getMinutes() / 60;
+    const eh = e.getHours() + e.getMinutes() / 60;
+    return {
+      top:    (sh - workStart) * HOUR_HEIGHT,
+      height: Math.max((eh - sh) * HOUR_HEIGHT, 28),
+    };
+  };
 
   // ─── Date navigation ────────────────────────────────────────────
   const changeDate = (days: number) => {
@@ -424,9 +562,9 @@ const SmartAppointments = () => {
     if (calendarRef.current && appointments.length > 0) {
       const firstTime = new Date(appointments[0].start_time);
       const h = firstTime.getHours() + firstTime.getMinutes() / 60;
-      calendarRef.current.scrollTop = Math.max((h - START_HOUR - 1) * HOUR_HEIGHT, 0);
+      calendarRef.current.scrollTop = Math.max((h - workStart - 1) * HOUR_HEIGHT, 0);
     }
-  }, [appointments]);
+  }, [appointments, workStart]);
 
   if (!user) return (
     <div className="max-w-xl mx-auto p-6 text-center">
@@ -538,10 +676,115 @@ const SmartAppointments = () => {
                   : new Date(selectedDate+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short',year:'numeric'})
               }
             </div>
+            {/* Mini cal toggle — visible on mobile */}
+            <Button
+              variant={showMiniCal ? 'default' : 'outline'}
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setShowMiniCal(v => !v)}
+              title="Mini calendario"
+            >
+              <CalendarIcon className="w-4 h-4" />
+            </Button>
             <Button variant="outline" size="icon" onClick={() => changeDate(view === 'week' ? 7 : 1)}>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
+
+          {/* ── Mobile mini calendar (collapsible) ── */}
+          {showMiniCal && (
+            <div className="lg:hidden">
+              <Card className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <button className="text-muted-foreground hover:text-foreground p-1 rounded"
+                    onClick={() => setMiniCalDate(p => { const d = new Date(p.year, p.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-semibold capitalize">
+                    {new Date(miniCalDate.year, miniCalDate.month, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button className="text-muted-foreground hover:text-foreground p-1 rounded"
+                    onClick={() => setMiniCalDate(p => { const d = new Date(p.year, p.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })}>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 mb-1">
+                  {['L','M','X','J','V','S','D'].map(d => (
+                    <div key={d} className="text-center text-xs text-muted-foreground font-medium py-1">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-y-1">
+                  {getMonthDays(miniCalDate.year, miniCalDate.month).map((dayStr, i) => {
+                    if (!dayStr) return <div key={`e${i}`} />;
+                    const isSelected = dayStr === selectedDate;
+                    const isTodayD   = dayStr === today;
+                    return (
+                      <button key={dayStr}
+                        onClick={() => { setSelectedDate(dayStr); setShowMiniCal(false); }}
+                        className={`text-sm w-full aspect-square flex items-center justify-center rounded-full font-medium transition-colors
+                          ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted'}`}
+                      >
+                        {new Date(dayStr + 'T12:00:00').getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Block time form inside mobile mini cal */}
+                <div className="mt-4 pt-4 border-t border-muted/40">
+                  <button
+                    className="w-full flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary border border-dashed border-muted-foreground/30 rounded-lg py-2.5 hover:border-primary/40 transition-colors"
+                    onClick={() => setShowBlockForm(v => !v)}
+                  >
+                    <X className="w-4 h-4" /> Bloquear tiempo
+                  </button>
+                  {showBlockForm && (
+                    <form onSubmit={createBlockedSlot} className="mt-3 space-y-3">
+                      <div>
+                        <Label className="text-xs">Título</Label>
+                        <Input value={blockForm.title} onChange={e => setBlockForm({...blockForm, title: e.target.value})}
+                          placeholder="Descanso" required />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Desde</Label>
+                          <Input type="time" value={blockForm.time_start}
+                            onChange={e => setBlockForm({...blockForm, time_start: e.target.value})} required />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hasta</Label>
+                          <Input type="time" value={blockForm.time_end}
+                            onChange={e => setBlockForm({...blockForm, time_end: e.target.value})} required />
+                        </div>
+                      </div>
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? 'Guardando...' : '🚫 Bloquear'}
+                      </Button>
+                    </form>
+                  )}
+                  {blockedSlots.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Bloqueados hoy</p>
+                      {blockedSlots.map(slot => {
+                        const fmt = (d: Date) => d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                        return (
+                          <div key={slot.id} className="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">{slot.title}</p>
+                              <p className="text-xs text-gray-500">{fmt(new Date(slot.start_time))} – {fmt(new Date(slot.end_time))}</p>
+                            </div>
+                            <button onClick={() => deleteBlockedSlot(slot.id)} className="text-gray-400 hover:text-red-500 ml-2">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
 
           {/* ── WEEK VIEW ── */}
           {view === 'week' && (
@@ -596,7 +839,125 @@ const SmartAppointments = () => {
 
           {/* ── DAY VIEW ── */}
           {view === 'day' && (
-            <div className="flex gap-4">
+            <div className="flex gap-3">
+
+              {/* ── Mini calendar sidebar (desktop only) ── */}
+              <div className="hidden lg:flex flex-col gap-3 w-44 shrink-0">
+                <Card className="p-3">
+                  {/* Month header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <button
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded"
+                      onClick={() => setMiniCalDate(p => {
+                        const d = new Date(p.year, p.month - 1, 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      })}
+                    ><ChevronLeft className="w-3.5 h-3.5" /></button>
+                    <span className="text-xs font-semibold capitalize">
+                      {new Date(miniCalDate.year, miniCalDate.month, 1)
+                        .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded"
+                      onClick={() => setMiniCalDate(p => {
+                        const d = new Date(p.year, p.month + 1, 1);
+                        return { year: d.getFullYear(), month: d.getMonth() };
+                      })}
+                    ><ChevronRight className="w-3.5 h-3.5" /></button>
+                  </div>
+                  {/* Day names */}
+                  <div className="grid grid-cols-7 mb-1">
+                    {['L','M','X','J','V','S','D'].map(d => (
+                      <div key={d} className="text-center text-[10px] text-muted-foreground font-medium py-0.5">{d}</div>
+                    ))}
+                  </div>
+                  {/* Days grid */}
+                  <div className="grid grid-cols-7 gap-y-0.5">
+                    {getMonthDays(miniCalDate.year, miniCalDate.month).map((dayStr, i) => {
+                      if (!dayStr) return <div key={`e${i}`} />;
+                      const isSelected = dayStr === selectedDate;
+                      const isTodayD   = dayStr === today;
+                      const dayNum     = new Date(dayStr + 'T12:00:00').getDate();
+                      return (
+                        <button
+                          key={dayStr}
+                          onClick={() => setSelectedDate(dayStr)}
+                          className={`text-[11px] w-full aspect-square flex items-center justify-center rounded-full transition-colors font-medium
+                            ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted text-foreground'}`}
+                        >{dayNum}</button>
+                      );
+                    })}
+                  </div>
+                </Card>
+
+                {/* Block time button + form */}
+                <Card className="p-3 space-y-2">
+                  <button
+                    className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/30 rounded-lg py-2 hover:border-primary/40 hover:text-primary transition-colors"
+                    onClick={() => { setShowBlockForm(v => !v); setShowForm(false); setSelectedApt(null); }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Bloquear tiempo
+                  </button>
+
+                  {showBlockForm && (
+                    <form onSubmit={createBlockedSlot} className="space-y-2 pt-1">
+                      <div>
+                        <Label className="text-[10px]">Título</Label>
+                        <Input
+                          value={blockForm.title}
+                          onChange={e => setBlockForm({...blockForm, title: e.target.value})}
+                          className="h-7 text-xs"
+                          placeholder="Descanso"
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div>
+                          <Label className="text-[10px]">Desde</Label>
+                          <Input type="time" value={blockForm.time_start}
+                            onChange={e => setBlockForm({...blockForm, time_start: e.target.value})}
+                            className="h-7 text-xs" required />
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">Hasta</Label>
+                          <Input type="time" value={blockForm.time_end}
+                            onChange={e => setBlockForm({...blockForm, time_end: e.target.value})}
+                            className="h-7 text-xs" required />
+                        </div>
+                      </div>
+                      <Button type="submit" size="sm" className="w-full h-7 text-xs" disabled={isLoading}>
+                        {isLoading ? '...' : 'Bloquear'}
+                      </Button>
+                    </form>
+                  )}
+
+                  {/* Blocked slots of today */}
+                  {blockedSlots.length > 0 && (
+                    <div className="space-y-1 pt-1 border-t border-muted/40">
+                      <p className="text-[10px] text-muted-foreground font-medium">Bloqueados hoy</p>
+                      {blockedSlots.map(slot => {
+                        const s = new Date(slot.start_time);
+                        const e = new Date(slot.end_time);
+                        const fmt = (d: Date) => d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                        return (
+                          <div key={slot.id} className="flex items-center justify-between bg-gray-100 rounded px-2 py-1">
+                            <div>
+                              <p className="text-[10px] font-medium text-gray-700">{slot.title}</p>
+                              <p className="text-[10px] text-gray-500">{fmt(s)}–{fmt(e)}</p>
+                            </div>
+                            <button onClick={() => deleteBlockedSlot(slot.id)}
+                              className="text-gray-400 hover:text-red-500 ml-1">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
+              </div>
+
               {/* Calendar grid */}
               <div className="flex-1 min-w-0">
                 <Card className="overflow-hidden">
@@ -614,7 +975,7 @@ const SmartAppointments = () => {
                             style={{ height: HOUR_HEIGHT }}
                             className="border-t border-muted/30 text-xs text-muted-foreground flex items-start px-1 pt-0.5"
                           >
-                            {String(START_HOUR + i).padStart(2, '0')}:00
+                            {String(workStart + i).padStart(2, '0')}:00
                           </div>
                         ))}
                       </div>
@@ -626,7 +987,7 @@ const SmartAppointments = () => {
                       >
                         {/* Hour lines + click zones */}
                         {Array.from({ length: TOTAL_HOURS * 2 }, (_, i) => {
-                          const h = Math.floor(i / 2) + START_HOUR;
+                          const h = Math.floor(i / 2) + workStart;
                           const m = i % 2 === 0 ? '00' : '30';
                           return (
                             <div
@@ -637,6 +998,7 @@ const SmartAppointments = () => {
                                 setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
                                 setShowForm(true);
                                 setSelectedApt(null);
+                                setShowBlockForm(false);
                               }}
                             >
                               {i % 2 === 1 && (
@@ -645,6 +1007,33 @@ const SmartAppointments = () => {
                               {i % 2 === 0 && i > 0 && (
                                 <div className="absolute top-0 left-0 right-0 border-t border-muted/30" />
                               )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Blocked slots — hatched background */}
+                        {blockedSlots.map(slot => {
+                          const pos = blockedPosition(slot);
+                          if (pos.top < 0) return null;
+                          return (
+                            <div
+                              key={slot.id}
+                              className="absolute left-0 right-0 z-5 pointer-events-none"
+                              style={{ top: pos.top, height: pos.height }}
+                            >
+                              <div className="w-full h-full rounded-sm border border-gray-300"
+                                style={{
+                                  background: 'repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 4px, #f3f4f6 4px, #f3f4f6 12px)',
+                                  opacity: 0.85,
+                                }}
+                              />
+                              <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                <span className="text-xs font-medium text-gray-500 truncate">{slot.title}</span>
+                                <button onClick={() => deleteBlockedSlot(slot.id)}
+                                  className="ml-auto text-gray-400 hover:text-red-500 shrink-0">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
@@ -669,8 +1058,9 @@ const SmartAppointments = () => {
                           const colW   = `${100 / pos.totalCols}%`;
                           const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
                           const isSelected = selectedApt?.id === apt.id;
-
-                          const isPending = apt.status === 'pending';
+                          const isPending  = apt.status === 'pending';
+                          const startFmt   = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                          const endFmt     = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
                           return (
                             <div
                               key={apt.id}
@@ -684,10 +1074,12 @@ const SmartAppointments = () => {
                                 left:   `calc(${colL} + 2px)`,
                                 width:  `calc(${colW} - 4px)`,
                               }}
-                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); }}
+                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); }}
                             >
                               <p className="font-semibold text-xs leading-tight truncate">
-                                {isPending && '⏳ '}{apt.client_name}
+                                {isPending && '⏳ '}
+                                <span className="opacity-70">{startFmt}–{endFmt} </span>
+                                {apt.client_name}
                               </p>
                               {isPending && pos.height > 28 && (
                                 <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>
@@ -1015,6 +1407,17 @@ const SmartAppointments = () => {
                           <Input type="number" min={0} step="0.01" placeholder="Ej: 30" value={svcForm.price}
                             onChange={e => setSvcForm({...svcForm, price: e.target.value})} />
                         </div>
+                        <div className="col-span-2">
+                          <Label className="text-xs">Categoría</Label>
+                          <Select value={svcForm.category} onValueChange={v => setSvcForm({...svcForm, category: v})}>
+                            <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                            <SelectContent>
+                              {SERVICE_CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button type="submit" size="sm" disabled={isLoading}>{isLoading ? 'Guardando...' : 'Guardar'}</Button>
@@ -1042,27 +1445,137 @@ const SmartAppointments = () => {
               ) : (
                 <div className="space-y-2">
                   {services.map((svc, i) => (
-                    <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${PALETTES[i % PALETTES.length].border.replace('border-l-','bg-')}`} />
-                        <div>
-                          <p className="font-medium text-sm">{svc.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {svc.duration_minutes} min{svc.price ? ` · €${svc.price}` : ''}
-                          </p>
+                    editingSvc?.id === svc.id ? (
+                      /* ── INLINE EDIT FORM ── */
+                      <div key={svc.id} className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                        <p className="text-xs font-semibold text-primary mb-3">✏️ Editando: {svc.name}</p>
+                        <form onSubmit={updateService} className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                              <Label className="text-xs">Nombre *</Label>
+                              <Input value={editForm.name}
+                                onChange={e => setEditForm({...editForm, name: e.target.value})} required />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Duración (min) *</Label>
+                              <Input type="number" min={5} value={editForm.duration_minutes}
+                                onChange={e => setEditForm({...editForm, duration_minutes: Number(e.target.value)})} required />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Precio (€)</Label>
+                              <Input type="number" min={0} step="0.01" placeholder="Ej: 30" value={editForm.price}
+                                onChange={e => setEditForm({...editForm, price: e.target.value})} />
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs">Categoría</Label>
+                              <Select value={editForm.category} onValueChange={v => setEditForm({...editForm, category: v})}>
+                                <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
+                                <SelectContent>
+                                  {SERVICE_CATEGORIES.map(cat => (
+                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="submit" size="sm" disabled={isLoading}>
+                              {isLoading ? 'Guardando...' : '✓ Guardar cambios'}
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingSvc(null)}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      /* ── SERVICE ROW ── */
+                      <div key={svc.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-3 h-3 rounded-full shrink-0 ${PALETTES[i % PALETTES.length].border.replace('border-l-','bg-')}`} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{svc.name}</p>
+                              {svc.category && (
+                                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                  {svc.category}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDuration(svc.duration_minutes)}{svc.price ? ` · €${svc.price}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0 ml-2">
+                          <Button size="icon" variant="ghost" className="w-7 h-7 text-muted-foreground hover:text-primary"
+                            onClick={() => {
+                              setEditingSvc(svc);
+                              setEditForm({
+                                name: svc.name,
+                                duration_minutes: svc.duration_minutes,
+                                price: svc.price?.toString() || '',
+                                description: svc.description || '',
+                                category: svc.category || '',
+                              });
+                              setShowNewSvc(false);
+                            }}>
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="w-7 h-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteService(svc.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       </div>
-                      <Button size="icon" variant="ghost" className="w-7 h-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteService(svc.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    )
                   ))}
                   <p className="text-xs text-muted-foreground text-center pt-2">
                     {services.length} servicio{services.length!==1?'s':''} activo{services.length!==1?'s':''}
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+          {/* ── Working hours settings ── */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clock className="w-4 h-4" /> Horario laboral
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">El calendario solo mostrará este rango de horas</p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <Label className="text-xs">Apertura</Label>
+                  <Select value={String(workStart)} onValueChange={v => setWorkStart(Number(v))}>
+                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({length: 17}, (_, i) => i + 6).map(h => (
+                        <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Cierre</Label>
+                  <Select value={String(workEnd)} onValueChange={v => setWorkEnd(Number(v))}>
+                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({length: 17}, (_, i) => i + 6).map(h => (
+                        <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={saveWorkHours} className="bg-gradient-primary text-white">
+                  Guardar horario
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Horario actual: <strong>{String(workStart).padStart(2,'0')}:00 – {String(workEnd).padStart(2,'0')}:00</strong>
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
