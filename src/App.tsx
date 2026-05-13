@@ -36,6 +36,7 @@ import NailConditionDetail from "./pages/NailConditionDetail";
 import Subscribe from "./pages/Subscribe";
 import Checkout from "./pages/Checkout";
 import Account from "./pages/Account";
+import EmployeesPage from "./pages/EmployeesPage";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,9 @@ const App = () => (
             } />
             <Route path="/account" element={
               <ProtectedRoute><Account /></ProtectedRoute>
+            } />
+            <Route path="/equipo" element={
+              <ProtectedRoute><EmployeesPage /></ProtectedRoute>
             } />
 
             {/* Catch-all */}

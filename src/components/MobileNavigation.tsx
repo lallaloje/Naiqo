@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Camera, MessageCircle, Calendar, MoreHorizontal } from 'lucide-react';
+import { Home, Camera, MessageCircle, Calendar, MoreHorizontal, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import {
@@ -14,12 +14,13 @@ import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { path: '/dashboard', icon: Home, label: 'Inicio' },
-  { path: '/analisis-ungueal', icon: Camera, label: 'Análisis' },
-  { path: '/asistente-chat', icon: MessageCircle, label: 'Chat' },
   { path: '/gestion-citas', icon: Calendar, label: 'Citas' },
+  { path: '/equipo', icon: Users, label: 'Equipo' },
+  { path: '/asistente-chat', icon: MessageCircle, label: 'Chat' },
 ];
 
 const moreItems = [
+  { path: '/analisis-ungueal', label: 'Análisis' },
   { path: '/recomendador-tratamientos', label: 'Tratamientos' },
   { path: '/prediccion-demanda', label: 'Predicción' },
   { path: '/nail-conditions', label: 'Condiciones' },
