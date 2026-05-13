@@ -234,6 +234,8 @@ const SmartAppointments = () => {
   });
   const [showMiniCal,      setShowMiniCal]      = useState(false);
   const [weekBlockedSlots, setWeekBlockedSlots] = useState<Record<string, BlockedSlot[]>>({});
+  const [clientHistory,    setClientHistory]    = useState<any[]>([]);
+  const [historyLoading,   setHistoryLoading]   = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const { user }  = useAuth();
@@ -357,6 +359,30 @@ const SmartAppointments = () => {
     await supabase.from('blocked_slots').delete().eq('id', id);
     loadBlockedSlots();
     toast({ title: 'Bloqueo eliminado' });
+  };
+
+  const loadClientHistory = async (apt: Appointment) => {
+    setHistoryLoading(true);
+    setClientHistory([]);
+    try {
+      let query = supabase.from('appointments')
+        .select('*, services(name, category)')
+        .eq('user_id', user!.id)
+        .neq('id', apt.id)
+        .order('start_time', { ascending: false });
+
+      if (apt.client_phone) {
+        query = query.eq('client_phone', apt.client_phone);
+      } else {
+        query = query.eq('client_name', apt.client_name);
+      }
+      const { data } = await query;
+      setClientHistory(data || []);
+    } catch (e) {
+      logError('SmartAppointments:loadClientHistory', e);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const saveWorkHours = async () => {
@@ -663,7 +689,7 @@ const SmartAppointments = () => {
                         </div>
                         <div className="flex gap-1.5">
                           <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs px-2"
-                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); }}>
+                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); setSelectedApt(apt); loadClientHistory(apt); }}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirmar
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-red-600 border-red-200 hover:bg-red-50 text-xs px-2"
@@ -1110,19 +1136,27 @@ const SmartAppointments = () => {
                           const pos    = positions.get(apt.id);
                           if (!pos) return null;
                           const svc    = services.find(s => s.id === apt.service_id);
-                          const pal    = serviceColor(apt.service_id);
                           const colW   = `${100 / pos.totalCols}%`;
                           const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
                           const isSelected = selectedApt?.id === apt.id;
-                          const isPending  = apt.status === 'pending';
                           const startFmt   = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
                           const endFmt     = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+
+                          // ── Status-based colors ──
+                          const statusStyle =
+                            apt.status === 'pending'   ? 'bg-amber-100 border-l-amber-500 text-amber-900' :
+                            apt.status === 'confirmed' ? 'bg-green-100 border-l-green-500 text-green-900' :
+                            apt.status === 'completed' ? 'bg-gray-100 border-l-gray-400 text-gray-500' :
+                            apt.status === 'no_show'   ? 'bg-yellow-50 border-l-yellow-400 text-yellow-800' :
+                            apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-50' :
+                            /* scheduled */ 'bg-blue-100 border-l-blue-500 text-blue-900';
+
                           return (
                             <div
                               key={apt.id}
                               className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none
-                                ${isPending ? 'bg-orange-100 border-l-orange-500 text-orange-900 animate-pulse' : `${pal.bg} ${pal.border} ${pal.text}`}
-                                ${apt.status === 'cancelled' ? 'opacity-40 line-through' : ''}
+                                ${statusStyle}
+                                ${apt.status === 'pending' ? 'animate-pulse' : ''}
                                 ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
                               style={{
                                 top:    pos.top + 2,
@@ -1130,7 +1164,7 @@ const SmartAppointments = () => {
                                 left:   `calc(${colL} + 2px)`,
                                 width:  `calc(${colW} - 4px)`,
                               }}
-                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); }}
+                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); }}
                             >
                               <p className="font-semibold text-xs leading-tight truncate">
                                 {isPending && '⏳ '}
@@ -1409,6 +1443,101 @@ const SmartAppointments = () => {
                                 <p className="text-xs text-gray-600">✅ Penalización ya cobrada</p>
                               </div>
                             )}
+
+                            {/* ── Historial de la clienta ── */}
+                            <div className="border-t border-muted/40 pt-3">
+                              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                                <Star className="w-3.5 h-3.5" /> Historial de la clienta
+                              </p>
+                              {historyLoading ? (
+                                <p className="text-xs text-muted-foreground">Cargando...</p>
+                              ) : clientHistory.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic">Primera visita 🎉</p>
+                              ) : (() => {
+                                // Stats
+                                const past = clientHistory.filter(h => h.status !== 'cancelled' && h.status !== 'no_show');
+                                const total = past.length;
+
+                                // Most used services
+                                const svcCount: Record<string, { name: string; count: number }> = {};
+                                past.forEach(h => {
+                                  const svcName = (h as any).services?.name;
+                                  if (!svcName) return;
+                                  if (!svcCount[svcName]) svcCount[svcName] = { name: svcName, count: 0 };
+                                  svcCount[svcName].count++;
+                                });
+                                const topSvcs = Object.values(svcCount).sort((a, b) => b.count - a.count).slice(0, 3);
+
+                                // Visit frequency
+                                const dates = past.map(h => new Date(h.start_time).getTime()).sort((a, b) => a - b);
+                                let avgDays: number | null = null;
+                                if (dates.length >= 2) {
+                                  const gaps = dates.slice(1).map((d, i) => (d - dates[i]) / 86400000);
+                                  avgDays = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+                                }
+
+                                // Last visit
+                                const lastVisit = past[0] ? new Date(past[0].start_time) : null;
+
+                                // Notes
+                                const notes = clientHistory.filter(h => h.notes).slice(0, 3);
+
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="bg-primary/5 rounded-lg p-2 text-center">
+                                        <p className="text-lg font-bold text-primary">{total}</p>
+                                        <p className="text-[10px] text-muted-foreground">visita{total !== 1 ? 's' : ''}</p>
+                                      </div>
+                                      <div className="bg-primary/5 rounded-lg p-2 text-center">
+                                        <p className="text-lg font-bold text-primary">
+                                          {avgDays !== null ? `~${avgDays}d` : '—'}
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground">cadencia</p>
+                                      </div>
+                                    </div>
+
+                                    {lastVisit && (
+                                      <p className="text-xs text-muted-foreground">
+                                        🕐 Última visita: <span className="font-medium text-foreground">
+                                          {lastVisit.toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}
+                                        </span>
+                                      </p>
+                                    )}
+
+                                    {topSvcs.length > 0 && (
+                                      <div>
+                                        <p className="text-[10px] text-muted-foreground font-medium mb-1">💅 Servicios más frecuentes</p>
+                                        <div className="space-y-1">
+                                          {topSvcs.map(s => (
+                                            <div key={s.name} className="flex items-center justify-between">
+                                              <span className="text-xs truncate">{s.name}</span>
+                                              <span className="text-xs font-semibold text-primary ml-2 shrink-0">×{s.count}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {notes.length > 0 && (
+                                      <div>
+                                        <p className="text-[10px] text-muted-foreground font-medium mb-1">📝 Notas anteriores</p>
+                                        <div className="space-y-1">
+                                          {notes.map(h => (
+                                            <div key={h.id} className="bg-muted/40 rounded p-1.5">
+                                              <p className="text-[10px] text-muted-foreground">
+                                                {new Date(h.start_time).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}
+                                              </p>
+                                              <p className="text-xs">{h.notes}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
 
                             {/* Delete */}
                             <Button size="sm" variant="ghost" className="text-destructive w-full mt-1"
