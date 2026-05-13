@@ -232,7 +232,8 @@ const SmartAppointments = () => {
   const [miniCalDate,  setMiniCalDate]    = useState(() => {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
   });
-  const [showMiniCal,  setShowMiniCal]   = useState(false);
+  const [showMiniCal,      setShowMiniCal]      = useState(false);
+  const [weekBlockedSlots, setWeekBlockedSlots] = useState<Record<string, BlockedSlot[]>>({});
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const { user }  = useAuth();
@@ -255,7 +256,8 @@ const SmartAppointments = () => {
   useEffect(() => {
     if (salonId) {
       loadDayAppointments(); loadWeekAppointments();
-      loadServices(); loadPendingAppointments(); loadBlockedSlots();
+      loadServices(); loadPendingAppointments();
+      loadBlockedSlots(); loadWeekBlockedSlots();
     }
   }, [salonId, selectedDate]);
 
@@ -301,6 +303,23 @@ const SmartAppointments = () => {
     const { data } = await supabase.from('appointments').select('*')
       .eq('user_id', user!.id).eq('status', 'pending').order('start_time');
     setPendingApts(data || []);
+  };
+
+  const loadWeekBlockedSlots = async () => {
+    const days = getWeekDays(selectedDate);
+    const from = days[0] + 'T00:00:00';
+    const to   = days[6] + 'T23:59:59';
+    const { data } = await supabase.from('blocked_slots').select('*')
+      .eq('user_id', user!.id)
+      .gte('start_time', from)
+      .lte('start_time', to);
+    const byDay: Record<string, BlockedSlot[]> = {};
+    days.forEach(d => { byDay[d] = []; });
+    (data || []).forEach(b => {
+      const d = toDateStr(new Date(b.start_time));
+      if (byDay[d]) byDay[d].push(b);
+    });
+    setWeekBlockedSlots(byDay);
   };
 
   const loadBlockedSlots = async () => {
@@ -716,16 +735,28 @@ const SmartAppointments = () => {
                 <div className="grid grid-cols-7 gap-y-1">
                   {getMonthDays(miniCalDate.year, miniCalDate.month).map((dayStr, i) => {
                     if (!dayStr) return <div key={`e${i}`} />;
-                    const isSelected = dayStr === selectedDate;
-                    const isTodayD   = dayStr === today;
+                    const isSelected  = dayStr === selectedDate;
+                    const isTodayD    = dayStr === today;
+                    const hasApts     = (weekApts[dayStr] || []).length > 0;
+                    const totalWorkMin = (workEnd - workStart) * 60;
+                    const bookedMin   = (weekApts[dayStr] || [])
+                      .filter(a => a.status !== 'cancelled')
+                      .reduce((s, a) => s + (new Date(a.end_time).getTime() - new Date(a.start_time).getTime()) / 60000, 0);
+                    const freePct     = totalWorkMin > 0 ? ((totalWorkMin - bookedMin) / totalWorkMin) * 100 : 100;
+                    const dotColor    = !hasApts ? '' : freePct > 60 ? 'bg-green-400' : freePct > 30 ? 'bg-yellow-400' : 'bg-red-400';
                     return (
-                      <button key={dayStr}
-                        onClick={() => { setSelectedDate(dayStr); setShowMiniCal(false); }}
-                        className={`text-sm w-full aspect-square flex items-center justify-center rounded-full font-medium transition-colors
-                          ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted'}`}
-                      >
-                        {new Date(dayStr + 'T12:00:00').getDate()}
-                      </button>
+                      <div key={dayStr} className="flex flex-col items-center">
+                        <button
+                          onClick={() => { setSelectedDate(dayStr); setShowMiniCal(false); }}
+                          className={`text-sm w-full aspect-square flex items-center justify-center rounded-full font-medium transition-colors
+                            ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted'}`}
+                        >
+                          {new Date(dayStr + 'T12:00:00').getDate()}
+                        </button>
+                        {hasApts && !isSelected && (
+                          <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${dotColor}`} />
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -792,11 +823,25 @@ const SmartAppointments = () => {
               <CardContent className="p-3">
                 <div className="grid grid-cols-7 gap-1">
                   {weekDays.map((day, i) => {
-                    const dayApts = weekApts[day] || [];
-                    const revenue = dayApts.reduce((s, a) => {
-                      const sv = services.find(sv => sv.id === a.service_id);
-                      return s + (sv?.price || 0);
-                    }, 0);
+                    const dayApts    = weekApts[day] || [];
+                    const dayBlocked = weekBlockedSlots[day] || [];
+                    const totalWorkMin = (workEnd - workStart) * 60;
+
+                    const bookedMin = dayApts
+                      .filter(a => a.status !== 'cancelled')
+                      .reduce((s, a) => s + (new Date(a.end_time).getTime() - new Date(a.start_time).getTime()) / 60000, 0);
+                    const blockedMin = dayBlocked
+                      .reduce((s, b) => s + (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / 60000, 0);
+                    const freeMin    = Math.max(totalWorkMin - bookedMin - blockedMin, 0);
+                    const freeH      = Math.floor(freeMin / 60);
+                    const freeM      = freeMin % 60;
+                    const freePct    = totalWorkMin > 0 ? (freeMin / totalWorkMin) * 100 : 100;
+                    const freeLabel  = freeH > 0 ? `${freeH}h${freeM > 0 ? `${freeM}m` : ''}` : freeM > 0 ? `${freeM}m` : 'lleno';
+
+                    // Color: green >60%, yellow 30-60%, red <30%
+                    const barColor   = freePct > 60 ? 'bg-green-400' : freePct > 30 ? 'bg-yellow-400' : 'bg-red-400';
+                    const textColor  = freePct > 60 ? 'text-green-600' : freePct > 30 ? 'text-yellow-600' : 'text-red-500';
+
                     const isSelected = day === selectedDate;
                     const isTodayDay = day === today;
                     return (
@@ -812,23 +857,23 @@ const SmartAppointments = () => {
                         <p className={`text-lg font-bold ${isSelected ? 'text-white' : ''}`}>
                           {new Date(day+'T12:00:00').getDate()}
                         </p>
+
+                        {/* Barra de disponibilidad */}
+                        <div className="mt-1.5 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${isSelected ? 'bg-white/60' : barColor}`}
+                            style={{ width: `${Math.min(100 - freePct, 100)}%` }}
+                          />
+                        </div>
+
                         <div className={`text-xs mt-1 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
                           {dayApts.length > 0 ? (
-                            <>
-                              <p>{dayApts.length} cita{dayApts.length !== 1 ? 's' : ''}</p>
-                              {revenue > 0 && <p>€{revenue}</p>}
-                            </>
-                          ) : (
-                            <p>—</p>
-                          )}
+                            <p>{dayApts.length} cita{dayApts.length !== 1 ? 's' : ''}</p>
+                          ) : null}
+                          <p className={`font-medium ${isSelected ? 'text-white/90' : textColor}`}>
+                            {freeLabel} libre{freeLabel !== 'lleno' ? 's' : ''}
+                          </p>
                         </div>
-                        {dayApts.length > 0 && (
-                          <div className="flex justify-center gap-0.5 mt-1">
-                            {dayApts.slice(0, 3).map((_, j) => (
-                              <div key={j} className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-primary'}`} />
-                            ))}
-                          </div>
-                        )}
                       </button>
                     );
                   })}
@@ -878,13 +923,24 @@ const SmartAppointments = () => {
                       const isSelected = dayStr === selectedDate;
                       const isTodayD   = dayStr === today;
                       const dayNum     = new Date(dayStr + 'T12:00:00').getDate();
+                      const hasApts    = (weekApts[dayStr] || []).length > 0;
+                      const totalWorkMin = (workEnd - workStart) * 60;
+                      const bookedMin  = (weekApts[dayStr] || [])
+                        .filter(a => a.status !== 'cancelled')
+                        .reduce((s, a) => s + (new Date(a.end_time).getTime() - new Date(a.start_time).getTime()) / 60000, 0);
+                      const freePct    = totalWorkMin > 0 ? ((totalWorkMin - bookedMin) / totalWorkMin) * 100 : 100;
+                      const dotColor   = !hasApts ? '' : freePct > 60 ? 'bg-green-400' : freePct > 30 ? 'bg-yellow-400' : 'bg-red-400';
                       return (
-                        <button
-                          key={dayStr}
-                          onClick={() => setSelectedDate(dayStr)}
-                          className={`text-[11px] w-full aspect-square flex items-center justify-center rounded-full transition-colors font-medium
-                            ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted text-foreground'}`}
-                        >{dayNum}</button>
+                        <div key={dayStr} className="flex flex-col items-center">
+                          <button
+                            onClick={() => setSelectedDate(dayStr)}
+                            className={`text-[11px] w-full aspect-square flex items-center justify-center rounded-full transition-colors font-medium
+                              ${isSelected ? 'bg-primary text-white' : isTodayD ? 'text-primary border border-primary/40' : 'hover:bg-muted text-foreground'}`}
+                          >{dayNum}</button>
+                          {hasApts && !isSelected && (
+                            <div className={`w-1 h-1 rounded-full mt-0.5 ${dotColor}`} />
+                          )}
+                        </div>
                       );
                     })}
                   </div>
