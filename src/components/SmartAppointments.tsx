@@ -1139,6 +1139,7 @@ const SmartAppointments = () => {
                           const colW   = `${100 / pos.totalCols}%`;
                           const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
                           const isSelected = selectedApt?.id === apt.id;
+                          const isPending  = apt.status === 'pending';
                           const startFmt   = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
                           const endFmt     = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 
