@@ -79,8 +79,8 @@ const faqs = [
     answer: 'Sí, ofrecemos descuentos especiales para cadenas con múltiples ubicaciones. Contáctanos para obtener una cotización personalizada.',
   },
   {
-    question: '¿Hay un período de prueba?',
-    answer: 'Sí, todos los planes incluyen 7 días de prueba gratuita. No se requiere tarjeta de crédito para empezar.',
+    question: '¿Hay algún compromiso de permanencia?',
+    answer: 'No, puedes cancelar en cualquier momento sin penalización. Si cancelas, mantendrás el acceso hasta el fin del período pagado.',
   },
   {
     question: '¿Cómo funciona la facturación anual?',

@@ -60,17 +60,18 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       const today = new Date();
       const trialEndsAt = new Date(salon.trial_ends_at);
       
-      // If trial has expired but status is still 'trial', update to 'expired'
-      if (salon.subscription_status === 'trial' && trialEndsAt < today) {
+      // If trial/beta has expired, update to 'expired'
+      const isTimedStatus = salon.subscription_status === 'trial' || salon.subscription_status === 'beta';
+      if (isTimedStatus && trialEndsAt < today) {
         await supabase
           .from('salons')
           .update({ subscription_status: 'expired' })
           .eq('user_id', user.id);
-        
+
         setSubscriptionStatus('expired');
         toast({
-          title: "Prueba finalizada",
-          description: "Tu prueba gratuita ha finalizado. Elige un plan para continuar.",
+          title: salon.subscription_status === 'beta' ? "Beta finalizada" : "Prueba finalizada",
+          description: "Tu período de acceso ha finalizado. Elige un plan para continuar.",
           variant: "destructive",
         });
       } else {
