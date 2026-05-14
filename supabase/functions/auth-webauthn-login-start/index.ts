@@ -22,21 +22,26 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Find user by email
-    const { data: { users }, error: listError } = await admin.auth.admin.listUsers();
-    if (listError) throw new Error(listError.message);
+    // Find user_id via salons table
+    const { data: salon, error: salonErr } = await admin
+      .from("salons")
+      .select("user_id")
+      .eq("email", email.toLowerCase().trim())
+      .maybeSingle();
 
-    const authUser = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (!authUser) throw new Error("Usuario no encontrado");
+    if (salonErr) throw new Error(salonErr.message);
+    if (!salon?.user_id) throw new Error("Usuario no encontrado");
 
     // Get user's registered credentials
     const { data: creds, error: credsErr } = await admin
       .from("webauthn_credentials")
       .select("credential_id")
-      .eq("user_id", authUser.id);
+      .eq("user_id", salon.user_id);
 
     if (credsErr) throw new Error(credsErr.message);
-    if (!creds || creds.length === 0) throw new Error("No hay credenciales biométricas registradas");
+    if (!creds || creds.length === 0) {
+      throw new Error("No hay credenciales biométricas registradas. Configúralas en Mi Cuenta → Acceso rápido.");
+    }
 
     const allowCredentials = creds.map((c: any) => ({
       id: c.credential_id,
@@ -50,10 +55,13 @@ serve(async (req) => {
       timeout: 60000,
     });
 
-    // Store challenge
+    // Store challenge with the auth user's email
+    const { data: authUserData } = await admin.auth.admin.getUserById(salon.user_id);
+    const authEmail = authUserData?.user?.email || email;
+
     const { data: challengeRow, error: chalErr } = await admin
       .from("webauthn_challenges")
-      .insert({ email: authUser.email!, challenge: options.challenge, type: "authentication" })
+      .insert({ email: authEmail, challenge: options.challenge, type: "authentication" })
       .select("id")
       .single();
 

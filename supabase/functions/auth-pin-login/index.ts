@@ -26,23 +26,26 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // 1. Get user by email
-    const { data: { users }, error: listError } = await admin.auth.admin.listUsers();
-    if (listError) throw new Error(listError.message);
-
-    const authUser = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (!authUser) throw new Error("Usuario no encontrado");
-
-    // 2. Get PIN hash from profiles
-    const { data: profile, error: profileError } = await admin
-      .from("profiles")
-      .select("login_pin_hash, login_pin_salt")
-      .eq("user_id", authUser.id)
+    // 1. Find user_id via salons table (avoids slow listUsers)
+    const { data: salon, error: salonErr } = await admin
+      .from("salons")
+      .select("user_id")
+      .eq("email", email.toLowerCase().trim())
       .maybeSingle();
 
-    if (profileError) throw new Error(profileError.message);
+    if (salonErr) throw new Error(salonErr.message);
+    if (!salon?.user_id) throw new Error("Usuario no encontrado");
+
+    // 2. Get PIN hash from profiles
+    const { data: profile, error: profileErr } = await admin
+      .from("profiles")
+      .select("login_pin_hash, login_pin_salt")
+      .eq("user_id", salon.user_id)
+      .maybeSingle();
+
+    if (profileErr) throw new Error(profileErr.message);
     if (!profile?.login_pin_hash || !profile?.login_pin_salt) {
-      throw new Error("PIN no configurado para este usuario");
+      throw new Error("PIN no configurado. Configúralo en Mi Cuenta → Acceso rápido.");
     }
 
     // 3. Verify PIN
@@ -51,12 +54,15 @@ serve(async (req) => {
       throw new Error("PIN incorrecto");
     }
 
-    // 4. Generate magic link token (bypass email send)
+    // 4. Get auth user's email for generateLink
+    const { data: authUserData, error: authErr } = await admin.auth.admin.getUserById(salon.user_id);
+    if (authErr || !authUserData?.user?.email) throw new Error("Error obteniendo datos de usuario");
+
+    // 5. Generate magic link token (no email sent)
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
-      email: authUser.email!,
+      email: authUserData.user.email,
     });
-
     if (linkError) throw new Error(linkError.message);
 
     const token_hash = (linkData as any).properties?.hashed_token;
