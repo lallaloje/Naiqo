@@ -104,12 +104,12 @@ const STATUS_LABEL: Record<string, string> = {
   completed:  'Completada', cancelled: 'Cancelada', no_show: 'No asistió',
 };
 const STATUS_COLOR: Record<string, string> = {
-  pending:    'bg-orange-100 text-orange-800 border-orange-300',
-  scheduled:  'bg-blue-100 text-blue-800 border-blue-200',
+  pending:    'bg-yellow-100 text-yellow-800 border-yellow-300',
+  scheduled:  'bg-yellow-50 text-yellow-700 border-yellow-200',
   confirmed:  'bg-green-100 text-green-800 border-green-200',
   completed:  'bg-gray-100 text-gray-600 border-gray-200',
   cancelled:  'bg-red-100 text-red-700 border-red-200',
-  no_show:    'bg-yellow-100 text-yellow-800 border-yellow-200',
+  no_show:    'bg-orange-100 text-orange-700 border-orange-200',
 };
 
 const DEFAULT_SERVICES = [
@@ -1147,12 +1147,13 @@ const SmartAppointments = () => {
 
                           // ── Status-based colors ──
                           const statusStyle =
-                            apt.status === 'pending'   ? 'bg-amber-100 border-l-amber-500 text-amber-900' :
                             apt.status === 'confirmed' ? 'bg-green-100 border-l-green-500 text-green-900' :
+                            apt.status === 'pending'   ? 'bg-yellow-100 border-l-yellow-400 text-yellow-900' :
+                            apt.status === 'scheduled' ? 'bg-yellow-50 border-l-yellow-300 text-yellow-800' :
                             apt.status === 'completed' ? 'bg-gray-100 border-l-gray-400 text-gray-500' :
-                            apt.status === 'no_show'   ? 'bg-yellow-50 border-l-yellow-400 text-yellow-800' :
-                            apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-50' :
-                            /* scheduled */ 'bg-blue-100 border-l-blue-500 text-blue-900';
+                            apt.status === 'no_show'   ? 'bg-orange-50 border-l-orange-300 text-orange-700' :
+                            apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-60' :
+                            /* default */ 'bg-yellow-50 border-l-yellow-300 text-yellow-800';
 
                           return (
                             <div
