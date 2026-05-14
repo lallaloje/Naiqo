@@ -1,13 +1,20 @@
 // auth-webauthn-login-finish: verifies assertion and returns session token
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-// @ts-ignore
-import { verifyAuthenticationResponse } from "https://esm.sh/@simplewebauthn/server@9.0.3";
+import { verifyAuthenticationResponse } from "npm:@simplewebauthn/server@9.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// base64url → Uint8Array
+function fromBase64Url(b64: string): Uint8Array {
+  return Uint8Array.from(
+    atob(b64.replace(/-/g, "+").replace(/_/g, "/")),
+    (c) => c.charCodeAt(0)
+  );
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -23,7 +30,6 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Find auth email via salons table
     const { data: salon } = await admin
       .from("salons")
       .select("user_id")
@@ -36,7 +42,6 @@ serve(async (req) => {
       : { data: null };
     const authEmail = authUserData?.user?.email || email;
 
-    // Get and validate challenge
     const { data: challengeRow, error: chalErr } = await admin
       .from("webauthn_challenges")
       .select("*")
@@ -48,19 +53,13 @@ serve(async (req) => {
 
     if (chalErr || !challengeRow) throw new Error("Challenge inválido o expirado");
 
-    // Get credential from DB
-    const credentialId = assertion.id;
     const { data: credential, error: credErr } = await admin
       .from("webauthn_credentials")
       .select("*")
-      .eq("credential_id", credentialId)
+      .eq("credential_id", assertion.id)
       .maybeSingle();
 
     if (credErr || !credential) throw new Error("Credencial no encontrada");
-
-    // Decode stored public key (base64url → Uint8Array)
-    const b64ToUint8 = (b64: string) =>
-      Uint8Array.from(atob(b64.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 
     const verification = await verifyAuthenticationResponse({
       response: assertion,
@@ -68,22 +67,20 @@ serve(async (req) => {
       expectedOrigin: origin,
       expectedRPID: rpId,
       authenticator: {
-        credentialID: b64ToUint8(credential.credential_id),
-        credentialPublicKey: b64ToUint8(credential.public_key),
-        counter: credential.counter,
+        credentialID:        fromBase64Url(credential.credential_id),
+        credentialPublicKey: fromBase64Url(credential.public_key),
+        counter:             credential.counter,
       },
       requireUserVerification: true,
     });
 
     if (!verification.verified) throw new Error("Verificación biométrica fallida");
 
-    // Update counter and last_used_at
     await admin
       .from("webauthn_credentials")
       .update({ counter: verification.authenticationInfo.newCounter, last_used_at: new Date().toISOString() })
       .eq("id", credential.id);
 
-    // Generate session token
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email: authEmail,
@@ -93,7 +90,6 @@ serve(async (req) => {
     const token_hash = (linkData as any).properties?.hashed_token;
     if (!token_hash) throw new Error("No se pudo generar el token de sesión");
 
-    // Clean up challenge
     await admin.from("webauthn_challenges").delete().eq("id", challenge_id);
 
     return new Response(JSON.stringify({ token_hash }), {

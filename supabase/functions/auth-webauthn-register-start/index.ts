@@ -1,8 +1,7 @@
 // auth-webauthn-register-start: generates registration options for WebAuthn
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-// @ts-ignore
-import { generateRegistrationOptions } from "https://esm.sh/@simplewebauthn/server@9.0.3";
+import { generateRegistrationOptions } from "npm:@simplewebauthn/server@9.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +58,7 @@ serve(async (req) => {
       timeout: 60000,
     });
 
-    // Store challenge in DB (expires in 5 min)
+    // Store challenge
     const { data: challengeRow, error: chalErr } = await admin
       .from("webauthn_challenges")
       .insert({ email: user.email!, challenge: options.challenge, type: "registration" })

@@ -1,13 +1,18 @@
 // auth-webauthn-register-finish: verifies attestation and stores credential
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-// @ts-ignore
-import { verifyRegistrationResponse } from "https://esm.sh/@simplewebauthn/server@9.0.3";
+import { verifyRegistrationResponse } from "npm:@simplewebauthn/server@9.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Deno-safe base64url encode
+function toBase64Url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -19,7 +24,6 @@ serve(async (req) => {
     const rpId        = Deno.env.get("WEBAUTHN_RP_ID") || "naiqo.es";
     const origin      = Deno.env.get("WEBAUTHN_ORIGIN") || "https://naiqo.es";
 
-    // Require authenticated user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No autorizado");
 
@@ -46,7 +50,6 @@ serve(async (req) => {
 
     if (chalErr || !challengeRow) throw new Error("Challenge inválido o expirado");
 
-    // Verify registration
     const verification = await verifyRegistrationResponse({
       response: attestation,
       expectedChallenge: challengeRow.challenge,
@@ -61,9 +64,8 @@ serve(async (req) => {
 
     const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
 
-    // Store credential
-    const credentialIdB64 = Buffer.from(credentialID).toString("base64url");
-    const publicKeyB64    = Buffer.from(credentialPublicKey).toString("base64url");
+    const credentialIdB64 = toBase64Url(credentialID);
+    const publicKeyB64    = toBase64Url(credentialPublicKey);
 
     const { error: insertErr } = await admin
       .from("webauthn_credentials")
@@ -77,7 +79,6 @@ serve(async (req) => {
 
     if (insertErr) throw new Error(insertErr.message);
 
-    // Clean up challenge
     await admin.from("webauthn_challenges").delete().eq("id", challenge_id);
 
     return new Response(JSON.stringify({ success: true }), {

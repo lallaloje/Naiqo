@@ -90,6 +90,9 @@ export const Header = () => {
                 <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="text-muted-foreground hover:text-primary">
                   Mi Panel
                 </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/account')} className="text-muted-foreground hover:text-primary">
+                  Mi Cuenta
+                </Button>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-primary">
                   Cerrar Sesión
                 </Button>

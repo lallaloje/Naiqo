@@ -1,8 +1,7 @@
 // auth-webauthn-login-start: generates authentication options for WebAuthn login
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-// @ts-ignore
-import { generateAuthenticationOptions } from "https://esm.sh/@simplewebauthn/server@9.0.3";
+import { generateAuthenticationOptions } from "npm:@simplewebauthn/server@9.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,24 +22,21 @@ serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
 
     // Find user_id via salons table
-    const { data: salon, error: salonErr } = await admin
+    const { data: salon } = await admin
       .from("salons")
       .select("user_id")
       .eq("email", email.toLowerCase().trim())
       .maybeSingle();
 
-    if (salonErr) throw new Error(salonErr.message);
     if (!salon?.user_id) throw new Error("Usuario no encontrado");
 
-    // Get user's registered credentials
-    const { data: creds, error: credsErr } = await admin
+    const { data: creds } = await admin
       .from("webauthn_credentials")
       .select("credential_id")
       .eq("user_id", salon.user_id);
 
-    if (credsErr) throw new Error(credsErr.message);
     if (!creds || creds.length === 0) {
-      throw new Error("No hay credenciales biométricas registradas. Configúralas en Mi Cuenta → Acceso rápido.");
+      throw new Error("No hay credenciales biométricas registradas. Configúralas en Mi Cuenta.");
     }
 
     const allowCredentials = creds.map((c: any) => ({
@@ -55,7 +51,6 @@ serve(async (req) => {
       timeout: 60000,
     });
 
-    // Store challenge with the auth user's email
     const { data: authUserData } = await admin.auth.admin.getUserById(salon.user_id);
     const authEmail = authUserData?.user?.email || email;
 
