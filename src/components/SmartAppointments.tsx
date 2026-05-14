@@ -33,6 +33,7 @@ import {
   Edit3
 } from "lucide-react";
 import { logError } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ─── Calendar layout constants ───────────────────────────────────
 const HOUR_HEIGHT   = 64;   // px per hour
@@ -215,6 +216,7 @@ const SmartAppointments = () => {
   const [services,     setServices]        = useState<Service[]>([]);
   const [salonId,      setSalonId]         = useState<string | null>(null);
   const [salonName,    setSalonName]       = useState('Mi salón');
+  const isMobile = useIsMobile();
   const [selectedDate, setSelectedDate]   = useState(toDateStr(new Date()));
   const [view,         setView]            = useState<'day' | 'week'>('day');
   const [selectedApt,  setSelectedApt]    = useState<Appointment | null>(null);
@@ -1204,15 +1206,27 @@ const SmartAppointments = () => {
 
               {/* ── Appointment detail / New form panel ── */}
               {(selectedApt || showForm) && (
-                <div className="w-80 shrink-0">
-                  <Card className="sticky top-4">
-                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                      <CardTitle className="text-base">
-                        {showForm ? '➕ Nueva cita' : selectedApt?.client_name}
-                      </CardTitle>
-                      <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setSelectedApt(null); setShowForm(false); }}>
-                        <X className="w-4 h-4" />
-                      </Button>
+                <div className={isMobile
+                  ? "fixed inset-0 z-50 bg-background overflow-y-auto pb-24"
+                  : "w-80 shrink-0"
+                }>
+                  <Card className={isMobile ? "min-h-full rounded-none border-0 shadow-none" : "sticky top-4"}>
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between sticky top-0 bg-background z-10 border-b">
+                      <div className="flex items-center gap-2">
+                        {isMobile && (
+                          <Button size="icon" variant="ghost" className="w-8 h-8 -ml-1" onClick={() => { setSelectedApt(null); setShowForm(false); }}>
+                            <ChevronLeft className="w-5 h-5" />
+                          </Button>
+                        )}
+                        <CardTitle className="text-base">
+                          {showForm ? '➕ Nueva cita' : selectedApt?.client_name}
+                        </CardTitle>
+                      </div>
+                      {!isMobile && (
+                        <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setSelectedApt(null); setShowForm(false); }}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
                     </CardHeader>
                     <CardContent>
 
