@@ -37,6 +37,7 @@ import Subscribe from "./pages/Subscribe";
 import Checkout from "./pages/Checkout";
 import Account from "./pages/Account";
 import EmployeesPage from "./pages/EmployeesPage";
+import AdminPage from "./pages/AdminPage";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,9 @@ const App = () => (
             } />
             <Route path="/equipo" element={
               <ProtectedRoute><EmployeesPage /></ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute><AdminPage /></ProtectedRoute>
             } />
 
             {/* Catch-all */}

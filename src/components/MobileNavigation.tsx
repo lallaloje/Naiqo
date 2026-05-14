@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Camera, MessageCircle, Calendar, MoreHorizontal, Users } from 'lucide-react';
+import { Home, Camera, MessageCircle, Calendar, MoreHorizontal, Users, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { path: '/dashboard', icon: Home, label: 'Inicio' },
@@ -32,8 +33,15 @@ const moreItems = [
 export function MobileNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isAdmin, setIsAdmin]   = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('is_admin').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setIsAdmin(data?.is_admin === true));
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path;
   const isMoreActive = moreItems.some(item => location.pathname === item.path);
@@ -93,7 +101,7 @@ export function MobileNavigation() {
             <SheetHeader className="pb-4">
               <SheetTitle>Más opciones</SheetTitle>
             </SheetHeader>
-            <div className="grid grid-cols-2 gap-3 pb-6">
+            <div className="grid grid-cols-2 gap-3 pb-4">
               {moreItems.map((item) => (
                 <Button
                   key={item.path}
@@ -105,8 +113,18 @@ export function MobileNavigation() {
                 </Button>
               ))}
             </div>
-            <Button 
-              variant="ghost" 
+            {isAdmin && (
+              <Button
+                variant={isActive('/admin') ? "default" : "outline"}
+                className="w-full h-12 mb-3 gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+                onClick={() => handleNavigate('/admin')}
+              >
+                <Shield className="w-4 h-4" />
+                Panel Admin
+              </Button>
+            )}
+            <Button
+              variant="ghost"
               className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleLogout}
             >
