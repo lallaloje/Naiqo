@@ -12,9 +12,11 @@ import { Separator } from '@/components/ui/separator';
 import { MobileLayout } from '@/components/MobileLayout';
 import { TouchButton } from '@/components/ui/touch-button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { 
-  Save, LogOut, CreditCard, Calendar, RefreshCw, ExternalLink, 
-  CheckCircle, Loader2, FileText, Download, BarChart3, AlertTriangle
+import { startRegistration } from '@simplewebauthn/browser';
+import {
+  Save, LogOut, CreditCard, Calendar, RefreshCw, ExternalLink,
+  CheckCircle, Loader2, FileText, Download, BarChart3, AlertTriangle,
+  Fingerprint, Hash, Trash2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Header } from '@/components/Header';
@@ -91,6 +93,15 @@ const Account = () => {
   const [saving, setSaving] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+
+  // Quick access state
+  const [newPin, setNewPin]               = useState('');
+  const [confirmPin, setConfirmPin]       = useState('');
+  const [savingPin, setSavingPin]         = useState(false);
+  const [hasBiometric, setHasBiometric]   = useState(false);
+  const [registeringBio, setRegisteringBio] = useState(false);
+  const [deletingBio, setDeletingBio]     = useState(false);
+
   const [formData, setFormData] = useState({
     salon_name: '',
     contact_name: '',
@@ -115,6 +126,7 @@ const Account = () => {
     fetchSalonData();
     checkSubscription();
     fetchUsageStats();
+    checkBiometricCredentials();
   }, [user]);
 
   const fetchSalonData = async () => {
@@ -243,6 +255,75 @@ const Account = () => {
     navigate('/login');
   };
 
+  // ── Quick access helpers ──────────────────────────────────────────────────
+  const checkBiometricCredentials = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('webauthn_credentials')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1);
+    setHasBiometric((data || []).length > 0);
+  };
+
+  const handleSavePin = async () => {
+    if (!/^\d{6}$/.test(newPin)) {
+      toast({ title: 'PIN inválido', description: 'El PIN debe tener exactamente 6 dígitos.', variant: 'destructive' });
+      return;
+    }
+    if (newPin !== confirmPin) {
+      toast({ title: 'Los PINs no coinciden', description: 'Verifica que los dos campos sean iguales.', variant: 'destructive' });
+      return;
+    }
+    setSavingPin(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auth-pin-setup', { body: { pin: newPin } });
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      toast({ title: 'PIN guardado', description: 'Ya puedes entrar con tu PIN desde el escritorio.' });
+      setNewPin(''); setConfirmPin('');
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+    setSavingPin(false);
+  };
+
+  const handleRegisterBiometric = async () => {
+    if (!user) return;
+    setRegisteringBio(true);
+    try {
+      const { data: startData, error: startErr } = await supabase.functions.invoke('auth-webauthn-register-start', {
+        body: { device_name: navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Dispositivo móvil' },
+      });
+      if (startErr || startData?.error) throw new Error(startData?.error || startErr?.message);
+
+      const attestation = await startRegistration({ optionsJSON: startData.options });
+
+      const { data: finishData, error: finishErr } = await supabase.functions.invoke('auth-webauthn-register-finish', {
+        body: { attestation, challenge_id: startData.challenge_id, device_name: startData.device_name },
+      });
+      if (finishErr || finishData?.error) throw new Error(finishData?.error || finishErr?.message);
+
+      toast({ title: '¡Biométrico activado!', description: 'Ya puedes entrar con Face ID o huella dactilar.' });
+      setHasBiometric(true);
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        toast({ title: 'Cancelado', description: 'La verificación biométrica fue cancelada.' });
+      } else {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    }
+    setRegisteringBio(false);
+  };
+
+  const handleDeleteBiometric = async () => {
+    if (!user) return;
+    setDeletingBio(true);
+    await supabase.from('webauthn_credentials').delete().eq('user_id', user.id);
+    setHasBiometric(false);
+    toast({ title: 'Biométrico eliminado', description: 'Las credenciales biométricas han sido borradas.' });
+    setDeletingBio(false);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -356,6 +437,94 @@ const Account = () => {
             <Save className="mr-2 h-4 w-4" />
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </TouchButton>
+        </CardContent>
+      </Card>
+
+      {/* ── Quick Access Card ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {isMobile ? <Fingerprint className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
+            Acceso rápido
+          </CardTitle>
+          <CardDescription className="text-xs">
+            {isMobile ? 'Inicia sesión con Face ID o huella dactilar' : 'Inicia sesión con un código PIN de 6 dígitos'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Desktop: PIN setup */}
+          {!isMobile && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-pin" className="text-sm">Nuevo PIN (6 dígitos)</Label>
+                <Input
+                  id="new-pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="••••••"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="h-12 text-center tracking-widest text-lg"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-pin" className="text-sm">Confirmar PIN</Label>
+                <Input
+                  id="confirm-pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="••••••"
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="h-12 text-center tracking-widest text-lg"
+                />
+              </div>
+              <TouchButton
+                onClick={handleSavePin}
+                disabled={savingPin || newPin.length !== 6 || confirmPin.length !== 6}
+                fullWidth
+              >
+                {savingPin ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando…</> : 'Guardar PIN'}
+              </TouchButton>
+            </div>
+          )}
+
+          {/* Mobile: WebAuthn / biometric */}
+          {isMobile && (
+            <div className="space-y-2">
+              {hasBiometric ? (
+                <>
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                    <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                    <span className="text-sm text-green-700 dark:text-green-300 font-medium">Biométrico activado</span>
+                  </div>
+                  <TouchButton
+                    variant="outline"
+                    className="text-destructive hover:text-destructive border-destructive/30"
+                    onClick={handleDeleteBiometric}
+                    disabled={deletingBio}
+                    fullWidth
+                  >
+                    {deletingBio ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    Eliminar credencial biométrica
+                  </TouchButton>
+                </>
+              ) : (
+                <TouchButton
+                  onClick={handleRegisterBiometric}
+                  disabled={registeringBio}
+                  fullWidth
+                  className="gap-2"
+                >
+                  {registeringBio
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Registrando…</>
+                    : <><Fingerprint className="h-5 w-5" />Activar Face ID / Huella</>}
+                </TouchButton>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
