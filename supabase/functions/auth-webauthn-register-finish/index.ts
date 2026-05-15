@@ -1,14 +1,12 @@
-// auth-webauthn-register-finish: verifies attestation and stores credential
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
-import { verifyRegistrationResponse } from "npm:@simplewebauthn/server@9.0.3";
+import { verifyRegistrationResponse } from "npm:@simplewebauthn/server@13.1.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Deno-safe base64url encode
 function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
@@ -16,7 +14,6 @@ function toBase64Url(bytes: Uint8Array): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,15 +35,10 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Get and verify challenge
     const { data: challengeRow, error: chalErr } = await admin
-      .from("webauthn_challenges")
-      .select("*")
-      .eq("id", challenge_id)
-      .eq("email", user.email!)
-      .eq("type", "registration")
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle();
+      .from("webauthn_challenges").select("*")
+      .eq("id", challenge_id).eq("email", user.email!).eq("type", "registration")
+      .gt("expires_at", new Date().toISOString()).maybeSingle();
 
     if (chalErr || !challengeRow) throw new Error("Challenge inválido o expirado");
 
@@ -62,20 +54,18 @@ serve(async (req) => {
       throw new Error("Verificación biométrica fallida");
     }
 
-    const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
+    // v13 API: registrationInfo.credential
+    const { credential } = verification.registrationInfo;
+    const credentialIdB64 = toBase64Url(credential.id);
+    const publicKeyB64    = toBase64Url(credential.publicKey);
 
-    const credentialIdB64 = toBase64Url(credentialID);
-    const publicKeyB64    = toBase64Url(credentialPublicKey);
-
-    const { error: insertErr } = await admin
-      .from("webauthn_credentials")
-      .upsert({
-        user_id:       user.id,
-        credential_id: credentialIdB64,
-        public_key:    publicKeyB64,
-        counter,
-        device_name:   device_name || "Dispositivo",
-      }, { onConflict: "credential_id" });
+    const { error: insertErr } = await admin.from("webauthn_credentials").upsert({
+      user_id:       user.id,
+      credential_id: credentialIdB64,
+      public_key:    publicKeyB64,
+      counter:       credential.counter,
+      device_name:   device_name || "Dispositivo",
+    }, { onConflict: "credential_id" });
 
     if (insertErr) throw new Error(insertErr.message);
 
@@ -85,7 +75,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("auth-webauthn-register-finish error:", err);
+    console.error("register-finish error:", err);
     return new Response(
       JSON.stringify({ error: String(err instanceof Error ? err.message : err) }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
