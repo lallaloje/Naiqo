@@ -45,7 +45,7 @@ serve(async (req) => {
       excludeCredentials,
       authenticatorSelection: {
         authenticatorAttachment: "platform",
-        residentKey: "preferred",
+        residentKey: "required",  // Must be discoverable for passwordless login
         userVerification: "required",
       },
       timeout: 60000,

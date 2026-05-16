@@ -140,15 +140,11 @@ const Login = () => {
 
   // ── Biometric login ───────────────────────────────────────────────────────
   const handleBiometric = async () => {
-    if (!email) {
-      toast({ title: 'Email requerido', description: 'Introduce tu email primero.', variant: 'destructive' });
-      return;
-    }
     setBiometricLoading(true);
     try {
-      // 1. Get challenge
+      // 1. Get challenge (discoverable — no email needed)
       const { data: startData, error: startError } = await supabase.functions.invoke('auth-webauthn-login-start', {
-        body: { email },
+        body: {},
       });
       if (startError || startData?.error) throw new Error(startData?.error || startError?.message);
 
@@ -157,7 +153,7 @@ const Login = () => {
 
       // 3. Verify with server
       const { data: finishData, error: finishError } = await supabase.functions.invoke('auth-webauthn-login-finish', {
-        body: { assertion, challenge_id: startData.challenge_id, email },
+        body: { assertion, challenge_id: startData.challenge_id },
       });
       if (finishError || finishData?.error) throw new Error(finishData?.error || finishError?.message);
 

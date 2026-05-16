@@ -14,40 +14,22 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const rpId        = Deno.env.get("WEBAUTHN_RP_ID") || "naiqo.es";
 
-    const { email } = await req.json();
-    if (!email) throw new Error("Email requerido");
-
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const { data: salon } = await admin.from("salons").select("user_id")
-      .eq("email", email.toLowerCase().trim()).maybeSingle();
-    if (!salon?.user_id) throw new Error("Usuario no encontrado");
-
-    const { data: creds } = await admin.from("webauthn_credentials")
-      .select("credential_id").eq("user_id", salon.user_id);
-    if (!creds || creds.length === 0) {
-      throw new Error("No hay credenciales biométricas. Actívalas en Mi Cuenta → Acceso rápido.");
-    }
-
-    // v13: allowCredentials.id is a base64url string
-    const allowCredentials = creds.map((c: any) => ({
-      id: c.credential_id,
-      type: "public-key" as const,
-    }));
-
+    // Discoverable mode: no allowCredentials needed
+    // iOS will show all passkeys for this rpID automatically
     const options = await generateAuthenticationOptions({
       rpID: rpId,
-      allowCredentials,
       userVerification: "required",
       timeout: 60000,
     });
 
-    const { data: authUserData } = await admin.auth.admin.getUserById(salon.user_id);
-    const authEmail = authUserData?.user?.email || email;
-
-    const { data: challengeRow, error: chalErr } = await admin.from("webauthn_challenges")
-      .insert({ email: authEmail, challenge: options.challenge, type: "authentication" })
+    // Store challenge without email (we'll get user from userHandle after auth)
+    const { data: challengeRow, error: chalErr } = await admin
+      .from("webauthn_challenges")
+      .insert({ email: "discoverable", challenge: options.challenge, type: "authentication" })
       .select("id").single();
+
     if (chalErr) throw new Error(chalErr.message);
 
     return new Response(
@@ -55,10 +37,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("login-start error:", err);
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error("login-start error:", msg);
     return new Response(
-      JSON.stringify({ error: String(err instanceof Error ? err.message : err) }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
