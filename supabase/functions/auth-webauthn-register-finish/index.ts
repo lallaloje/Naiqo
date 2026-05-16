@@ -59,7 +59,9 @@ serve(async (req) => {
 
     // v13 API: registrationInfo.credential
     const { credential } = verification.registrationInfo;
-    const credentialIdB64 = toBase64Url(credential.id);
+    // Use the ID exactly as the browser sent it (already base64url) to ensure
+    // it matches assertion.id during authentication
+    const credentialIdB64 = attestation.id;
     const publicKeyB64    = toBase64Url(credential.publicKey);
 
     const { error: insertErr } = await admin.from("webauthn_credentials").upsert({
