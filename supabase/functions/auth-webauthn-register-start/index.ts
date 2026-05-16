@@ -63,10 +63,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("register-start error:", err);
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error("register-start error:", msg);
     return new Response(
-      JSON.stringify({ error: String(err instanceof Error ? err.message : err) }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

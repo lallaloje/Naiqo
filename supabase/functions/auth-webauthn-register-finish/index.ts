@@ -19,7 +19,10 @@ serve(async (req) => {
     const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey     = Deno.env.get("SUPABASE_ANON_KEY")!;
     const rpId        = Deno.env.get("WEBAUTHN_RP_ID") || "naiqo.es";
-    const origin      = Deno.env.get("WEBAUTHN_ORIGIN") || "https://naiqo.es";
+    const originEnv   = Deno.env.get("WEBAUTHN_ORIGIN") || "https://naiqo.es";
+    // Accept both www and non-www, plus any Vercel preview URLs
+    const reqOrigin   = req.headers.get("origin") || originEnv;
+    const origin      = [originEnv, "https://www.naiqo.es", reqOrigin].filter(Boolean);
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No autorizado");
@@ -75,10 +78,12 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("register-finish error:", err);
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error("register-finish error:", msg);
+    // Return 200 so the client can read the actual error message
     return new Response(
-      JSON.stringify({ error: String(err instanceof Error ? err.message : err) }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
