@@ -1,15 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ShieldCheck } from "lucide-react";
 import naiqoLogo from "@/assets/naiqo-logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    supabase.from('profiles').select('is_admin').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setIsAdmin(data?.is_admin === true));
+  }, [user]);
 
   const handleLogin = () => {
     navigate('/login');
@@ -93,6 +101,12 @@ export const Header = () => {
                 <Button variant="ghost" size="sm" onClick={() => navigate('/account')} className="text-muted-foreground hover:text-primary">
                   Mi Cuenta
                 </Button>
+                {isAdmin && (
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-1">
+                    <ShieldCheck className="w-4 h-4" />
+                    Admin
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-primary">
                   Cerrar Sesión
                 </Button>
