@@ -82,6 +82,12 @@ interface Service {
   description: string | null;
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
 interface BlockedSlot {
   id: string;
   salon_id: string;
@@ -238,6 +244,7 @@ const SmartAppointments = () => {
   const [weekBlockedSlots, setWeekBlockedSlots] = useState<Record<string, BlockedSlot[]>>({});
   const [clientHistory,    setClientHistory]    = useState<any[]>([]);
   const [historyLoading,   setHistoryLoading]   = useState(false);
+  const [employees,        setEmployees]        = useState<Employee[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const { user }  = useAuth();
@@ -245,7 +252,7 @@ const SmartAppointments = () => {
 
   const [form, setForm] = useState({
     client_name: '', client_email: '', client_phone: '',
-    service_id: '', appointment_time: '', notes: '',
+    service_id: '', appointment_time: '', notes: '', employee_id: '',
   });
   const [svcForm, setSvcForm] = useState({
     name: '', duration_minutes: 60, price: '', description: '', category: '',
@@ -262,6 +269,7 @@ const SmartAppointments = () => {
       loadDayAppointments(); loadWeekAppointments();
       loadServices(); loadPendingAppointments();
       loadBlockedSlots(); loadWeekBlockedSlots();
+      loadEmployees();
     }
   }, [salonId, selectedDate]);
 
@@ -402,6 +410,12 @@ const SmartAppointments = () => {
     setServices(data || []);
   };
 
+  const loadEmployees = async () => {
+    const { data } = await supabase.from('employees').select('id, name, active')
+      .eq('user_id', user!.id).eq('active', true).order('name');
+    setEmployees(data || []);
+  };
+
   // ─── Appointment CRUD ───────────────────────────────────────────
   const createAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,9 +434,10 @@ const SmartAppointments = () => {
         client_name: form.client_name, client_email: form.client_email || null,
         client_phone: form.client_phone || null, start_time: start.toISOString(),
         end_time: end.toISOString(), status: 'scheduled', notes: form.notes || null,
+        employee_id: form.employee_id || null,
       } as any);
       if (error) throw error;
-      setForm({ client_name:'', client_email:'', client_phone:'', service_id:'', appointment_time:'', notes:'' });
+      setForm({ client_name:'', client_email:'', client_phone:'', service_id:'', appointment_time:'', notes:'', employee_id:'' });
       setShowForm(false);
       loadDayAppointments(); loadWeekAppointments();
       toast({ title: '✅ Cita creada', description: `${form.client_name} — ${form.appointment_time}` });
@@ -1275,6 +1290,20 @@ const SmartAppointments = () => {
                               </Select>
                             )}
                           </div>
+                          {employees.length > 0 && (
+                            <div>
+                              <Label className="text-xs">Técnica</Label>
+                              <Select value={form.employee_id || 'none'} onValueChange={v => setForm({...form, employee_id: v === 'none' ? '' : v})}>
+                                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sin asignar</SelectItem>
+                                  {employees.map(e => (
+                                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <div>
                             <Label className="text-xs">Notas</Label>
                             <Textarea rows={2} placeholder="Notas opcionales..."
@@ -1290,6 +1319,7 @@ const SmartAppointments = () => {
                       {selectedApt && !showForm && (() => {
                         const apt = selectedApt;
                         const svc = services.find(s => s.id === apt.service_id);
+                        const emp = employees.find(e => e.id === (apt as any).employee_id);
                         const start = new Date(apt.start_time);
                         const end   = new Date(apt.end_time);
                         const dur   = Math.round((end.getTime()-start.getTime())/60000);
@@ -1314,6 +1344,12 @@ const SmartAppointments = () => {
                                 <p className="flex items-center gap-2 text-sm">
                                   <Scissors className="w-4 h-4 shrink-0" />
                                   {svc.name}{svc.price ? ` — €${svc.price}` : ''}
+                                </p>
+                              )}
+                              {emp && (
+                                <p className="flex items-center gap-2 text-sm">
+                                  <span className="text-base">💅</span>
+                                  {emp.name}
                                 </p>
                               )}
                               {apt.client_phone && (
