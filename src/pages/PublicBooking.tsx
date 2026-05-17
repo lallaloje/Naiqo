@@ -172,6 +172,22 @@ const PublicBooking = () => {
         notes:        form.notes || null,
       } as any);
       if (error) throw error;
+
+      // Send confirmation email (non-blocking — don't fail booking if email fails)
+      if (form.client_email) {
+        supabase.functions.invoke('send-booking-confirmation', {
+          body: {
+            clientName:      form.client_name,
+            clientEmail:     form.client_email,
+            salonName:       salon.salon_name || salonDisplayName,
+            salonPhone:      salon.phone || null,
+            serviceName:     selectedService.name,
+            startTime:       start.toISOString(),
+            durationMinutes: selectedService.duration_minutes,
+          },
+        }).catch(console.error);
+      }
+
       setDone(true);
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'No se pudo crear la cita.', variant: 'destructive' });

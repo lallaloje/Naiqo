@@ -16,7 +16,7 @@ import { startRegistration } from '@simplewebauthn/browser';
 import {
   Save, LogOut, CreditCard, Calendar, RefreshCw, ExternalLink,
   CheckCircle, Loader2, FileText, Download, BarChart3, AlertTriangle,
-  Fingerprint, Hash, Trash2
+  Fingerprint, Hash, Trash2, Link, Copy, Instagram
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Header } from '@/components/Header';
@@ -47,6 +47,7 @@ interface SalonData {
   stripe_customer_id: string | null;
   trial_ends_at: string;
   created_at: string;
+  booking_slug: string | null;
 }
 
 interface SubscriptionInfo {
@@ -102,6 +103,11 @@ const Account = () => {
   const [registeringBio, setRegisteringBio] = useState(false);
   const [deletingBio, setDeletingBio]     = useState(false);
 
+  // Booking slug state
+  const [slugInput, setSlugInput]         = useState('');
+  const [savingSlug, setSavingSlug]       = useState(false);
+  const [slugError, setSlugError]         = useState('');
+
   const [formData, setFormData] = useState({
     salon_name: '',
     contact_name: '',
@@ -148,6 +154,7 @@ const Account = () => {
         contact_name: data.contact_name,
         phone: data.phone || '',
       });
+      setSlugInput(data.booking_slug || '');
     }
     setLoading(false);
   };
@@ -253,6 +260,43 @@ const Account = () => {
   const handleLogout = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  const handleSaveSlug = async () => {
+    if (!user) return;
+    const slug = slugInput.trim().toLowerCase();
+    if (slug && (slug.length < 3 || !/^[a-z0-9-]+$/.test(slug))) {
+      setSlugError('Usa solo letras minúsculas, números y guiones (mínimo 3 caracteres).');
+      return;
+    }
+    setSlugError('');
+    setSavingSlug(true);
+    const { error } = await supabase
+      .from('salons')
+      .update({ booking_slug: slug || null })
+      .eq('user_id', user.id);
+    if (error) {
+      if (error.code === '23505') {
+        setSlugError('Este enlace ya está en uso, elige otro.');
+      } else {
+        toast({ title: 'Error', description: 'No se pudo guardar el enlace.', variant: 'destructive' });
+      }
+    } else {
+      toast({ title: 'Enlace guardado', description: slug ? `naiqo.es/reservar/${slug}` : 'Enlace personalizado eliminado.' });
+      fetchSalonData();
+    }
+    setSavingSlug(false);
+  };
+
+  const bookingUrl = salonData
+    ? `https://naiqo.es/reservar/${salonData.booking_slug || salonData.id}`
+    : '';
+
+  const handleCopyBookingUrl = () => {
+    if (!bookingUrl) return;
+    navigator.clipboard.writeText(bookingUrl).then(() => {
+      toast({ title: 'Enlace copiado', description: bookingUrl });
+    });
   };
 
   // ── Quick access helpers ──────────────────────────────────────────────────
@@ -437,6 +481,55 @@ const Account = () => {
             <Save className="mr-2 h-4 w-4" />
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </TouchButton>
+        </CardContent>
+      </Card>
+
+      {/* ── Booking Link Card ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Link className="h-4 w-4" />
+            Tu enlace de reservas
+          </CardTitle>
+          <CardDescription className="text-xs">Comparte este enlace para que tus clientes reserven online</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {salonData && (
+            <div className="bg-muted/50 rounded-xl p-3 flex items-center justify-between gap-2">
+              <span className="text-sm font-mono text-primary truncate">{bookingUrl}</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleCopyBookingUrl}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="booking-slug" className="text-sm">Enlace personalizado (opcional)</Label>
+            <div className="flex gap-2">
+              <div className="flex items-center flex-1 border rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-ring h-12">
+                <span className="px-3 text-muted-foreground text-sm bg-muted h-full flex items-center border-r whitespace-nowrap">naiqo.es/reservar/</span>
+                <Input
+                  id="booking-slug"
+                  value={slugInput}
+                  onChange={e => { setSlugInput(e.target.value.toLowerCase()); setSlugError(''); }}
+                  placeholder="mi-salon"
+                  className="border-0 focus-visible:ring-0 h-12 rounded-none"
+                />
+              </div>
+              <TouchButton onClick={handleSaveSlug} disabled={savingSlug}>
+                {savingSlug ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              </TouchButton>
+            </div>
+            {slugError && <p className="text-xs text-destructive">{slugError}</p>}
+            <p className="text-xs text-muted-foreground">Solo letras minúsculas, números y guiones. Mínimo 3 caracteres.</p>
+          </div>
+
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800">
+            <Instagram className="h-4 w-4 text-pink-500 shrink-0" />
+            <p className="text-xs text-pink-700 dark:text-pink-300">
+              Pega este enlace en tu bio de Instagram para que tus clientes reserven directamente.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

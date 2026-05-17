@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, Scissors, MapPin, ArrowLeft, Search } from 'lucide-react';
+import { Calendar, Clock, Scissors, ArrowLeft, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 interface Cita {
   id: string;
@@ -15,7 +16,7 @@ interface Cita {
   start_time: string;
   end_time: string;
   status: string;
-  salons: { salon_name: string } | null;
+  salons: { salon_name: string; id?: string } | null;
   services: { name: string; price: number | null } | null;
 }
 
@@ -39,7 +40,9 @@ const ClienteMisCitas = () => {
   const [inputEmail, setInputEmail] = useState('');
   const [citas, setCitas] = useState<Cita[]>([]);
   const [loading, setLoading] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const buscarCitas = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,12 +50,30 @@ const ClienteMisCitas = () => {
     setLoading(true);
     const { data } = await supabase
       .from('appointments')
-      .select('*, salons(salon_name), services(name, price)')
+      .select('*, salons(salon_name, id), services(name, price)')
       .eq('client_email', inputEmail.trim().toLowerCase())
       .order('start_time', { ascending: false });
     setCitas((data as any) || []);
     setEmail(inputEmail.trim().toLowerCase());
     setLoading(false);
+  };
+
+  const handleCancel = async (citaId: string) => {
+    if (!window.confirm('¿Seguro que quieres cancelar esta cita?')) return;
+    setCancelling(citaId);
+    try {
+      const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
+        p_appointment_id: citaId,
+        p_client_email: email,
+      });
+      if (error) throw error;
+      if (!data) throw new Error('No se pudo cancelar. La cita puede que ya haya pasado o esté completada.');
+      setCitas(prev => prev.map(c => c.id === citaId ? { ...c, status: 'cancelled' } : c));
+      toast({ title: '✅ Cita cancelada', description: 'Tu cita ha sido cancelada correctamente.' });
+    } catch (err: any) {
+      toast({ title: 'Error al cancelar', description: err.message || 'Inténtalo de nuevo.', variant: 'destructive' });
+    }
+    setCancelling(null);
   };
 
   const proximas = citas.filter(c =>
@@ -64,8 +85,6 @@ const ClienteMisCitas = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 to-white">
-
-      {/* Header */}
       <div className="bg-gradient-to-r from-pink-500 to-purple-600 px-4 pt-12 pb-6 text-white">
         <div className="flex items-center gap-3 mb-1">
           <button onClick={() => navigate('/cliente')} className="text-white/80 hover:text-white">
@@ -73,12 +92,10 @@ const ClienteMisCitas = () => {
           </button>
           <h1 className="text-xl font-bold">Mis citas</h1>
         </div>
-        <p className="text-pink-100 text-sm ml-8">Consulta tus reservas</p>
+        <p className="text-pink-100 text-sm ml-8">Consulta y gestiona tus reservas</p>
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-5">
-
-        {/* Email form */}
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4">
             <form onSubmit={buscarCitas} className="space-y-3">
@@ -104,7 +121,6 @@ const ClienteMisCitas = () => {
           </CardContent>
         </Card>
 
-        {/* Results */}
         {email && !loading && (
           <>
             {citas.length === 0 ? (
@@ -115,19 +131,24 @@ const ClienteMisCitas = () => {
               </div>
             ) : (
               <>
-                {/* Upcoming */}
                 {proximas.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                       Próximas · {proximas.length}
                     </p>
                     <div className="space-y-3">
-                      {proximas.map(cita => <CitaCard key={cita.id} cita={cita} onReservar={() => navigate(`/reservar/${(cita.salons as any)?.id || ''}`)} />)}
+                      {proximas.map(cita => (
+                        <CitaCard
+                          key={cita.id}
+                          cita={cita}
+                          onReservar={() => navigate(`/reservar/${(cita.salons as any)?.id || ''}`)}
+                          onCancel={() => handleCancel(cita.id)}
+                          cancelling={cancelling === cita.id}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
-
-                {/* Past */}
                 {pasadas.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">
@@ -145,13 +166,10 @@ const ClienteMisCitas = () => {
 
         {loading && (
           <div className="space-y-3">
-            {[1, 2].map(i => (
-              <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-            ))}
+            {[1, 2].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
           </div>
         )}
 
-        {/* CTA to find salons */}
         <Card className="border-dashed border-pink-200 bg-pink-50/50 border-0 shadow-none">
           <CardContent className="pt-4 pb-4 text-center">
             <p className="text-sm text-gray-600 mb-3">¿Quieres pedir una nueva cita?</p>
@@ -166,12 +184,8 @@ const ClienteMisCitas = () => {
         </Card>
       </div>
 
-      {/* Bottom nav */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around max-w-lg mx-auto">
-        <button
-          className="flex flex-col items-center gap-1 text-gray-400"
-          onClick={() => navigate('/cliente')}
-        >
+        <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate('/cliente')}>
           <Search className="w-5 h-5" />
           <span className="text-xs">Explorar</span>
         </button>
@@ -186,18 +200,29 @@ const ClienteMisCitas = () => {
   );
 };
 
-const CitaCard = ({ cita, onReservar }: { cita: Cita; onReservar?: () => void }) => {
+const CitaCard = ({
+  cita,
+  onReservar,
+  onCancel,
+  cancelling,
+}: {
+  cita: Cita;
+  onReservar?: () => void;
+  onCancel?: () => void;
+  cancelling?: boolean;
+}) => {
   const dt = new Date(cita.start_time);
+  const isFuture = new Date(cita.start_time) > new Date();
+  const canCancel = isFuture && cita.status !== 'cancelled' && cita.status !== 'completed';
+
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="space-y-1 flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <Badge className={`text-xs border ${STATUS_COLOR[cita.status] || STATUS_COLOR.scheduled}`}>
-                {STATUS_LABEL[cita.status] || cita.status}
-              </Badge>
-            </div>
+            <Badge className={`text-xs border ${STATUS_COLOR[cita.status] || STATUS_COLOR.scheduled}`}>
+              {STATUS_LABEL[cita.status] || cita.status}
+            </Badge>
             <p className="font-semibold text-gray-900">
               {(cita.salons as any)?.salon_name || 'Salón'}
             </p>
@@ -217,16 +242,24 @@ const CitaCard = ({ cita, onReservar }: { cita: Cita; onReservar?: () => void })
               {dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          {onReservar && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 text-xs h-8 border-pink-200 text-pink-600"
-              onClick={onReservar}
-            >
-              Repetir
-            </Button>
-          )}
+          <div className="flex flex-col gap-2 shrink-0">
+            {onReservar && !canCancel && (
+              <Button size="sm" variant="outline" className="text-xs h-8 border-pink-200 text-pink-600" onClick={onReservar}>
+                Repetir
+              </Button>
+            )}
+            {canCancel && onCancel && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 border-red-200 text-red-500 hover:bg-red-50"
+                onClick={onCancel}
+                disabled={cancelling}
+              >
+                {cancelling ? '…' : <><X className="w-3 h-3 mr-1" />Cancelar</>}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
