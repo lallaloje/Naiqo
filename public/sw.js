@@ -1,4 +1,4 @@
-const CACHE_NAME = 'naiqo-pro-v1';
+const CACHE_NAME = 'naiqo-pro-v2';
 const STATIC_ASSETS = ['/', '/dashboard', '/naiqo-logo.png'];
 
 self.addEventListener('install', (event) => {
@@ -30,5 +30,42 @@ self.addEventListener('fetch', (event) => {
         return res;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// ── Push notifications ────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let data = {};
+  try { data = event.data.json(); } catch { data = { title: 'NAIQO', body: event.data.text() }; }
+
+  const { title = 'NAIQO', body = '', url = '/gestion-citas' } = data;
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon:  '/naiqo-logo.png',
+      badge: '/naiqo-logo.png',
+      data:  { url },
+      vibrate: [200, 100, 200],
+      requireInteraction: false,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/gestion-citas';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
   );
 });

@@ -173,7 +173,7 @@ const PublicBooking = () => {
       } as any);
       if (error) throw error;
 
-      // Send confirmation email (non-blocking — don't fail booking if email fails)
+      // Send confirmation email (non-blocking)
       if (form.client_email) {
         supabase.functions.invoke('send-booking-confirmation', {
           body: {
@@ -187,6 +187,19 @@ const PublicBooking = () => {
           },
         }).catch(console.error);
       }
+
+      // Send push notification to salon owner (non-blocking)
+      const dt   = new Date(start);
+      const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      supabase.functions.invoke('send-push', {
+        body: {
+          user_id: salon.user_id,
+          title:   '💅 Nueva reserva online',
+          body:    `${form.client_name} · ${selectedService.name} · ${date} a las ${time}`,
+          url:     '/gestion-citas',
+        },
+      }).catch(console.error);
 
       setDone(true);
     } catch (err: any) {
