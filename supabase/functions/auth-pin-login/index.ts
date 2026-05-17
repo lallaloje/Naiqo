@@ -72,10 +72,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("auth-pin-login error:", err);
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error("auth-pin-login error:", msg);
     return new Response(
-      JSON.stringify({ error: String(err instanceof Error ? err.message : err) }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

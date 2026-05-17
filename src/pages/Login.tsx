@@ -69,10 +69,11 @@ function PinNumpad({
 
 // ── Main ────────────────────────────────────────────────────────────────────
 const Login = () => {
-  const [email, setEmail]           = useState('');
+  const SAVED_EMAIL_KEY = 'naiqo_last_email';
+  const [email, setEmail]           = useState(() => localStorage.getItem(SAVED_EMAIL_KEY) || '');
   const [password, setPassword]     = useState('');
   const [loading, setLoading]       = useState(false);
-  const [mode, setMode]             = useState<'password' | 'pin' | 'biometric'>('password');
+  const [mode, setMode]             = useState<'password' | 'pin'>('password');
   const [pin, setPin]               = useState('');
   const [biometricLoading, setBiometricLoading] = useState(false);
 
@@ -84,6 +85,11 @@ const Login = () => {
   useEffect(() => {
     if (user) navigate('/gestion-citas');
   }, [user, navigate]);
+
+  const saveEmail = (e: string) => {
+    setEmail(e);
+    if (e) localStorage.setItem(SAVED_EMAIL_KEY, e);
+  };
 
   // ── Password login ────────────────────────────────────────────────────────
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -199,7 +205,7 @@ const Login = () => {
               type="email"
               placeholder="tu@email.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => saveEmail(e.target.value)}
               className="border-input focus:border-primary"
             />
           </div>
