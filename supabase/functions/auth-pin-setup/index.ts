@@ -42,10 +42,14 @@ serve(async (req) => {
     const hash = await hashPin(pin, salt);
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // UPSERT: creates profile row if it doesn't exist, updates PIN if it does
     const { error } = await admin
       .from("profiles")
-      .update({ login_pin_hash: hash, login_pin_salt: salt })
-      .eq("user_id", user.id);
+      .upsert(
+        { user_id: user.id, login_pin_hash: hash, login_pin_salt: salt },
+        { onConflict: "user_id" }
+      );
 
     if (error) throw new Error(error.message);
 
@@ -53,9 +57,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("auth-pin-setup error:", err);
-    return new Response(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }), {
-      status: 400,
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error("auth-pin-setup error:", msg);
+    // Return 200 so the client can read the actual error message
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
