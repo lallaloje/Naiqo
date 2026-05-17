@@ -414,7 +414,7 @@ const Account = () => {
 
   const isSubscribed = subscriptionInfo?.subscribed || salonData?.subscription_status === 'active';
 
-  const AccountContent = () => (
+  const accountContent = (
     <div className="space-y-4 p-4">
       {searchParams.get('success') === 'true' && (
         <Card className="border-green-500 bg-green-50 dark:bg-green-950/30">
@@ -841,7 +841,7 @@ const Account = () => {
   if (isMobile) {
     return (
       <MobileLayout title="Mi Cuenta" showBack={true}>
-        <AccountContent />
+        {accountContent}
       </MobileLayout>
     );
   }
@@ -852,7 +852,7 @@ const Account = () => {
       <Header />
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <h1 className="text-2xl font-bold text-foreground mb-6">Mi Cuenta</h1>
-        <AccountContent />
+        {accountContent}
       </main>
       <Footer />
     </div>
