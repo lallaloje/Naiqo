@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Camera, MessageCircle, Calendar, MoreHorizontal, Users, Shield } from 'lucide-react';
+import { Home, MessageCircle, Calendar, MoreHorizontal, Users, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import {
@@ -14,20 +14,21 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
-  { path: '/dashboard', icon: Home, label: 'Inicio' },
-  { path: '/gestion-citas', icon: Calendar, label: 'Citas' },
-  { path: '/equipo', icon: Users, label: 'Equipo' },
-  { path: '/asistente-chat', icon: MessageCircle, label: 'Chat' },
+  { path: '/dashboard',     icon: Home,           label: 'Inicio'    },
+  { path: '/gestion-citas', icon: Calendar,        label: 'Citas'     },
+  { path: '/clientes',      icon: Users,           label: 'Clientes'  },
+  { path: '/asistente-chat',icon: MessageCircle,   label: 'Chat'      },
 ];
 
 const moreItems = [
-  { path: '/analisis-ungueal', label: 'Análisis' },
+  { path: '/equipo',                    label: 'Equipo'       },
+  { path: '/analisis-ungueal',          label: 'Análisis'     },
   { path: '/recomendador-tratamientos', label: 'Tratamientos' },
-  { path: '/prediccion-demanda', label: 'Predicción' },
-  { path: '/nail-conditions', label: 'Condiciones' },
-  { path: '/gestion-privacidad', label: 'Privacidad' },
-  { path: '/account', label: 'Mi Cuenta' },
-  { path: '/planes', label: 'Planes' },
+  { path: '/prediccion-demanda',        label: 'Predicción'   },
+  { path: '/nail-conditions',           label: 'Condiciones'  },
+  { path: '/gestion-privacidad',        label: 'Privacidad'   },
+  { path: '/account',                   label: 'Mi Cuenta'    },
+  { path: '/planes',                    label: 'Planes'       },
 ];
 
 export function MobileNavigation() {

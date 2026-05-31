@@ -38,6 +38,7 @@ import Checkout from "./pages/Checkout";
 import Account from "./pages/Account";
 import EmployeesPage from "./pages/EmployeesPage";
 import AdminPage from "./pages/AdminPage";
+import Clientes from "./pages/Clientes";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,9 @@ const App = () => (
             } />
             <Route path="/equipo" element={
               <ProtectedRoute><EmployeesPage /></ProtectedRoute>
+            } />
+            <Route path="/clientes" element={
+              <ProtectedRoute><Clientes /></ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute><AdminPage /></ProtectedRoute>
