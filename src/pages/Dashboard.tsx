@@ -13,7 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Calendar, TrendingUp, ArrowRight, Clock,
-  Users, Euro, CheckCircle2, XCircle, Scissors
+  Users, Euro, CheckCircle2, XCircle, Scissors,
+  BarChart3, Sparkles, Star, BookOpen
 } from 'lucide-react';
 import { format, startOfMonth, startOfDay, endOfDay, eachDayOfInterval, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -365,6 +366,35 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+    {/* Herramientas IA — solo escritorio */}
+    {!isMobile && (
+      <div className="mt-6">
+        <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+          <Sparkles className="w-4 h-4" /> Herramientas IA
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Predicción de demanda', desc: 'Anticipa tus épocas más ocupadas', icon: BarChart3, path: '/prediccion-demanda', color: 'text-purple-500', bg: 'bg-purple-50' },
+            { label: 'Análisis ungueal', desc: 'Diagnóstico asistido por IA', icon: Sparkles, path: '/analisis-ungueal', color: 'text-pink-500', bg: 'bg-pink-50' },
+            { label: 'Recomendaciones', desc: 'Tratamientos personalizados', icon: Star, path: '/recomendador-tratamientos', color: 'text-amber-500', bg: 'bg-amber-50' },
+            { label: 'Base de conocimientos', desc: 'Afecciones ungueales', icon: BookOpen, path: '/nail-conditions', color: 'text-blue-500', bg: 'bg-blue-50' },
+          ].map(item => (
+            <Card key={item.path} className="cursor-pointer hover:shadow-md transition-all group"
+              onClick={() => navigate(item.path)}>
+              <CardContent className="p-4 flex flex-col gap-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.bg}`}>
+                  <item.icon className={`w-5 h-5 ${item.color}`} />
+                </div>
+                <p className="font-semibold text-sm leading-tight">{item.label}</p>
+                <p className="text-xs text-muted-foreground leading-tight">{item.desc}</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors mt-auto" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )}
 
     </div>
   );

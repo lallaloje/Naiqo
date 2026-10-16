@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, ShieldCheck, ChevronDown, Sparkles } from "lucide-react";
+import { Menu, X, ShieldCheck } from "lucide-react";
 import naiqoLogo from "@/assets/naiqo-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,18 +12,6 @@ export const Header = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [aiMenuOpen, setAiMenuOpen] = useState(false);
-  const aiMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target as Node)) {
-        setAiMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }
@@ -125,28 +113,6 @@ export const Header = () => {
                 <Button variant="ghost" size="sm" onClick={() => navigate('/fichaje')} className="text-muted-foreground hover:text-primary">
                   Fichaje
                 </Button>
-                {/* IA dropdown */}
-                <div className="relative" ref={aiMenuRef}>
-                  <Button variant="ghost" size="sm" onClick={() => setAiMenuOpen(o => !o)}
-                    className="text-muted-foreground hover:text-primary gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> IA <ChevronDown className="w-3 h-3" />
-                  </Button>
-                  {aiMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-border rounded-lg shadow-lg z-50 py-1">
-                      {[
-                        { label: '🔮 Predicción de demanda', path: '/prediccion-demanda' },
-                        { label: '💅 Análisis ungueal', path: '/analisis-ungueal' },
-                        { label: '⭐ Recomendaciones', path: '/recomendador-tratamientos' },
-                        { label: '📚 Base de conocimientos', path: '/nail-conditions' },
-                      ].map(item => (
-                        <button key={item.path} onClick={() => { navigate(item.path); setAiMenuOpen(false); }}
-                          className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors">
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/account')} className="text-muted-foreground hover:text-primary">
                   Mi Cuenta
                 </Button>
