@@ -371,7 +371,7 @@ export default function Dashboard() {
     {!isMobile && (
       <div className="mt-6">
         <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4" /> Herramientas IA
+          <Sparkles className="w-4 h-4" /> Herramientas
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
