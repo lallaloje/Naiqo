@@ -137,6 +137,7 @@ export const Header = () => {
                         { label: '🔮 Predicción de demanda', path: '/prediccion-demanda' },
                         { label: '💅 Análisis ungueal', path: '/analisis-ungueal' },
                         { label: '⭐ Recomendaciones', path: '/recomendador-tratamientos' },
+                        { label: '📚 Base de conocimientos', path: '/nail-conditions' },
                       ].map(item => (
                         <button key={item.path} onClick={() => { navigate(item.path); setAiMenuOpen(false); }}
                           className="w-full text-left px-4 py-2 text-sm text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors">

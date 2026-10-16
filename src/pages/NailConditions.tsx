@@ -101,15 +101,21 @@ const NailConditions = () => {
             />
           </div>
 
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
-            <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full">
-              {categories.map(cat => (
-                <TabsTrigger key={cat.value} value={cat.value}>
-                  {cat.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap gap-2 mb-8">
+            {categories.map(cat => (
+              <button
+                key={cat.value}
+                onClick={() => setSelectedCategory(cat.value)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors border
+                  ${selectedCategory === cat.value
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary hover:text-primary'
+                  }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
