@@ -55,13 +55,45 @@ export type Database = {
           },
         ]
       }
+      blocked_slots: {
+        Row: {
+          id: string
+          salon_id: string | null
+          user_id: string
+          title: string
+          start_time: string
+          end_time: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          salon_id?: string | null
+          user_id: string
+          title?: string
+          start_time: string
+          end_time: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          salon_id?: string | null
+          user_id?: string
+          title?: string
+          start_time?: string
+          end_time?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
+          cancellation_charged: boolean | null
           center_id: string | null
           client_email: string | null
           client_name: string
           client_phone: string | null
           created_at: string
+          employee_id: string | null
           end_time: string | null
           id: string
           notes: string | null
@@ -72,15 +104,19 @@ export type Database = {
           staff_id: string | null
           start_time: string
           status: string
+          stripe_customer_id: string | null
+          stripe_payment_method_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          cancellation_charged?: boolean | null
           center_id?: string | null
           client_email?: string | null
           client_name: string
           client_phone?: string | null
           created_at?: string
+          employee_id?: string | null
           end_time?: string | null
           id?: string
           notes?: string | null
@@ -91,15 +127,19 @@ export type Database = {
           staff_id?: string | null
           start_time: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_payment_method_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          cancellation_charged?: boolean | null
           center_id?: string | null
           client_email?: string | null
           client_name?: string
           client_phone?: string | null
           created_at?: string
+          employee_id?: string | null
           end_time?: string | null
           id?: string
           notes?: string | null
@@ -110,6 +150,8 @@ export type Database = {
           staff_id?: string | null
           start_time?: string
           status?: string
+          stripe_customer_id?: string | null
+          stripe_payment_method_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -122,6 +164,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      employees: {
+        Row: {
+          active: boolean
+          breaks: Json
+          color: string
+          created_at: string
+          day_schedules: Json
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          role: string
+          salon_id: string | null
+          updated_at: string
+          user_id: string
+          work_end_hour: number
+          work_start_hour: number
+          working_days: number[]
+        }
+        Insert: {
+          active?: boolean
+          breaks?: Json
+          color?: string
+          created_at?: string
+          day_schedules?: Json
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          role?: string
+          salon_id?: string | null
+          updated_at?: string
+          user_id: string
+          work_end_hour?: number
+          work_start_hour?: number
+          working_days?: number[]
+        }
+        Update: {
+          active?: boolean
+          breaks?: Json
+          color?: string
+          created_at?: string
+          day_schedules?: Json
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          role?: string
+          salon_id?: string | null
+          updated_at?: string
+          user_id?: string
+          work_end_hour?: number
+          work_start_hour?: number
+          working_days?: number[]
+        }
+        Relationships: []
       }
       center_owners: {
         Row: {
@@ -526,8 +628,11 @@ export type Database = {
           salon_name: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscription_billing: string | null
           subscription_plan: string | null
           subscription_status: string
+          work_end_hour: number
+          work_start_hour: number
           trial_ends_at: string
           updated_at: string
           user_id: string
@@ -547,6 +652,7 @@ export type Database = {
           salon_name?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_billing?: string | null
           subscription_plan?: string | null
           subscription_status?: string
           trial_ends_at?: string
@@ -568,6 +674,7 @@ export type Database = {
           salon_name?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_billing?: string | null
           subscription_plan?: string | null
           subscription_status?: string
           trial_ends_at?: string
@@ -581,6 +688,7 @@ export type Database = {
           active: boolean
           buffer_after: number
           buffer_before: number
+          category: string | null
           center_id: string | null
           salon_id: string | null
           created_at: string
@@ -589,11 +697,13 @@ export type Database = {
           id: string
           name: string
           price: number | null
+          user_id: string | null
         }
         Insert: {
           active?: boolean
           buffer_after?: number
           buffer_before?: number
+          category?: string | null
           center_id?: string | null
           salon_id?: string | null
           created_at?: string
@@ -602,11 +712,13 @@ export type Database = {
           id?: string
           name: string
           price?: number | null
+          user_id?: string | null
         }
         Update: {
           active?: boolean
           buffer_after?: number
           buffer_before?: number
+          category?: string | null
           center_id?: string | null
           salon_id?: string | null
           created_at?: string
@@ -615,6 +727,7 @@ export type Database = {
           id?: string
           name?: string
           price?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {

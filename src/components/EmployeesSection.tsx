@@ -17,6 +17,17 @@ import {
 import { logError } from '@/lib/logger';
 
 // ─── Types ────────────────────────────────────────────────────────
+interface Break {
+  start_hour: number;
+  end_hour: number;
+  label: string;
+}
+
+interface DaySchedule {
+  start: number;
+  end: number;
+}
+
 interface Employee {
   id: string;
   salon_id: string;
@@ -30,6 +41,8 @@ interface Employee {
   working_days: number[];
   work_start_hour: number;
   work_end_hour: number;
+  day_schedules: Record<string, DaySchedule>;
+  breaks: Break[];
   notes: string | null;
   created_at: string;
 }
@@ -64,10 +77,16 @@ const DAY_LABELS  = ['L','M','X','J','V','S','D'];
 const DAY_NAMES   = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const HOURS       = Array.from({ length: 17 }, (_, i) => i + 6); // 6-22
 
+const DEFAULT_START = 10;
+const DEFAULT_END   = 21;
+
 const EMPTY_FORM = {
   name: '', email: '', phone: '', role: 'nail_tech',
   color: '#e879a0', working_days: [1,2,3,4,5] as number[],
-  work_start_hour: 10, work_end_hour: 21, notes: '',
+  work_start_hour: DEFAULT_START, work_end_hour: DEFAULT_END,
+  day_schedules: { 1: { start: DEFAULT_START, end: DEFAULT_END }, 2: { start: DEFAULT_START, end: DEFAULT_END }, 3: { start: DEFAULT_START, end: DEFAULT_END }, 4: { start: DEFAULT_START, end: DEFAULT_END }, 5: { start: DEFAULT_START, end: DEFAULT_END } } as Record<string, DaySchedule>,
+  notes: '',
+  breaks: [] as Break[],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -190,11 +209,18 @@ const EmployeesSection: React.FC = () => {
   };
 
   const openEdit = (emp: Employee) => {
+    // Build day_schedules: use existing or fall back to global hours for each working day
+    const ds: Record<string, DaySchedule> = {};
+    (emp.working_days || [1,2,3,4,5]).forEach(d => {
+      ds[String(d)] = (emp.day_schedules || {})[String(d)] || { start: emp.work_start_hour, end: emp.work_end_hour };
+    });
     setForm({
       name: emp.name, email: emp.email || '', phone: emp.phone || '',
       role: emp.role, color: emp.color, working_days: emp.working_days || [1,2,3,4,5],
       work_start_hour: emp.work_start_hour, work_end_hour: emp.work_end_hour,
+      day_schedules: ds,
       notes: emp.notes || '',
+      breaks: emp.breaks || [],
     });
     setEditingEmp(emp);
     setShowForm(true);
@@ -206,12 +232,17 @@ const EmployeesSection: React.FC = () => {
     if (!salonId) return;
     setIsLoading(true);
     try {
+      // Derive global work hours from the first working day for backward compat
+      const firstDay = form.working_days[0];
+      const firstSched = firstDay ? (form.day_schedules[String(firstDay)] || { start: DEFAULT_START, end: DEFAULT_END }) : { start: DEFAULT_START, end: DEFAULT_END };
       const payload = {
         salon_id: salonId, user_id: user!.id,
         name: form.name, email: form.email || null, phone: form.phone || null,
         role: form.role, color: form.color,
         working_days: form.working_days,
-        work_start_hour: form.work_start_hour, work_end_hour: form.work_end_hour,
+        work_start_hour: firstSched.start, work_end_hour: firstSched.end,
+        day_schedules: form.day_schedules,
+        breaks: form.breaks,
         notes: form.notes || null, active: true,
       };
       if (editingEmp) {
@@ -247,12 +278,17 @@ const EmployeesSection: React.FC = () => {
   };
 
   const toggleDay = (day: number) => {
-    setForm(f => ({
-      ...f,
-      working_days: f.working_days.includes(day)
-        ? f.working_days.filter(d => d !== day)
-        : [...f.working_days, day].sort(),
-    }));
+    setForm(f => {
+      const has = f.working_days.includes(day);
+      const newDays = has ? f.working_days.filter(d => d !== day) : [...f.working_days, day].sort();
+      const newDs = { ...f.day_schedules };
+      if (has) {
+        delete newDs[String(day)];
+      } else {
+        newDs[String(day)] = { start: DEFAULT_START, end: DEFAULT_END };
+      }
+      return { ...f, working_days: newDays, day_schedules: newDs };
+    });
   };
 
   // ── Derived stats for summary header ────────────────────────────
@@ -315,18 +351,31 @@ const EmployeesSection: React.FC = () => {
               <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" /> Horario de trabajo
               </p>
-              <div className="flex gap-1 flex-wrap mb-2">
-                {DAY_LABELS.map((d, i) => (
-                  <span key={i} className={`w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold
-                    ${(emp.working_days || []).includes(i+1) ? 'text-white' : 'bg-muted text-muted-foreground'}`}
-                    style={(emp.working_days || []).includes(i+1) ? { background: emp.color } : {}}>
-                    {d}
-                  </span>
-                ))}
+              <div className="space-y-1">
+                {(emp.working_days || []).map(day => {
+                  const ds = (emp.day_schedules || {})[String(day)];
+                  const start = ds ? ds.start : emp.work_start_hour;
+                  const end   = ds ? ds.end   : emp.work_end_hour;
+                  return (
+                    <div key={day} className="flex items-center gap-2 text-sm">
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold text-white shrink-0"
+                        style={{ background: emp.color }}>{DAY_LABELS[day - 1]}</span>
+                      <span className="text-muted-foreground">
+                        {String(start).padStart(2,'0')}:00 – {String(end).padStart(2,'0')}:00
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <p className="text-sm text-muted-foreground">
-                {String(emp.work_start_hour).padStart(2,'0')}:00 – {String(emp.work_end_hour).padStart(2,'0')}:00
-              </p>
+              {(emp.breaks || []).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {(emp.breaks || []).map((b, i) => (
+                    <span key={i} className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                      ☕ {b.label} {String(b.start_hour).padStart(2,'0')}:00–{String(b.end_hour).padStart(2,'0')}:00
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {emp.notes && (
@@ -580,26 +629,87 @@ const EmployeesSection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Working hours */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Per-day working hours */}
+              {form.working_days.length > 0 && (
                 <div>
-                  <Label className="text-xs">Entrada</Label>
-                  <Select value={String(form.work_start_hour)} onValueChange={v => setForm(f => ({...f, work_start_hour: Number(v)}))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs mb-2 block">Horario por día</Label>
+                  <div className="space-y-2">
+                    {form.working_days.map(day => {
+                      const sched = form.day_schedules[String(day)] || { start: DEFAULT_START, end: DEFAULT_END };
+                      return (
+                        <div key={day} className="flex items-center gap-2">
+                          <span className="text-xs font-medium w-20 shrink-0">{DAY_NAMES[day - 1]}</span>
+                          <Select value={String(sched.start)} onValueChange={v => setForm(f => ({
+                            ...f, day_schedules: { ...f.day_schedules, [String(day)]: { ...sched, start: Number(v) } }
+                          }))}>
+                            <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-xs text-muted-foreground">–</span>
+                          <Select value={String(sched.end)} onValueChange={v => setForm(f => ({
+                            ...f, day_schedules: { ...f.day_schedules, [String(day)]: { ...sched, end: Number(v) } }
+                          }))}>
+                            <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-xs">Salida</Label>
-                  <Select value={String(form.work_end_hour)} onValueChange={v => setForm(f => ({...f, work_end_hour: Number(v)}))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              )}
+
+              {/* Breaks */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label className="text-xs">Descansos</Label>
+                  <Button type="button" size="sm" variant="outline" className="h-6 text-xs px-2 gap-1"
+                    onClick={() => setForm(f => ({ ...f, breaks: [...f.breaks, { start_hour: 14, end_hour: 15, label: 'Comida' }] }))}>
+                    <Plus className="w-3 h-3" /> Añadir descanso
+                  </Button>
                 </div>
+                {form.breaks.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Sin descansos configurados</p>
+                )}
+                {form.breaks.map((brk, idx) => (
+                  <div key={idx} className="flex items-center gap-2 mb-2 bg-muted/40 rounded-lg p-2">
+                    <Input
+                      className="h-7 text-xs w-24"
+                      placeholder="Etiqueta"
+                      value={brk.label}
+                      onChange={e => setForm(f => {
+                        const b = [...f.breaks];
+                        b[idx] = { ...b[idx], label: e.target.value };
+                        return { ...f, breaks: b };
+                      })}
+                    />
+                    <Select value={String(brk.start_hour)} onValueChange={v => setForm(f => {
+                      const b = [...f.breaks]; b[idx] = { ...b[idx], start_hour: Number(v) }; return { ...f, breaks: b };
+                    })}>
+                      <SelectTrigger className="h-7 text-xs w-20"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Select value={String(brk.end_hour)} onValueChange={v => setForm(f => {
+                      const b = [...f.breaks]; b[idx] = { ...b[idx], end_hour: Number(v) }; return { ...f, breaks: b };
+                    })}>
+                      <SelectTrigger className="h-7 text-xs w-20"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {HOURS.map(h => <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive ml-auto"
+                      onClick={() => setForm(f => ({ ...f, breaks: f.breaks.filter((_, i) => i !== idx) }))}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
               </div>
 
               {/* Notes */}
@@ -699,20 +809,20 @@ const EmployeesSection: React.FC = () => {
                   </div>
 
                   {/* Working days */}
-                  <div className="flex gap-0.5 mt-2">
+                  <div className="flex gap-0.5 mt-2 flex-wrap">
                     {DAY_LABELS.map((d, i) => {
-                      const active = (emp.working_days || []).includes(i+1);
+                      const day = i + 1;
+                      const active = (emp.working_days || []).includes(day);
+                      const ds = active ? ((emp.day_schedules || {})[String(day)]) : null;
+                      const hours = ds ? `${String(ds.start).padStart(2,'0')}-${String(ds.end).padStart(2,'0')}h` : null;
                       return (
-                        <span key={i}
+                        <span key={i} title={hours || undefined}
                           className="w-5 h-5 flex items-center justify-center rounded text-[10px] font-semibold"
                           style={{ background: active ? emp.color : '#f3f4f6', color: active ? '#fff' : '#9ca3af' }}>
                           {d}
                         </span>
                       );
                     })}
-                    <span className="text-xs text-muted-foreground ml-1.5 flex items-center">
-                      {String(emp.work_start_hour).padStart(2,'0')}–{String(emp.work_end_hour).padStart(2,'0')}h
-                    </span>
                   </div>
                 </div>
               </div>

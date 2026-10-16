@@ -3,10 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, TrendingUp, Calendar, Package, AlertTriangle, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, Package, AlertTriangle, CheckCircle, Clock, DollarSign, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { logError } from '@/lib/logger';
+import { useNavigate } from 'react-router-dom';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
+import { MobileLayout } from '@/components/MobileLayout';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PredictionData {
   type: string;
@@ -85,8 +90,14 @@ const DemandPrediction = () => {
     }
   };
 
-  return (
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  const pageContent = (
     <div className="container mx-auto p-6 space-y-6">
+      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2 gap-1 mb-2">
+        <ChevronLeft className="w-4 h-4" /> Volver
+      </Button>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -324,6 +335,15 @@ const DemandPrediction = () => {
           </Card>
         </>
       )}
+    </div>
+  );
+
+  if (isMobile) return <MobileLayout title="Predicción de Demanda" showBack={true}>{pageContent}</MobileLayout>;
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1">{pageContent}</main>
+      <Footer />
     </div>
   );
 };

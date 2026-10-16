@@ -39,6 +39,8 @@ import Account from "./pages/Account";
 import EmployeesPage from "./pages/EmployeesPage";
 import AdminPage from "./pages/AdminPage";
 import Clientes from "./pages/Clientes";
+import ServiciosPage from "./pages/ServiciosPage";
+import FichajePage from "./pages/FichajePage";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +114,12 @@ const App = () => (
             } />
             <Route path="/clientes" element={
               <ProtectedRoute><Clientes /></ProtectedRoute>
+            } />
+            <Route path="/servicios" element={
+              <ProtectedRoute><ServiciosPage /></ProtectedRoute>
+            } />
+            <Route path="/fichaje" element={
+              <ProtectedRoute><FichajePage /></ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute><AdminPage /></ProtectedRoute>

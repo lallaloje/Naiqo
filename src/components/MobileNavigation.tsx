@@ -21,7 +21,9 @@ const navItems = [
 ];
 
 const moreItems = [
+  { path: '/servicios',                  label: 'Servicios'    },
   { path: '/equipo',                    label: 'Equipo'       },
+  { path: '/fichaje',                   label: 'Fichaje'      },
   { path: '/analisis-ungueal',          label: 'Análisis'     },
   { path: '/recomendador-tratamientos', label: 'Tratamientos' },
   { path: '/prediccion-demanda',        label: 'Predicción'   },

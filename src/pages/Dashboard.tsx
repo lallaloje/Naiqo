@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MobileLayout } from '@/components/MobileLayout';
@@ -45,6 +46,7 @@ interface Stats {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
@@ -53,6 +55,13 @@ export default function Dashboard() {
   const [stats,      setStats]          = useState<Stats | null>(null);
   const [chartData,  setChartData]      = useState<{ day: string; citas: number }[]>([]);
   const [loading,    setLoading]        = useState(true);
+
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      toast.success('¡Suscripción activada! Bienvenida a NAIQO 🎉');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;

@@ -28,7 +28,11 @@ export function MobileLayout({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleBack = () => {
-    navigate(-1);
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   // Pull-to-refresh handlers
