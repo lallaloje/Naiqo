@@ -43,6 +43,22 @@ interface Client {
   lastVisit: string;
   firstVisit: string;
   appointments: RawApt[];
+  tags?: string | null;
+  importedFrom?: string | null;
+}
+
+interface ImportedClient {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  tags: string | null;
+  total_visits: number;
+  no_shows: number;
+  first_visit: string | null;
+  last_visit: string | null;
+  total_spent: number;
+  imported_from: string | null;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -154,12 +170,21 @@ function ClientDetail({ client, open, onClose }: {
           </div>
         </div>
 
+        {/* Tags (Booksy groups) */}
+        {client.tags && (
+          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+            <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full text-[10px]">
+              {client.tags.split(',')[0].trim()}
+            </span>
+          </p>
+        )}
+
         {/* Historial */}
         <p className="text-sm font-semibold mb-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" /> Historial de citas
         </p>
         <div className="space-y-2 pb-6">
-          {sorted.map(apt => (
+          {sorted.length > 0 ? sorted.map(apt => (
             <div key={apt.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40">
               <div className="text-center shrink-0 w-14">
                 <p className="text-xs font-bold">
@@ -184,7 +209,15 @@ function ClientDetail({ client, open, onClose }: {
                 {STATUS_LABEL[apt.status] || apt.status}
               </Badge>
             </div>
-          ))}
+          )) : (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              {client.importedFrom === 'booksy' ? (
+                <p>Historial importado de Booksy — {client.totalApts} visita{client.totalApts !== 1 ? 's' : ''}</p>
+              ) : (
+                <p>Sin citas registradas</p>
+              )}
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>
@@ -205,14 +238,51 @@ export default function Clientes() {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('id, client_name, client_phone, client_email, start_time, status, services(name, price)')
-        .eq('user_id', user.id)
-        .order('start_time', { ascending: false });
+      // Fetch appointments and imported clients in parallel
+      const [aptsResult, importedResult] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('id, client_name, client_phone, client_email, start_time, status, services(name, price)')
+          .eq('user_id', user.id)
+          .order('start_time', { ascending: false }),
+        (supabase as any)
+          .from('salon_clients')
+          .select('id, name, phone, email, tags, total_visits, no_shows, first_visit, last_visit, total_spent, imported_from')
+          .eq('user_id', user.id),
+      ]);
 
-      if (error) throw error;
-      setClients(aggregateClients((data as any[]) || []));
+      if (aptsResult.error) throw aptsResult.error;
+
+      const fromApts = aggregateClients((aptsResult.data as any[]) || []);
+      const imported: ImportedClient[] = importedResult.data || [];
+
+      // Merge: imported clients not already in appointments list
+      const aptKeys = new Set(fromApts.map(c => c.name.toLowerCase().trim()));
+      const merged: Client[] = [...fromApts];
+
+      for (const ic of imported) {
+        const nameKey = ic.name.toLowerCase().trim();
+        if (!aptKeys.has(nameKey)) {
+          merged.push({
+            key: ic.id,
+            name: ic.name,
+            phone: ic.phone,
+            email: ic.email,
+            totalApts: ic.total_visits,
+            completedApts: ic.total_visits,
+            cancelledApts: ic.no_shows,
+            totalSpent: ic.total_spent || 0,
+            lastVisit: ic.last_visit || ic.first_visit || new Date().toISOString(),
+            firstVisit: ic.first_visit || new Date().toISOString(),
+            appointments: [],
+            tags: ic.tags,
+            importedFrom: ic.imported_from,
+          });
+        }
+      }
+
+      merged.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
+      setClients(merged);
     } catch (err) {
       console.error('Clientes error:', err);
     } finally {
@@ -349,17 +419,24 @@ export default function Clientes() {
                 </div>
               </div>
 
-              {/* Frecuencia badge */}
-              {client.totalApts >= 5 && (
-                <Badge className="text-[10px] bg-primary/10 text-primary border-0 shrink-0">
-                  ⭐ Fiel
-                </Badge>
-              )}
-              {client.totalApts === 1 && (
-                <Badge className="text-[10px] bg-blue-50 text-blue-600 border-0 shrink-0">
-                  Nueva
-                </Badge>
-              )}
+              {/* Badges */}
+              <div className="flex flex-col gap-1 items-end shrink-0">
+                {client.importedFrom === 'booksy' && (
+                  <Badge className="text-[9px] bg-orange-50 text-orange-600 border-0">
+                    Booksy
+                  </Badge>
+                )}
+                {client.totalApts >= 5 && (
+                  <Badge className="text-[10px] bg-primary/10 text-primary border-0">
+                    ⭐ Fiel
+                  </Badge>
+                )}
+                {client.totalApts === 1 && !client.importedFrom && (
+                  <Badge className="text-[10px] bg-blue-50 text-blue-600 border-0">
+                    Nueva
+                  </Badge>
+                )}
+              </div>
             </div>
           ))}
 
