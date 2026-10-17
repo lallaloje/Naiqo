@@ -1,58 +1,38 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ConversationalAssistant from '@/components/ConversationalAssistant';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { MobileLayout } from '@/components/MobileLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNavigate } from 'react-router-dom';
+import { MessageCircle } from 'lucide-react';
 
 const ChatAssistant = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
-  // Móvil: pantalla completa sin MobileLayout
+  // En móvil: abrir la burbuja flotante y mostrar pantalla informativa con navegación
   if (isMobile) {
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(160deg, #fdf4fb 0%, #f3e8ff 100%)',
-        zIndex: 50,
-        overflow: 'hidden',
-      }}>
-        {/* Mini top bar */}
-        <div style={{
-          background: 'linear-gradient(135deg, #e879a0, #a855f7)',
-          padding: '12px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          flexShrink: 0,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20,
-          }}>💅</div>
-          <div style={{ flex: 1 }}>
-            <p style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: 0, lineHeight: 1.2 }}>
-              Sofia — Asistente NAIQO
-            </p>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, margin: 0 }}>
-              Experta en salud ungueal · En línea
-            </p>
+      <MobileLayout title="Sofia — Asistente" showBack={true}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center gap-4">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #e879a0, #a855f7)' }}>
+            💅
           </div>
-          <span style={{
-            fontSize: 11, background: 'rgba(255,255,255,0.2)',
-            color: 'white', padding: '3px 8px', borderRadius: 20,
-          }}>● Activa</span>
+          <div>
+            <h2 className="text-xl font-bold mb-1">Sofia — Asistente NAIQO</h2>
+            <p className="text-muted-foreground text-sm">Experta en salud ungueal</p>
+          </div>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            Pulsa el botón rosa en la esquina inferior derecha para chatear con Sofia desde cualquier pantalla de la app.
+          </p>
+          <div className="flex items-center gap-2 bg-pink-50 border border-pink-200 rounded-2xl px-4 py-3 text-sm text-pink-700">
+            <MessageCircle className="w-4 h-4 shrink-0" />
+            La burbuja de chat está siempre disponible en toda la aplicación
+          </div>
         </div>
-
-        {/* Content */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <ConversationalAssistant />
-        </div>
-      </div>
+      </MobileLayout>
     );
   }
 
