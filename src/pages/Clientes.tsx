@@ -114,9 +114,7 @@ function aggregateClients(apts: RawApt[]): Client[] {
     c.appointments.push(apt);
   }
 
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
-  );
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
 // ── Client Detail Sheet ───────────────────────────────────────────────
@@ -382,7 +380,7 @@ export default function Clientes() {
         }
       }
 
-      merged.sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime());
+      merged.sort((a, b) => a.name.localeCompare(b.name, 'es'));
       setClients(merged);
     } catch (err) {
       console.error('Clientes error:', err);
