@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,9 +13,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
-  Scissors, Users, TrendingUp, Clock,
+  Scissors, Users, TrendingUp, Clock, Pencil, Check, X,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -45,6 +48,7 @@ interface Client {
   appointments: RawApt[];
   tags?: string | null;
   importedFrom?: string | null;
+  importedId?: string | null;
 }
 
 interface ImportedClient {
@@ -116,16 +120,60 @@ function aggregateClients(apts: RawApt[]): Client[] {
 }
 
 // ── Client Detail Sheet ───────────────────────────────────────────────
-function ClientDetail({ client, open, onClose }: {
+function ClientDetail({ client, open, onClose, onUpdate }: {
   client: Client | null;
   open: boolean;
   onClose: () => void;
+  onUpdate: () => void;
 }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const prevClientRef = useRef<Client | null>(null);
+  useEffect(() => {
+    if (client && client !== prevClientRef.current) {
+      prevClientRef.current = client;
+      setEditing(false);
+      setEditPhone(client.phone || '');
+      setEditEmail(client.email || '');
+    }
+  }, [client]);
+
   if (!client) return null;
 
   const sorted = [...client.appointments].sort(
     (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
   );
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (client.importedId) {
+        const { error } = await (supabase as any).from('salon_clients').update({
+          phone: editPhone.trim() || null,
+          email: editEmail.trim() || null,
+        }).eq('id', client.importedId);
+        if (error) throw error;
+      }
+      if (client.appointments.length > 0) {
+        const { error } = await supabase.from('appointments').update({
+          client_phone: (editPhone.trim() || null) as any,
+          client_email: (editEmail.trim() || null) as any,
+        } as any).eq('client_name', client.name).eq('user_id', (await supabase.auth.getUser()).data.user!.id);
+        if (error) throw error;
+      }
+      toast({ title: '✅ Datos guardados' });
+      setEditing(false);
+      onUpdate();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
@@ -136,22 +184,71 @@ function ClientDetail({ client, open, onClose }: {
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-xl font-bold text-primary shrink-0">
               {getInitials(client.name)}
             </div>
-            <div>
-              <SheetTitle className="text-left text-lg">{client.name}</SheetTitle>
-              <div className="flex flex-col gap-0.5 mt-0.5">
-                {client.phone && (
-                  <a href={`tel:${client.phone}`} className="text-sm text-primary flex items-center gap-1">
-                    <Phone className="w-3 h-3" />{client.phone}
-                  </a>
-                )}
-                {client.email && (
-                  <a href={`mailto:${client.email}`} className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Mail className="w-3 h-3" />{client.email}
-                  </a>
-                )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <SheetTitle className="text-left text-lg">{client.name}</SheetTitle>
+                <button
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  onClick={() => setEditing(v => !v)}
+                  title="Editar contacto"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
               </div>
+              {!editing && (
+                <div className="flex flex-col gap-0.5 mt-0.5">
+                  {client.phone ? (
+                    <a href={`tel:${client.phone}`} className="text-sm text-primary flex items-center gap-1">
+                      <Phone className="w-3 h-3" />{client.phone}
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Sin teléfono</p>
+                  )}
+                  {client.email ? (
+                    <a href={`mailto:${client.email}`} className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Mail className="w-3 h-3" />{client.email}
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Sin email</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Edit form */}
+          {editing && (
+            <div className="mt-3 space-y-2 bg-muted/40 rounded-xl p-3">
+              <div>
+                <Label className="text-xs">Teléfono</Label>
+                <Input
+                  type="tel"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  placeholder="+34 600 000 000"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                  placeholder="cliente@email.com"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleSave} disabled={saving}>
+                  <Check className="w-3.5 h-3.5 mr-1" />{saving ? 'Guardando...' : 'Guardar'}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditing(false)}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </SheetHeader>
 
         {/* Stats */}
@@ -257,8 +354,11 @@ export default function Clientes() {
       const imported: ImportedClient[] = importedResult.data || [];
 
       // Merge: imported clients not already in appointments list
-      const aptKeys = new Set(fromApts.map(c => c.name.toLowerCase().trim()));
-      const merged: Client[] = [...fromApts];
+      const aptKeys = new Map(fromApts.map(c => [c.name.toLowerCase().trim(), c]));
+      const merged: Client[] = fromApts.map(c => {
+        const ic = imported.find(i => i.name.toLowerCase().trim() === c.name.toLowerCase().trim());
+        return ic ? { ...c, importedId: ic.id } : c;
+      });
 
       for (const ic of imported) {
         const nameKey = ic.name.toLowerCase().trim();
@@ -277,6 +377,7 @@ export default function Clientes() {
             appointments: [],
             tags: ic.tags,
             importedFrom: ic.imported_from,
+            importedId: ic.id,
           });
         }
       }
@@ -472,6 +573,7 @@ export default function Clientes() {
         client={selected}
         open={!!selected}
         onClose={() => setSelected(null)}
+        onUpdate={fetchClients}
       />
     </>
   );

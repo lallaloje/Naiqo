@@ -97,6 +97,16 @@ interface BlockedSlot {
   end_time: string;
 }
 
+interface RecurringBlock {
+  id: string;
+  salon_id: string;
+  user_id: string;
+  title: string;
+  start_hour: string;
+  end_hour: string;
+  days_of_week: number[];
+}
+
 interface AptPosition {
   top: number;
   height: number;
@@ -242,6 +252,9 @@ const SmartAppointments = () => {
   });
   const [showMiniCal,      setShowMiniCal]      = useState(false);
   const [weekBlockedSlots, setWeekBlockedSlots] = useState<Record<string, BlockedSlot[]>>({});
+  const [recurringBlocks,  setRecurringBlocks]  = useState<RecurringBlock[]>([]);
+  const [showRecurringForm, setShowRecurringForm] = useState(false);
+  const [recurringForm,    setRecurringForm]    = useState({ title: 'Descanso', start_hour: '14:00', end_hour: '16:00', days_of_week: [1,2,3,4,5,6] });
   const [clientHistory,    setClientHistory]    = useState<any[]>([]);
   const [historyLoading,   setHistoryLoading]   = useState(false);
   const [employees,        setEmployees]        = useState<Employee[]>([]);
@@ -269,6 +282,7 @@ const SmartAppointments = () => {
       loadDayAppointments(); loadWeekAppointments();
       loadServices(); loadPendingAppointments();
       loadBlockedSlots(); loadWeekBlockedSlots();
+      loadRecurringBlocks();
       loadEmployees();
     }
   }, [salonId, selectedDate]);
@@ -369,6 +383,43 @@ const SmartAppointments = () => {
     await supabase.from('blocked_slots').delete().eq('id', id);
     loadBlockedSlots();
     toast({ title: 'Bloqueo eliminado' });
+  };
+
+  const loadRecurringBlocks = async () => {
+    const { data } = await (supabase as any).from('recurring_blocks').select('*').eq('user_id', user!.id);
+    setRecurringBlocks(data || []);
+  };
+
+  const createRecurringBlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salonId) return;
+    setIsLoading(true);
+    try {
+      const [sh, sm] = recurringForm.start_hour.split(':').map(Number);
+      const [eh, em] = recurringForm.end_hour.split(':').map(Number);
+      if (eh * 60 + em <= sh * 60 + sm) throw new Error('La hora de fin debe ser posterior a la de inicio');
+      const { error } = await (supabase as any).from('recurring_blocks').insert({
+        salon_id: salonId, user_id: user!.id,
+        title: recurringForm.title,
+        start_hour: recurringForm.start_hour,
+        end_hour:   recurringForm.end_hour,
+        days_of_week: recurringForm.days_of_week,
+      });
+      if (error) throw error;
+      setShowRecurringForm(false);
+      loadRecurringBlocks();
+      const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      const days = recurringForm.days_of_week.map(d => dayNames[d]).join(', ');
+      toast({ title: '🔁 Bloqueo recurrente creado', description: `${recurringForm.title} · ${recurringForm.start_hour}–${recurringForm.end_hour} · ${days}` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally { setIsLoading(false); }
+  };
+
+  const deleteRecurringBlock = async (id: string) => {
+    await (supabase as any).from('recurring_blocks').delete().eq('id', id);
+    loadRecurringBlocks();
+    toast({ title: 'Bloqueo recurrente eliminado' });
   };
 
   const loadClientHistory = async (apt: Appointment) => {
@@ -598,6 +649,26 @@ const SmartAppointments = () => {
       height: Math.max((eh - sh) * HOUR_HEIGHT, 28),
     };
   };
+
+  const recurringPosition = (block: RecurringBlock) => {
+    const [sh, sm] = block.start_hour.split(':').map(Number);
+    const [eh, em] = block.end_hour.split(':').map(Number);
+    const startH = sh + sm / 60;
+    const endH   = eh + em / 60;
+    return {
+      top:    (startH - workStart) * HOUR_HEIGHT,
+      height: Math.max((endH - startH) * HOUR_HEIGHT, 28),
+    };
+  };
+
+  const selectedDayOfWeek = (() => {
+    const d = new Date(selectedDate + 'T12:00:00');
+    return d.getDay(); // 0=Sun,1=Mon,...,6=Sat
+  })();
+
+  const activeRecurringBlocks = recurringBlocks.filter(b =>
+    b.days_of_week.length === 0 || b.days_of_week.includes(selectedDayOfWeek)
+  );
 
   // ─── Date navigation ────────────────────────────────────────────
   const changeDate = (days: number) => {
@@ -855,6 +926,77 @@ const SmartAppointments = () => {
                       })}
                     </div>
                   )}
+
+                  {/* Mobile: recurring blocks */}
+                  <div className="mt-4 pt-4 border-t border-muted/40 space-y-3">
+                    <button
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-purple-600 border border-dashed border-muted-foreground/30 rounded-lg py-2.5 hover:border-purple-400 transition-colors"
+                      onClick={() => setShowRecurringForm(v => !v)}
+                    >
+                      🔁 Bloqueo recurrente
+                    </button>
+                    {showRecurringForm && (
+                      <form onSubmit={createRecurringBlock} className="space-y-3">
+                        <div>
+                          <Label className="text-xs">Título</Label>
+                          <Input value={recurringForm.title} onChange={e => setRecurringForm({...recurringForm, title: e.target.value})}
+                            placeholder="Descanso" required />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Desde</Label>
+                            <Input type="time" value={recurringForm.start_hour}
+                              onChange={e => setRecurringForm({...recurringForm, start_hour: e.target.value})} required />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Hasta</Label>
+                            <Input type="time" value={recurringForm.end_hour}
+                              onChange={e => setRecurringForm({...recurringForm, end_hour: e.target.value})} required />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs mb-1 block">Días</Label>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {[['L',1],['M',2],['X',3],['J',4],['V',5],['S',6],['D',0]].map(([label, dow]) => {
+                              const d = dow as number;
+                              const active = recurringForm.days_of_week.includes(d);
+                              return (
+                                <button key={d} type="button"
+                                  className={`text-xs w-7 h-7 rounded-full font-medium transition-colors ${active ? 'bg-purple-500 text-white' : 'bg-muted text-muted-foreground'}`}
+                                  onClick={() => setRecurringForm(f => ({
+                                    ...f,
+                                    days_of_week: active ? f.days_of_week.filter(x => x !== d) : [...f.days_of_week, d],
+                                  }))}
+                                >{label}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={isLoading}>
+                          {isLoading ? 'Guardando...' : '🔁 Guardar bloqueo'}
+                        </Button>
+                      </form>
+                    )}
+                    {recurringBlocks.length > 0 && (
+                      <div className="space-y-2">
+                        {recurringBlocks.map(block => {
+                          const dayNames = ['D','L','M','X','J','V','S'];
+                          const days = block.days_of_week.length === 0 ? 'Todos' : block.days_of_week.map(d => dayNames[d]).join(' ');
+                          return (
+                            <div key={block.id} className="flex items-center justify-between bg-purple-50 rounded-lg px-3 py-2">
+                              <div>
+                                <p className="text-sm font-medium text-purple-700">{block.title}</p>
+                                <p className="text-xs text-purple-500">{block.start_hour}–{block.end_hour} · {days}</p>
+                              </div>
+                              <button onClick={() => deleteRecurringBlock(block.id)} className="text-purple-300 hover:text-red-500 ml-2">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Card>
             </div>
@@ -1054,6 +1196,89 @@ const SmartAppointments = () => {
                       })}
                     </div>
                   )}
+
+                  {/* Recurring blocks section */}
+                  <div className="pt-2 border-t border-muted/40 space-y-2">
+                    <button
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-purple-600 border border-dashed border-muted-foreground/30 rounded-lg py-2 hover:border-purple-400 transition-colors"
+                      onClick={() => setShowRecurringForm(v => !v)}
+                    >
+                      🔁 Bloqueo recurrente
+                    </button>
+
+                    {showRecurringForm && (
+                      <form onSubmit={createRecurringBlock} className="space-y-2 pt-1">
+                        <div>
+                          <Label className="text-[10px]">Título</Label>
+                          <Input
+                            value={recurringForm.title}
+                            onChange={e => setRecurringForm({...recurringForm, title: e.target.value})}
+                            className="h-7 text-xs"
+                            placeholder="Descanso"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div>
+                            <Label className="text-[10px]">Desde</Label>
+                            <Input type="time" value={recurringForm.start_hour}
+                              onChange={e => setRecurringForm({...recurringForm, start_hour: e.target.value})}
+                              className="h-7 text-xs" required />
+                          </div>
+                          <div>
+                            <Label className="text-[10px]">Hasta</Label>
+                            <Input type="time" value={recurringForm.end_hour}
+                              onChange={e => setRecurringForm({...recurringForm, end_hour: e.target.value})}
+                              className="h-7 text-xs" required />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] mb-1 block">Días</Label>
+                          <div className="flex gap-1 flex-wrap">
+                            {[['L',1],['M',2],['X',3],['J',4],['V',5],['S',6],['D',0]].map(([label, dow]) => {
+                              const d = dow as number;
+                              const active = recurringForm.days_of_week.includes(d);
+                              return (
+                                <button
+                                  key={d}
+                                  type="button"
+                                  className={`text-[10px] w-6 h-6 rounded-full font-medium transition-colors ${active ? 'bg-purple-500 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                                  onClick={() => setRecurringForm(f => ({
+                                    ...f,
+                                    days_of_week: active ? f.days_of_week.filter(x => x !== d) : [...f.days_of_week, d],
+                                  }))}
+                                >{label}</button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Button type="submit" size="sm" className="w-full h-7 text-xs bg-purple-600 hover:bg-purple-700" disabled={isLoading}>
+                          {isLoading ? '...' : '🔁 Guardar bloqueo'}
+                        </Button>
+                      </form>
+                    )}
+
+                    {recurringBlocks.length > 0 && (
+                      <div className="space-y-1">
+                        {recurringBlocks.map(block => {
+                          const dayNames = ['D','L','M','X','J','V','S'];
+                          const days = block.days_of_week.length === 0 ? 'Todos' : block.days_of_week.map(d => dayNames[d]).join(' ');
+                          return (
+                            <div key={block.id} className="flex items-center justify-between bg-purple-50 rounded px-2 py-1">
+                              <div>
+                                <p className="text-[10px] font-medium text-purple-700">{block.title}</p>
+                                <p className="text-[10px] text-purple-500">{block.start_hour}–{block.end_hour} · {days}</p>
+                              </div>
+                              <button onClick={() => deleteRecurringBlock(block.id)}
+                                className="text-purple-300 hover:text-red-500 ml-1">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </Card>
               </div>
 
@@ -1132,6 +1357,29 @@ const SmartAppointments = () => {
                                   className="ml-auto text-gray-400 hover:text-red-500 shrink-0">
                                   <X className="w-3.5 h-3.5" />
                                 </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Recurring blocked slots — hatched purple */}
+                        {activeRecurringBlocks.map(block => {
+                          const pos = recurringPosition(block);
+                          if (pos.top < 0) return null;
+                          return (
+                            <div
+                              key={block.id}
+                              className="absolute left-0 right-0 z-5 pointer-events-none"
+                              style={{ top: pos.top, height: pos.height }}
+                            >
+                              <div className="w-full h-full rounded-sm border border-purple-300"
+                                style={{
+                                  background: 'repeating-linear-gradient(45deg, #e9d5ff, #e9d5ff 4px, #f5f3ff 4px, #f5f3ff 12px)',
+                                  opacity: 0.85,
+                                }}
+                              />
+                              <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                <span className="text-xs font-medium text-purple-600 truncate">🔁 {block.title}</span>
                               </div>
                             </div>
                           );
