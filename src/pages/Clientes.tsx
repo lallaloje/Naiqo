@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
-  Scissors, Users, TrendingUp, Clock, Pencil, Check, X,
+  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -551,13 +551,16 @@ export default function Clientes() {
   return (
     <>
       {isMobile ? (
-        <MobileLayout title="Clientes" showBack={false} onRefresh={fetchClients}>
+        <MobileLayout title="Clientes" showBack={true} onRefresh={fetchClients}>
           {content}
         </MobileLayout>
       ) : (
         <div className="min-h-screen bg-background">
           <Header />
           <main className="container mx-auto px-4 py-8 max-w-4xl">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2 gap-1 mb-2">
+              <ChevronLeft className="w-4 h-4" /> Volver
+            </Button>
             <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
               <Users className="w-6 h-6 text-primary" /> Clientes
             </h1>

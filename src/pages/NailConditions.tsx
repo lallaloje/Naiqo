@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, BookOpen } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, BookOpen, ChevronLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { logError } from '@/lib/logger';
 
 interface NailCondition {
@@ -19,6 +20,7 @@ interface NailCondition {
 }
 
 const NailConditions = () => {
+  const navigate = useNavigate();
   const [conditions, setConditions] = useState<NailCondition[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -80,6 +82,9 @@ const NailConditions = () => {
       <Header />
       <main className="pt-20 pb-16">
         <div className="container mx-auto px-4 max-w-7xl">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2 gap-1 mb-2">
+            <ChevronLeft className="w-4 h-4" /> Volver
+          </Button>
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <BookOpen className="h-8 w-8 text-primary" />

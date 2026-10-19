@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Clock, LogIn, LogOut, Coffee, Play, Users, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, LogIn, LogOut, Coffee, Play, Users, Calendar, ChevronDown, ChevronUp, ChevronLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Employee {
   id: string;
@@ -62,6 +63,7 @@ function Clock12({ now }: { now: Date }) {
 
 export default function FichajePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   const [now, setNow] = useState(new Date());
@@ -312,11 +314,18 @@ export default function FichajePage() {
     </div>
   );
 
-  if (isMobile) return <MobileLayout>{content}</MobileLayout>;
+  if (isMobile) return <MobileLayout title="Fichaje" showBack={true}>{content}</MobileLayout>;
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1">{content}</main>
+      <main className="flex-1">
+        <div className="container mx-auto px-4 pt-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2 gap-1 mb-2">
+            <ChevronLeft className="w-4 h-4" /> Volver
+          </Button>
+        </div>
+        {content}
+      </main>
       <Footer />
     </div>
   );
