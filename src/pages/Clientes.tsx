@@ -328,6 +328,9 @@ export default function Clientes() {
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
   const [selected, setSelected] = useState<Client | null>(null);
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  const letterRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const fetchClients = useCallback(async () => {
     if (!user) return;
@@ -402,6 +405,29 @@ export default function Clientes() {
     );
   }, [clients, search]);
 
+  // ── Grouped by letter ────────────────────────────────────────────
+  const grouped = useMemo(() => {
+    const map = new Map<string, Client[]>();
+    for (const c of filtered) {
+      const letter = c.name[0]?.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '') || '#';
+      const key = /[A-Z]/.test(letter) ? letter : '#';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b, 'es'));
+  }, [filtered]);
+
+  const availableLetters = useMemo(() => grouped.map(([l]) => l), [grouped]);
+
+  const scrollToLetter = useCallback((letter: string) => {
+    const el = letterRefs.current[letter];
+    if (el && listRef.current) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    setActiveLetter(letter);
+    setTimeout(() => setActiveLetter(null), 800);
+  }, []);
+
   // ── Global stats ─────────────────────────────────────────────────
   const stats = useMemo(() => {
     const monthStart = startOfMonth(new Date());
@@ -462,7 +488,7 @@ export default function Clientes() {
         />
       </div>
 
-      {/* Client list */}
+      {/* Client list + alpha index */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -470,79 +496,97 @@ export default function Clientes() {
             {search ? 'No hay clientes con esa búsqueda' : 'Aún no hay clientes registrados'}
           </p>
           {search && (
-            <button
-              className="text-xs text-primary mt-2 underline"
-              onClick={() => setSearch('')}
-            >
+            <button className="text-xs text-primary mt-2 underline" onClick={() => setSearch('')}>
               Limpiar búsqueda
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(client => (
-            <div
-              key={client.key}
-              onClick={() => setSelected(client)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border hover:border-primary/40 hover:shadow-sm cursor-pointer transition-all active:scale-[0.99]"
-            >
-              {/* Avatar */}
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                {getInitials(client.name)}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{client.name}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {client.phone && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                      <Phone className="w-3 h-3" />{client.phone}
-                    </span>
-                  )}
+        <div className="relative flex gap-0">
+          {/* List */}
+          <div ref={listRef} className="flex-1 min-w-0 space-y-0 pr-6">
+            {grouped.map(([letter, clients]) => (
+              <div key={letter}>
+                {/* Letter header */}
+                <div
+                  ref={el => { letterRefs.current[letter] = el; }}
+                  className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm px-2 py-1 mb-1 mt-2 rounded-lg"
+                >
+                  <span className="text-xs font-bold text-primary">{letter}</span>
                 </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                    <Calendar className="w-3 h-3" />
-                    {client.totalApts} cita{client.totalApts !== 1 ? 's' : ''}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                    <Clock className="w-3 h-3" />
-                    {format(new Date(client.lastVisit), "d MMM yy", { locale: es })}
-                  </span>
-                  {client.totalSpent > 0 && (
-                    <span className="text-[10px] text-green-600 font-medium flex items-center gap-0.5">
-                      <Euro className="w-3 h-3" />{client.totalSpent}
-                    </span>
-                  )}
+                {/* Clients in this letter */}
+                <div className="space-y-2 mb-1">
+                  {clients.map(client => (
+                    <div
+                      key={client.key}
+                      onClick={() => setSelected(client)}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-card border hover:border-primary/40 hover:shadow-sm cursor-pointer transition-all active:scale-[0.99]"
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                        {getInitials(client.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{client.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {client.phone && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                              <Phone className="w-3 h-3" />{client.phone}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Calendar className="w-3 h-3" />
+                            {client.totalApts} cita{client.totalApts !== 1 ? 's' : ''}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
+                            {format(new Date(client.lastVisit), "d MMM yy", { locale: es })}
+                          </span>
+                          {client.totalSpent > 0 && (
+                            <span className="text-[10px] text-green-600 font-medium flex items-center gap-0.5">
+                              <Euro className="w-3 h-3" />{client.totalSpent}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end shrink-0">
+                        {client.importedFrom === 'booksy' && (
+                          <Badge className="text-[9px] bg-orange-50 text-orange-600 border-0">Booksy</Badge>
+                        )}
+                        {client.totalApts >= 5 && (
+                          <Badge className="text-[10px] bg-primary/10 text-primary border-0">⭐ Fiel</Badge>
+                        )}
+                        {client.totalApts === 1 && !client.importedFrom && (
+                          <Badge className="text-[10px] bg-blue-50 text-blue-600 border-0">Nueva</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+            ))}
+            <p className="text-center text-xs text-muted-foreground pt-2 pb-4">
+              {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
+              {search ? ` encontrado${filtered.length !== 1 ? 's' : ''}` : ' en total'}
+            </p>
+          </div>
 
-              {/* Badges */}
-              <div className="flex flex-col gap-1 items-end shrink-0">
-                {client.importedFrom === 'booksy' && (
-                  <Badge className="text-[9px] bg-orange-50 text-orange-600 border-0">
-                    Booksy
-                  </Badge>
-                )}
-                {client.totalApts >= 5 && (
-                  <Badge className="text-[10px] bg-primary/10 text-primary border-0">
-                    ⭐ Fiel
-                  </Badge>
-                )}
-                {client.totalApts === 1 && !client.importedFrom && (
-                  <Badge className="text-[10px] bg-blue-50 text-blue-600 border-0">
-                    Nueva
-                  </Badge>
-                )}
-              </div>
+          {/* Alpha sidebar */}
+          {!search && (
+            <div className="fixed right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-0.5 select-none">
+              {availableLetters.map(letter => (
+                <button
+                  key={letter}
+                  onPointerDown={() => scrollToLetter(letter)}
+                  className={`w-5 h-5 text-[10px] font-bold rounded-full flex items-center justify-center transition-colors leading-none
+                    ${activeLetter === letter ? 'bg-primary text-white' : 'text-primary hover:bg-primary/10'}`}
+                >
+                  {letter}
+                </button>
+              ))}
             </div>
-          ))}
-
-          <p className="text-center text-xs text-muted-foreground pt-2">
-            {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
-            {search ? ` encontrado${filtered.length !== 1 ? 's' : ''}` : ' en total'}
-          </p>
+          )}
         </div>
       )}
     </div>
