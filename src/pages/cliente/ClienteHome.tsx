@@ -26,7 +26,6 @@ const ClienteHome = () => {
         .select('id, salon_name, phone')
         .order('salon_name');
       if (error) console.error('Error loading salons:', error);
-      console.log('Salones cargados:', data);
       setSalones(data || []);
       setFiltered(data || []);
       setLoading(false);
