@@ -323,12 +323,16 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
 export default function Clientes() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   const [clients,  setClients]  = useState<Client[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
   const [selected, setSelected] = useState<Client | null>(null);
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  const [showDifusion, setShowDifusion] = useState(false);
+  const [difusionMsg, setDifusionMsg] = useState('');
+  const [salonId, setSalonId] = useState<string | null>(null);
   const letterRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -392,7 +396,19 @@ export default function Clientes() {
     }
   }, [user]);
 
-  useEffect(() => { fetchClients(); }, [fetchClients]);
+  useEffect(() => {
+    fetchClients();
+    if (user) {
+      supabase.from('salons').select('id').eq('user_id', user.id).single()
+        .then(({ data }) => {
+          if (data) {
+            setSalonId(data.id);
+            const url = `${window.location.origin}/reservar/${data.id}`;
+            setDifusionMsg(`¡Hola! 👋\n\nYa puedes reservar tu próxima cita conmigo de forma fácil y rápida desde la app. Aquí tienes el enlace:\n\n${url}\n\nPara tenerlo siempre a mano, puedes añadirlo a la pantalla de inicio de tu móvil:\n\n📱 *iPhone:* Abre el enlace en Safari → toca el botón compartir (cuadrado con flecha) → "Añadir a pantalla de inicio"\n\n🤖 *Android:* Abre el enlace en Chrome → toca los tres puntos del menú → "Añadir a pantalla de inicio"\n\nAsí lo tendrás como una app sin necesidad de descargar nada. ¡Cualquier duda me dices! 💅`);
+          }
+        });
+    }
+  }, [fetchClients, user]);
 
   // ── Filtered list ────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -486,6 +502,86 @@ export default function Clientes() {
           onChange={e => setSearch(e.target.value)}
           className="pl-9"
         />
+      </div>
+
+      {/* Difusión */}
+      <div>
+        <button
+          onClick={() => setShowDifusion(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 hover:border-primary/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📣</span>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-primary">Mensaje de difusión</p>
+              <p className="text-xs text-muted-foreground">{clients.filter(c => c.phone).length} clientes con teléfono</p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground">{showDifusion ? '▲' : '▼'}</span>
+        </button>
+
+        {showDifusion && (
+          <div className="mt-2 p-4 bg-card border rounded-xl space-y-3">
+            {/* Message editor */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Mensaje (editable)</label>
+              <textarea
+                value={difusionMsg}
+                onChange={e => setDifusionMsg(e.target.value)}
+                rows={10}
+                className="w-full text-xs border rounded-lg p-3 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            {/* Copy all numbers */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2"
+              onClick={() => {
+                const nums = clients.filter(c => c.phone).map(c => c.phone).join('\n');
+                navigator.clipboard.writeText(nums);
+                toast({ title: '✅ Números copiados', description: `${clients.filter(c => c.phone).length} números en el portapapeles` });
+              }}
+            >
+              📋 Copiar todos los números
+            </Button>
+
+            {/* Copy message */}
+            <Button
+              size="sm"
+              className="w-full gap-2"
+              onClick={() => {
+                navigator.clipboard.writeText(difusionMsg);
+                toast({ title: '✅ Mensaje copiado', description: 'Pégalo en WhatsApp como difusión' });
+              }}
+            >
+              💬 Copiar mensaje
+            </Button>
+
+            <p className="text-[10px] text-muted-foreground text-center leading-relaxed">
+              Para enviarlo a todas a la vez: copia los números → abre WhatsApp → Nueva difusión → añade los números → pega el mensaje.
+            </p>
+
+            {/* Individual send buttons */}
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">O envía una a una:</p>
+              {clients.filter(c => c.phone).map(c => (
+                <div key={c.key} className="flex items-center justify-between gap-2">
+                  <span className="text-sm truncate flex-1">{c.name}</span>
+                  <a
+                    href={`https://wa.me/${c.phone!.replace(/[\s\-()]/g, '')}?text=${encodeURIComponent(difusionMsg)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Client list + alpha index */}
