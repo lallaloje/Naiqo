@@ -24,6 +24,7 @@ interface Service {
   description: string | null;
   duration_minutes: number;
   price: number | null;
+  category: string | null;
 }
 
 interface SlimApt {
@@ -311,29 +312,35 @@ const PublicBooking = () => {
             <CardContent className="space-y-3">
               {services.length === 0 ? (
                 <p className="text-muted-foreground text-center py-6">Este salón aún no tiene servicios publicados.</p>
-              ) : (
-                services.map(svc => (
-                  <div
-                    key={svc.id}
-                    onClick={() => { setSelectedService(svc); setStep(2); }}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md
-                      ${selectedService?.id === svc.id ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/40'}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold">{svc.name}</p>
-                        {svc.description && <p className="text-sm text-muted-foreground mt-0.5">{svc.description}</p>}
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          <Clock className="w-3 h-3 mr-1" />{svc.duration_minutes} min
-                        </Badge>
+              ) : (() => {
+                const cats = Array.from(new Set(services.map(s => s.category || 'Otros')));
+                return cats.map(cat => (
+                  <div key={cat} className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{cat}</p>
+                    {services.filter(s => (s.category || 'Otros') === cat).map(svc => (
+                      <div
+                        key={svc.id}
+                        onClick={() => { setSelectedService(svc); setStep(2); }}
+                        className={`p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md
+                          ${selectedService?.id === svc.id ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/40'}`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold">{svc.name}</p>
+                            {svc.description && <p className="text-sm text-muted-foreground mt-0.5">{svc.description}</p>}
+                            <Badge variant="outline" className="mt-2 text-xs">
+                              <Clock className="w-3 h-3 mr-1" />{svc.duration_minutes} min
+                            </Badge>
+                          </div>
+                          {svc.price && (
+                            <p className="font-bold text-lg text-primary shrink-0 ml-4">€{svc.price}</p>
+                          )}
+                        </div>
                       </div>
-                      {svc.price && (
-                        <p className="font-bold text-lg text-primary shrink-0 ml-4">€{svc.price}</p>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </CardContent>
           </Card>
         )}
