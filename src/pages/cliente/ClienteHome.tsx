@@ -43,7 +43,7 @@ const ClienteHome = () => {
       setFiltered(
         salones.filter(
           s =>
-            s.salon_name.toLowerCase().includes(q) ||
+            s.salon_name?.toLowerCase().includes(q) ||
             s.city?.toLowerCase().includes(q) ||
             s.address?.toLowerCase().includes(q)
         )
@@ -121,11 +121,11 @@ const ClienteHome = () => {
                       {/* Avatar */}
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center shrink-0">
                         <span className="text-white text-lg font-bold">
-                          {salon.salon_name.charAt(0).toUpperCase()}
+                          {salon.salon_name?.charAt(0).toUpperCase() || '?'}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{salon.salon_name}</p>
+                        <p className="font-semibold text-gray-900 truncate">{salon.salon_name || 'Salón sin nombre'}</p>
                         {(salon.city || salon.address) && (
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3 h-3 shrink-0" />
