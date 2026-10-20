@@ -126,6 +126,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
 }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
@@ -135,6 +136,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
     if (client && client !== prevClientRef.current) {
       prevClientRef.current = client;
       setEditing(false);
+      setEditName(client.name || '');
       setEditPhone(client.phone || '');
       setEditEmail(client.email || '');
     }
@@ -149,8 +151,10 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const userId = (await supabase.auth.getUser()).data.user!.id;
       if (client.importedId) {
         const { error } = await (supabase as any).from('salon_clients').update({
+          name: editName.trim() || client.name,
           phone: editPhone.trim() || null,
           email: editEmail.trim() || null,
         }).eq('id', client.importedId);
@@ -158,9 +162,10 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       }
       if (client.appointments.length > 0) {
         const { error } = await supabase.from('appointments').update({
+          client_name: (editName.trim() || client.name) as any,
           client_phone: (editPhone.trim() || null) as any,
           client_email: (editEmail.trim() || null) as any,
-        } as any).eq('client_name', client.name).eq('user_id', (await supabase.auth.getUser()).data.user!.id);
+        } as any).eq('client_name', client.name).eq('user_id', userId);
         if (error) throw error;
       }
       toast({ title: '✅ Datos guardados' });
@@ -217,6 +222,15 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
           {/* Edit form */}
           {editing && (
             <div className="mt-3 space-y-2 bg-muted/40 rounded-xl p-3">
+              <div>
+                <Label className="text-xs">Nombre</Label>
+                <Input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Nombre completo"
+                  className="h-9 text-sm"
+                />
+              </div>
               <div>
                 <Label className="text-xs">Teléfono</Label>
                 <Input
