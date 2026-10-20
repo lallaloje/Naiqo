@@ -24,10 +24,12 @@ const ClienteHome = () => {
 
   useEffect(() => {
     const loadSalones = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('salons')
         .select('id, salon_name, city, address, phone')
         .order('salon_name');
+      if (error) console.error('Error loading salons:', error);
+      console.log('Salones cargados:', data);
       setSalones(data || []);
       setFiltered(data || []);
       setLoading(false);
