@@ -26,7 +26,7 @@ const ClienteHome = () => {
     const loadSalones = async () => {
       const { data } = await supabase
         .from('salons')
-        .select('id, salon_name, city, address, phone, description')
+        .select('id, salon_name, city, address, phone')
         .order('salon_name');
       setSalones(data || []);
       setFiltered(data || []);
@@ -131,9 +131,6 @@ const ClienteHome = () => {
                             <MapPin className="w-3 h-3 shrink-0" />
                             <span className="truncate">{salon.city || salon.address}</span>
                           </p>
-                        )}
-                        {salon.description && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">{salon.description}</p>
                         )}
                       </div>
                     </div>
