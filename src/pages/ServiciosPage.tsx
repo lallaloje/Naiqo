@@ -27,7 +27,7 @@ interface Service {
   active: boolean;
 }
 
-const CATEGORIES = ['Manicura', 'Pedicura', 'Nail Art', 'Tratamientos', 'Otros'];
+const CATEGORIES = ['Uñas', 'Cejas y Depilación', 'Láser por Zonas', 'Packs Láser', 'Otros'];
 
 const DEFAULTS = [
   { name: 'Manicura clásica',        duration_minutes: 45,  price: 20, category: 'Manicura' },
@@ -142,11 +142,16 @@ export default function ServiciosPage() {
     } finally { setSaving(false); }
   };
 
-  const byCategory = CATEGORIES.reduce<Record<string, Service[]>>((acc, cat) => {
+  const allCategories = [
+    ...CATEGORIES,
+    ...Array.from(new Set(services.map(s => s.category).filter(Boolean) as string[]))
+      .filter(c => !CATEGORIES.includes(c)),
+  ];
+  const byCategory = allCategories.reduce<Record<string, Service[]>>((acc, cat) => {
     acc[cat] = services.filter(s => s.category === cat);
     return acc;
   }, {});
-  const uncategorized = services.filter(s => !s.category || !CATEGORIES.includes(s.category));
+  const uncategorized = services.filter(s => !s.category);
 
   const content = (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
@@ -186,7 +191,7 @@ export default function ServiciosPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {[...CATEGORIES, 'Sin categoría'].map(cat => {
+          {[...allCategories, 'Sin categoría'].map(cat => {
             const list = cat === 'Sin categoría' ? uncategorized : (byCategory[cat] || []);
             if (list.length === 0) return null;
             return (
@@ -251,7 +256,7 @@ export default function ServiciosPage() {
               <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
