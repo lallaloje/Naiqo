@@ -9,10 +9,8 @@ import { Search, MapPin, Star, Calendar, ChevronRight, Scissors } from 'lucide-r
 interface Salon {
   id: string;
   salon_name: string;
-  city: string | null;
   address: string | null;
   phone: string | null;
-  description: string | null;
 }
 
 const ClienteHome = () => {
@@ -26,7 +24,7 @@ const ClienteHome = () => {
     const loadSalones = async () => {
       const { data, error } = await supabase
         .from('salons')
-        .select('id, salon_name, city, address, phone')
+        .select('id, salon_name, address, phone')
         .order('salon_name');
       if (error) console.error('Error loading salons:', error);
       console.log('Salones cargados:', data);
@@ -46,7 +44,6 @@ const ClienteHome = () => {
         salones.filter(
           s =>
             s.salon_name?.toLowerCase().includes(q) ||
-            s.city?.toLowerCase().includes(q) ||
             s.address?.toLowerCase().includes(q)
         )
       );
@@ -128,10 +125,10 @@ const ClienteHome = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 truncate">{salon.salon_name || 'Salón sin nombre'}</p>
-                        {(salon.city || salon.address) && (
+                        {salon.address && (
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                             <MapPin className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{salon.city || salon.address}</span>
+                            <span className="truncate">{salon.address}</span>
                           </p>
                         )}
                       </div>
