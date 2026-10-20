@@ -4,12 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, MapPin, Star, Calendar, ChevronRight, Scissors } from 'lucide-react';
+import { Search, Calendar, ChevronRight, Scissors } from 'lucide-react';
 
 interface Salon {
   id: string;
   salon_name: string;
-  address: string | null;
   phone: string | null;
 }
 
@@ -24,7 +23,7 @@ const ClienteHome = () => {
     const loadSalones = async () => {
       const { data, error } = await supabase
         .from('salons')
-        .select('id, salon_name, address, phone')
+        .select('id, salon_name, phone')
         .order('salon_name');
       if (error) console.error('Error loading salons:', error);
       console.log('Salones cargados:', data);
@@ -43,8 +42,7 @@ const ClienteHome = () => {
       setFiltered(
         salones.filter(
           s =>
-            s.salon_name?.toLowerCase().includes(q) ||
-            s.address?.toLowerCase().includes(q)
+            s.salon_name?.toLowerCase().includes(q)
         )
       );
     }
@@ -125,10 +123,9 @@ const ClienteHome = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 truncate">{salon.salon_name || 'Salón sin nombre'}</p>
-                        {salon.address && (
+                        {salon.phone && (
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{salon.address}</span>
+                            <span className="truncate">{salon.phone}</span>
                           </p>
                         )}
                       </div>
