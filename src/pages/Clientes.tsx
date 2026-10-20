@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
-  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft,
+  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -148,6 +148,24 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
     (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
   );
 
+  const handleDelete = async () => {
+    if (!confirm(`¿Eliminar a "${client.name}" de tu lista de clientes? Sus citas históricas se mantendrán.`)) return;
+    setSaving(true);
+    try {
+      if (client.importedId) {
+        const { error } = await (supabase as any).from('salon_clients').delete().eq('id', client.importedId);
+        if (error) throw error;
+      }
+      toast({ title: '🗑️ Cliente eliminado' });
+      onClose();
+      onUpdate();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -196,6 +214,14 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
                   title="Editar contacto"
                 >
                   <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={handleDelete}
+                  title="Eliminar cliente"
+                  disabled={saving}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
               {!editing && (
