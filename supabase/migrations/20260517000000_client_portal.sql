@@ -36,6 +36,7 @@ LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
 $$;
 
 -- 4. Update get_busy_slots similarly
+DROP FUNCTION IF EXISTS public.get_busy_slots(UUID, TEXT);
 DROP FUNCTION IF EXISTS public.get_busy_slots(UUID, DATE);
 DROP FUNCTION IF EXISTS public.get_busy_slots(TEXT, DATE);
 
