@@ -36,6 +36,7 @@ interface SlimApt {
 // 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
 function getWorkRanges(dow: number): Array<[number, number]> {
   if (dow === 0) return []; // cerrado domingos
+  if (dow === 1) return []; // cerrado lunes
   if (dow === 4) return [[16, 19]]; // jueves: solo tarde 16-19
   if (dow === 6) return [[9, 14]];  // sábado: solo mañana 9-14
   return [[10, 14], [16, 21]];      // resto: 10-14 y 16-21

@@ -49,7 +49,13 @@ LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
   WHERE (s.id::TEXT = p_salon_id OR s.booking_slug = LOWER(p_salon_id))
     AND a.start_time::DATE = p_date
     AND a.status NOT IN ('cancelled')
-  ORDER BY a.start_time;
+  UNION ALL
+  SELECT b.start_time, b.end_time
+  FROM public.blocked_slots b
+  JOIN public.salons s ON s.user_id = b.user_id
+  WHERE (s.id::TEXT = p_salon_id OR s.booking_slug = LOWER(p_salon_id))
+    AND b.start_time::DATE = p_date
+  ORDER BY start_time;
 $$;
 
 -- 5. Cancel appointment by client (verifies by email)

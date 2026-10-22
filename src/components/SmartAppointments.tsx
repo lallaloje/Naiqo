@@ -278,6 +278,10 @@ const SmartAppointments = () => {
   const [editForm, setEditForm] = useState({
     name: '', duration_minutes: 60, price: '', description: '', category: '',
   });
+  const [editingApt, setEditingApt] = useState<Appointment | null>(null);
+  const [editAptForm, setEditAptForm] = useState({
+    client_name: '', client_phone: '', client_email: '', service_id: '', appointment_time: '', notes: '', employee_id: '',
+  });
 
   // ─── Load on mount ──────────────────────────────────────────────
   useEffect(() => { if (user) loadSalon(); }, [user]);
@@ -559,6 +563,52 @@ const SmartAppointments = () => {
       logError('SmartAppointments:create', e);
       const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Error desconocido';
       toast({ title: 'Error al crear cita', description: msg, variant: 'destructive' });
+    } finally { setIsLoading(false); }
+  };
+
+  const openEditApt = (apt: Appointment) => {
+    const dt = new Date(apt.start_time);
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    setEditAptForm({
+      client_name: apt.client_name,
+      client_phone: apt.client_phone || '',
+      client_email: apt.client_email || '',
+      service_id: apt.service_id || '',
+      appointment_time: `${hh}:${mm}`,
+      notes: apt.notes || '',
+      employee_id: (apt as any).employee_id || '',
+    });
+    setEditingApt(apt);
+  };
+
+  const saveEditApt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingApt) return;
+    setIsLoading(true);
+    try {
+      const svc = services.find(s => s.id === editAptForm.service_id);
+      const dur = svc?.duration_minutes || Math.round((new Date(editingApt.end_time).getTime() - new Date(editingApt.start_time).getTime()) / 60000);
+      const dateStr = editingApt.start_time.split('T')[0];
+      const start = new Date(`${dateStr}T${editAptForm.appointment_time}:00`);
+      const end   = new Date(start.getTime() + dur * 60000);
+      const { error } = await supabase.from('appointments').update({
+        client_name:  editAptForm.client_name,
+        client_phone: editAptForm.client_phone || null,
+        client_email: editAptForm.client_email || null,
+        service_id:   editAptForm.service_id || null,
+        start_time:   start.toISOString(),
+        end_time:     end.toISOString(),
+        notes:        editAptForm.notes || null,
+        employee_id:  editAptForm.employee_id || null,
+        updated_at:   new Date().toISOString(),
+      } as any).eq('id', editingApt.id);
+      if (error) throw error;
+      setEditingApt(null);
+      loadDayAppointments(); loadWeekAppointments();
+      toast({ title: '✅ Cita actualizada' });
+    } catch (e: any) {
+      toast({ title: 'Error al actualizar', description: e?.message, variant: 'destructive' });
     } finally { setIsLoading(false); }
   };
 
@@ -1533,7 +1583,7 @@ const SmartAppointments = () => {
               </div>
 
               {/* ── Appointment detail / New form panel ── */}
-              {(selectedApt || showForm) && (
+              {(selectedApt || showForm || editingApt) && (
                 <div className={isMobile
                   ? "fixed inset-0 z-50 bg-background overflow-y-auto pb-24"
                   : "w-80 shrink-0"
@@ -1542,16 +1592,16 @@ const SmartAppointments = () => {
                     <CardHeader className="pb-2 flex flex-row items-center justify-between sticky top-0 bg-background z-10 border-b">
                       <div className="flex items-center gap-2">
                         {isMobile && (
-                          <Button size="icon" variant="ghost" className="w-8 h-8 -ml-1" onClick={() => { setSelectedApt(null); setShowForm(false); }}>
+                          <Button size="icon" variant="ghost" className="w-8 h-8 -ml-1" onClick={() => { setSelectedApt(null); setShowForm(false); setEditingApt(null); }}>
                             <ChevronLeft className="w-5 h-5" />
                           </Button>
                         )}
                         <CardTitle className="text-base">
-                          {showForm ? '➕ Nueva cita' : selectedApt?.client_name}
+                          {showForm ? '➕ Nueva cita' : editingApt ? `✏️ ${editingApt.client_name}` : selectedApt?.client_name}
                         </CardTitle>
                       </div>
                       {!isMobile && (
-                        <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setSelectedApt(null); setShowForm(false); }}>
+                        <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setSelectedApt(null); setShowForm(false); setEditingApt(null); }}>
                           <X className="w-4 h-4" />
                         </Button>
                       )}
@@ -1631,8 +1681,66 @@ const SmartAppointments = () => {
                         </form>
                       )}
 
+                      {/* ── EDIT APPOINTMENT FORM ── */}
+                      {editingApt && !showForm && (
+                        <form onSubmit={saveEditApt} className="space-y-3">
+                          <p className="text-sm font-medium text-muted-foreground">✏️ Editando cita</p>
+                          <div>
+                            <Label className="text-xs">Nombre del cliente *</Label>
+                            <Input value={editAptForm.client_name} onChange={e => setEditAptForm({...editAptForm, client_name: e.target.value})} required />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Hora *</Label>
+                            <Input type="time" value={editAptForm.appointment_time} onChange={e => setEditAptForm({...editAptForm, appointment_time: e.target.value})} required />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Teléfono</Label>
+                            <Input value={editAptForm.client_phone} onChange={e => setEditAptForm({...editAptForm, client_phone: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Email</Label>
+                            <Input type="email" value={editAptForm.client_email} onChange={e => setEditAptForm({...editAptForm, client_email: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Servicio</Label>
+                            <Select value={editAptForm.service_id} onValueChange={v => setEditAptForm({...editAptForm, service_id: v})}>
+                              <SelectTrigger><SelectValue placeholder="Sin servicio" /></SelectTrigger>
+                              <SelectContent>
+                                {services.map(s => (
+                                  <SelectItem key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {employees.length > 0 && (
+                            <div>
+                              <Label className="text-xs">Técnica</Label>
+                              <Select value={editAptForm.employee_id || 'none'} onValueChange={v => setEditAptForm({...editAptForm, employee_id: v === 'none' ? '' : v})}>
+                                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sin asignar</SelectItem>
+                                  {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <div>
+                            <Label className="text-xs">Notas</Label>
+                            <Textarea rows={2} value={editAptForm.notes} onChange={e => setEditAptForm({...editAptForm, notes: e.target.value})} />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="submit" className="flex-1" disabled={isLoading}>
+                              {isLoading ? 'Guardando...' : 'Guardar cambios'}
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setEditingApt(null)}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+
                       {/* ── APPOINTMENT DETAIL ── */}
-                      {selectedApt && !showForm && (() => {
+                      {selectedApt && !showForm && !editingApt && (() => {
                         const apt = selectedApt;
                         const svc = services.find(s => s.id === apt.service_id);
                         const emp = employees.find(e => e.id === (apt as any).employee_id);
@@ -1684,6 +1792,12 @@ const SmartAppointments = () => {
                                 <p className="text-sm opacity-75 italic mt-1">📝 {apt.notes}</p>
                               )}
                             </div>
+
+                            {/* Edit button */}
+                            <Button size="sm" variant="outline" className="w-full"
+                              onClick={() => openEditApt(apt)}>
+                              ✏️ Editar cita
+                            </Button>
 
                             {/* Reminder buttons */}
                             <div>
