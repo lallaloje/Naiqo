@@ -171,7 +171,7 @@ function getMonthDays(year: number, month: number): (string | null)[] {
   const days: (string | null)[] = [];
   for (let i = 0; i < startDow; i++) days.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) {
-    const dd = new Date(year, month, d);
+    const dd = new Date(year, month, d, 12, 0, 0);
     days.push(toDateStr(dd));
   }
   return days;
@@ -269,6 +269,8 @@ const SmartAppointments = () => {
   });
   const [clientSuggestions, setClientSuggestions] = useState<{name:string;phone:string|null;email:string|null;topServiceId:string|null}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const clientNameRef = useRef<HTMLInputElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<{top:number;left:number;width:number} | null>(null);
   const [svcForm, setSvcForm] = useState({
     name: '', duration_minutes: 60, price: '', description: '', category: '',
   });
@@ -506,6 +508,10 @@ const SmartAppointments = () => {
       return { name: c.name, phone: c.phone, email: c.email, topServiceId };
     });
     setClientSuggestions(suggestions);
+    if (suggestions.length > 0 && clientNameRef.current) {
+      const r = clientNameRef.current.getBoundingClientRect();
+      setDropdownRect({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
+    }
     setShowSuggestions(suggestions.length > 0);
   };
 
@@ -1555,31 +1561,14 @@ const SmartAppointments = () => {
                       {/* ── NEW APPOINTMENT FORM ── */}
                       {showForm && (
                         <form onSubmit={createAppointment} className="space-y-3">
-                          <div className="relative">
+                          <div>
                             <Label className="text-xs">Nombre del cliente *</Label>
-                            <Input placeholder="Ej: Ana García" value={form.client_name}
+                            <Input ref={clientNameRef} placeholder="Ej: Ana García" value={form.client_name}
                               onChange={e => { setForm({...form, client_name: e.target.value}); searchClients(e.target.value); }}
-                              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                              onFocus={() => { if (clientSuggestions.length > 0) setShowSuggestions(true); }}
+                              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                              onFocus={() => { if (clientSuggestions.length > 0 && clientNameRef.current) { const r = clientNameRef.current.getBoundingClientRect(); setDropdownRect({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width }); setShowSuggestions(true); } }}
                               autoComplete="off"
                               required />
-                            {showSuggestions && clientSuggestions.length > 0 && (
-                              <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover border rounded-xl shadow-lg overflow-hidden">
-                                {clientSuggestions.map((s, i) => {
-                                  const svc = services.find(sv => sv.id === s.topServiceId);
-                                  return (
-                                    <button key={i} type="button"
-                                      onMouseDown={() => selectClientSuggestion(s)}
-                                      className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-0">
-                                      <p className="text-sm font-medium">{s.name}</p>
-                                      <p className="text-[11px] text-muted-foreground">
-                                        {[s.phone, svc?.name].filter(Boolean).join(' · ')}
-                                      </p>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
                           </div>
                           <div>
                             <Label className="text-xs">Hora *</Label>
@@ -2144,6 +2133,28 @@ const SmartAppointments = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ── Client autocomplete dropdown (portal-style fixed) ── */}
+      {showSuggestions && clientSuggestions.length > 0 && dropdownRect && (
+        <div
+          style={{ position: 'fixed', top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width, zIndex: 9999 }}
+          className="bg-popover border rounded-xl shadow-lg overflow-hidden"
+        >
+          {clientSuggestions.map((s, i) => {
+            const svc = services.find(sv => sv.id === s.topServiceId);
+            return (
+              <button key={i} type="button"
+                onPointerDown={e => { e.preventDefault(); selectClientSuggestion(s); setShowSuggestions(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-0">
+                <p className="text-sm font-medium">{s.name}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {[s.phone, svc?.name].filter(Boolean).join(' · ')}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
