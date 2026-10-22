@@ -11,11 +11,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors } from "lucide-react";
 
+type DaySchedules = Record<string, { start: number; end: number }>;
+
 interface Salon {
   id: string;
   salon_name: string | null;
   phone: string | null;
   user_id: string;
+  day_schedules: DaySchedules | null;
 }
 
 interface Service {
@@ -32,23 +35,15 @@ interface SlimApt {
   end_time: string;
 }
 
-// ── Horario de Oli Nails: rangos [inicio, fin) por día de semana ──────
-// 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
-function getWorkRanges(dow: number): Array<[number, number]> {
-  if (dow === 0) return []; // cerrado domingos
-  if (dow === 1) return []; // cerrado lunes
-  if (dow === 4) return [[16, 19]]; // jueves: solo tarde 16-19
-  if (dow === 6) return [[9, 14]];  // sábado: solo mañana 9-14
-  return [[10, 14], [16, 21]];      // resto: 10-14 y 16-21
-}
-
-// ── Genera franjas horarias libres ─────────────────────────────────
-function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[]): string[] {
+// ── Genera franjas horarias libres usando el horario real del salón ────
+function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[], daySchedules: DaySchedules): string[] {
   const slots: string[] = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  const dow = date.getDay();
-  const ranges = getWorkRanges(dow);
+  const dow = date.getDay(); // 0=Dom … 6=Sáb
+  const sched = daySchedules[String(dow)];
+  if (!sched) return []; // día no laborable
+  const ranges: Array<[number, number]> = [[sched.start, sched.end]];
 
   for (const [rangeStart, rangeEnd] of ranges) {
     for (let h = rangeStart; h < rangeEnd; h++) {
@@ -138,11 +133,11 @@ const PublicBooking = () => {
 
   // ── Recalcular franjas cuando cambia busy o servicio ───────────
   useEffect(() => {
-    if (!selectedService) return;
-    const s = generateSlots(selectedDate, selectedService.duration_minutes, busyApts);
+    if (!selectedService || !salon) return;
+    const s = generateSlots(selectedDate, selectedService.duration_minutes, busyApts, salon.day_schedules || {});
     setSlots(s);
     setSelectedSlot('');
-  }, [busyApts, selectedService, selectedDate]);
+  }, [busyApts, selectedService, selectedDate, salon]);
 
   // ── Confirmar reserva con pago Stripe ──────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {

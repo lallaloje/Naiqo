@@ -10,13 +10,20 @@ DROP FUNCTION IF EXISTS public.get_salon_for_booking(TEXT);
 
 CREATE OR REPLACE FUNCTION public.get_salon_for_booking(p_salon_id TEXT)
 RETURNS TABLE (
-  id UUID, salon_name TEXT, phone TEXT, address TEXT, city TEXT, user_id UUID
+  id UUID, salon_name TEXT, phone TEXT, address TEXT, city TEXT, user_id UUID,
+  day_schedules JSONB
 )
 LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
-  SELECT id, salon_name, phone, address, city, user_id
-  FROM public.salons
-  WHERE id::TEXT = p_salon_id
-     OR booking_slug = LOWER(p_salon_id)
+  SELECT s.id, s.salon_name, s.phone, s.address, s.city, s.user_id,
+    COALESCE(
+      (SELECT e.day_schedules FROM public.employees e
+       WHERE e.user_id = s.user_id AND e.active = true
+       ORDER BY e.created_at LIMIT 1),
+      '{}'::JSONB
+    ) AS day_schedules
+  FROM public.salons s
+  WHERE s.id::TEXT = p_salon_id
+     OR s.booking_slug = LOWER(p_salon_id)
   LIMIT 1;
 $$;
 
