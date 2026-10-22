@@ -502,6 +502,7 @@ export default function Clientes() {
   }, [filtered]);
 
   const availableLetters = useMemo(() => grouped.map(([l]) => l), [grouped]);
+  const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
   const scrollToLetter = useCallback((letter: string) => {
     const el = letterRefs.current[letter];
@@ -744,16 +745,21 @@ export default function Clientes() {
           {/* Alpha sidebar */}
           {!search && (
             <div className="sticky top-4 self-start z-20 flex flex-col items-center gap-0.5 select-none max-h-[80vh] overflow-y-auto scrollbar-none">
-              {availableLetters.map(letter => (
-                <button
-                  key={letter}
-                  onPointerDown={() => scrollToLetter(letter)}
-                  className={`w-5 h-5 text-[10px] font-bold rounded-full flex items-center justify-center transition-colors leading-none
-                    ${activeLetter === letter ? 'bg-primary text-white' : 'text-primary hover:bg-primary/10'}`}
-                >
-                  {letter}
-                </button>
-              ))}
+              {allLetters.map(letter => {
+                const hasClients = availableLetters.includes(letter);
+                return (
+                  <button
+                    key={letter}
+                    onPointerDown={() => hasClients && scrollToLetter(letter)}
+                    disabled={!hasClients}
+                    className={`w-5 h-5 text-[10px] font-bold rounded-full flex items-center justify-center transition-colors leading-none
+                      ${activeLetter === letter ? 'bg-primary text-white' :
+                        hasClients ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground/30 cursor-default'}`}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
