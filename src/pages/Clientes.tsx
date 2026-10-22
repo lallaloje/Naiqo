@@ -11,14 +11,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
-  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2,
+  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -372,9 +372,37 @@ export default function Clientes() {
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const [showDifusion, setShowDifusion] = useState(false);
   const [difusionMsg, setDifusionMsg] = useState('');
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({ name: '', phone: '', email: '' });
+  const [savingNew, setSavingNew] = useState(false);
   const [salonId, setSalonId] = useState<string | null>(null);
   const letterRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  const handleCreateClient = async () => {
+    if (!newClientForm.name.trim()) { toast({ title: 'El nombre es obligatorio', variant: 'destructive' }); return; }
+    if (!user) return;
+    setSavingNew(true);
+    try {
+      const { error } = await (supabase as any).from('salon_clients').insert({
+        user_id: user.id,
+        salon_id: salonId,
+        name: newClientForm.name.trim(),
+        phone: newClientForm.phone.trim() || null,
+        email: newClientForm.email.trim() || null,
+        imported_from: 'manual',
+      });
+      if (error) throw error;
+      toast({ title: '✅ Cliente añadido' });
+      setShowNewClient(false);
+      setNewClientForm({ name: '', phone: '', email: '' });
+      fetchClients();
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingNew(false);
+    }
+  };
 
   const fetchClients = useCallback(async () => {
     if (!user) return;
@@ -533,15 +561,20 @@ export default function Clientes() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nombre, teléfono o email..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + New client */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre, teléfono o email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Button size="icon" onClick={() => setShowNewClient(true)} title="Añadir cliente">
+          <UserPlus className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* Difusión */}
@@ -756,6 +789,54 @@ export default function Clientes() {
         onClose={() => setSelected(null)}
         onUpdate={fetchClients}
       />
+
+      {/* New client sheet */}
+      <Sheet open={showNewClient} onOpenChange={setShowNewClient}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-8">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" /> Nuevo cliente
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-1.5">
+              <Label>Nombre *</Label>
+              <Input
+                placeholder="Nombre completo"
+                value={newClientForm.name}
+                onChange={e => setNewClientForm(f => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Teléfono</Label>
+              <Input
+                placeholder="Ej. 600 000 000"
+                type="tel"
+                value={newClientForm.phone}
+                onChange={e => setNewClientForm(f => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input
+                placeholder="correo@ejemplo.com"
+                type="email"
+                value={newClientForm.email}
+                onChange={e => setNewClientForm(f => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+          </div>
+          <SheetFooter className="mt-6 flex-row gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowNewClient(false)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1" onClick={handleCreateClient} disabled={savingNew}>
+              {savingNew ? 'Guardando...' : 'Añadir cliente'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
