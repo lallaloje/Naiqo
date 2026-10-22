@@ -431,7 +431,13 @@ export default function Clientes() {
       const aptKeys = new Map(fromApts.map(c => [c.name.toLowerCase().trim(), c]));
       const merged: Client[] = fromApts.map(c => {
         const ic = imported.find(i => i.name.toLowerCase().trim() === c.name.toLowerCase().trim());
-        return ic ? { ...c, importedId: ic.id } : c;
+        return ic ? {
+          ...c,
+          importedId: ic.id,
+          name:  ic.name  || c.name,
+          phone: ic.phone || c.phone,
+          email: ic.email || c.email,
+        } : c;
       });
 
       for (const ic of imported) {
