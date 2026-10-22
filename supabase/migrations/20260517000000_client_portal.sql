@@ -62,6 +62,14 @@ LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
   JOIN public.salons s ON s.user_id = b.user_id
   WHERE (s.id::TEXT = p_salon_id OR s.booking_slug = LOWER(p_salon_id))
     AND b.start_time::DATE = p_date
+  UNION ALL
+  SELECT
+    (p_date || 'T' || rb.start_hour || ':00')::TIMESTAMPTZ,
+    (p_date || 'T' || rb.end_hour   || ':00')::TIMESTAMPTZ
+  FROM public.recurring_blocks rb
+  JOIN public.salons s ON s.user_id = rb.user_id
+  WHERE (s.id::TEXT = p_salon_id OR s.booking_slug = LOWER(p_salon_id))
+    AND EXTRACT(DOW FROM p_date)::INT = ANY(rb.days_of_week)
   ORDER BY start_time;
 $$;
 
