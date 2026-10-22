@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { CheckCircle, Clock, Phone, MapPin, ChevronLeft, ChevronRight, Scissors } from "lucide-react";
+import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors } from "lucide-react";
 
 interface Salon {
   id: string;
@@ -32,32 +32,46 @@ interface SlimApt {
   end_time: string;
 }
 
+// ── Horario de Oli Nails: rangos [inicio, fin) por día de semana ──────
+// 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb
+function getWorkRanges(dow: number): Array<[number, number]> {
+  if (dow === 0) return []; // cerrado domingos
+  if (dow === 4) return [[16, 19]]; // jueves: solo tarde 16-19
+  if (dow === 6) return [[9, 14]];  // sábado: solo mañana 9-14
+  return [[10, 14], [16, 21]];      // resto: 10-14 y 16-21
+}
+
 // ── Genera franjas horarias libres ─────────────────────────────────
 function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[]): string[] {
   const slots: string[] = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
+  const dow = date.getDay();
+  const ranges = getWorkRanges(dow);
 
-  for (let h = 9; h < 21; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const slotStart = new Date(date);
-      slotStart.setHours(h, m, 0, 0);
-      const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
+  for (const [rangeStart, rangeEnd] of ranges) {
+    for (let h = rangeStart; h < rangeEnd; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const slotStart = new Date(date);
+        slotStart.setHours(h, m, 0, 0);
+        const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
 
-      // No mostrar horas pasadas hoy
-      if (isToday && slotStart <= now) continue;
-      // No mostrar si pasa de 21:00
-      if (slotEnd.getHours() > 21 || (slotEnd.getHours() === 21 && slotEnd.getMinutes() > 0)) continue;
+        // No mostrar horas pasadas hoy
+        if (isToday && slotStart <= now) continue;
+        // La cita completa debe caber dentro del rango
+        const endTotalMin = slotEnd.getHours() * 60 + slotEnd.getMinutes();
+        if (endTotalMin > rangeEnd * 60) continue;
 
-      // Comprobar conflictos con citas existentes
-      const conflict = busyApts.some(apt => {
-        const as_ = new Date(apt.start_time).getTime();
-        const ae  = new Date(apt.end_time).getTime();
-        return slotStart.getTime() < ae && slotEnd.getTime() > as_;
-      });
+        // Comprobar conflictos con citas existentes
+        const conflict = busyApts.some(apt => {
+          const as_ = new Date(apt.start_time).getTime();
+          const ae  = new Date(apt.end_time).getTime();
+          return slotStart.getTime() < ae && slotEnd.getTime() > as_;
+        });
 
-      if (!conflict) {
-        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        if (!conflict) {
+          slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        }
       }
     }
   }
@@ -92,6 +106,9 @@ const PublicBooking = () => {
       setSalon(data[0] as Salon);
     };
     load();
+    // Timeout: si tras 8s sigue cargando, mostrar error
+    const t = setTimeout(() => setNotFound(true), 8000);
+    return () => clearTimeout(t);
   }, [salonId]);
 
   // ── Cargar servicios (via RPC) ──────────────────────────────────
@@ -131,8 +148,10 @@ const PublicBooking = () => {
 
     try {
       const dateStr = selectedDate.toISOString().split('T')[0];
-      const start   = new Date(`${dateStr}T${selectedSlot}:00`);
-      const end     = new Date(start.getTime() + selectedService.duration_minutes * 60000);
+      // Fijar zona horaria España para evitar conversiones incorrectas del navegador
+      const offset = selectedDate.getMonth() >= 2 && selectedDate.getMonth() <= 9 ? '+02:00' : '+01:00';
+      const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
+      const end    = new Date(start.getTime() + selectedService.duration_minutes * 60000);
 
       // Si el servicio tiene precio → guardar tarjeta via Stripe (sin cobro)
       if (selectedService.price && selectedService.price > 0) {
@@ -278,8 +297,7 @@ const PublicBooking = () => {
               <div>
                 <h1 className="text-xl font-bold">{salonDisplayName}</h1>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
-                  {salon.address && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{salon.address}{salon.city ? `, ${salon.city}` : ''}</span>}
-                  {salon.phone  && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{salon.phone}</span>}
+                  {salon.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{salon.phone}</span>}
                 </div>
               </div>
             </div>

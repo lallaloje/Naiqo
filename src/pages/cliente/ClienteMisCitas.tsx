@@ -51,7 +51,7 @@ const ClienteMisCitas = () => {
     const { data } = await supabase
       .from('appointments')
       .select('*, salons(salon_name, id), services(name, price)')
-      .eq('client_email', inputEmail.trim().toLowerCase())
+      .ilike('client_email' as any, inputEmail.trim())
       .order('start_time', { ascending: false });
     setCitas((data as any) || []);
     setEmail(inputEmail.trim().toLowerCase());

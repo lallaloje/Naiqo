@@ -85,8 +85,8 @@ export default function Dashboard() {
         .from('appointments')
         .select('id, client_name, start_time, end_time, status, services(name, price)')
         .eq('user_id', user.id)
-        .gte('start_time', `${todayStr}T00:00:00`)
-        .lte('start_time', `${todayStr}T23:59:59`)
+        .gte('start_time', `${todayStr}T00:00:00+01:00`)
+        .lte('start_time', `${todayStr}T23:59:59+02:00`)
         .order('start_time');
       setTodayApts((todayData as any) || []);
 

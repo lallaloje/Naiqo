@@ -382,6 +382,7 @@ export default function Clientes() {
   const handleCreateClient = async () => {
     if (!newClientForm.name.trim()) { toast({ title: 'El nombre es obligatorio', variant: 'destructive' }); return; }
     if (!user) return;
+    if (!salonId) { toast({ title: 'Cargando datos del salón...', description: 'Espera un momento e inténtalo de nuevo.' }); return; }
     setSavingNew(true);
     try {
       const { error } = await (supabase as any).from('salon_clients').insert({

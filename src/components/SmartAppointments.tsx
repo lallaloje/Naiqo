@@ -382,7 +382,9 @@ const SmartAppointments = () => {
   };
 
   const deleteBlockedSlot = async (id: string) => {
-    await supabase.from('blocked_slots').delete().eq('id', id);
+    if (!confirm('¿Eliminar este bloqueo?')) return;
+    const { error } = await supabase.from('blocked_slots').delete().eq('id', id);
+    if (error) { toast({ title: 'Error al eliminar', variant: 'destructive' }); return; }
     loadBlockedSlots();
     toast({ title: 'Bloqueo eliminado' });
   };
@@ -532,6 +534,8 @@ const SmartAppointments = () => {
       const start = new Date(`${selectedDate}T${timeValue}:00`);
       const end   = new Date(start.getTime() + dur * 60000);
 
+      const clientNameSaved = form.client_name;
+      const timeSaved = timeValue;
       const { error } = await supabase.from('appointments').insert({
         salon_id: salonId, user_id: user!.id, service_id: form.service_id || null,
         client_name: form.client_name, client_email: form.client_email || null,
@@ -544,7 +548,7 @@ const SmartAppointments = () => {
       setClientSuggestions([]); setShowSuggestions(false);
       setShowForm(false);
       loadDayAppointments(); loadWeekAppointments();
-      toast({ title: '✅ Cita creada', description: `${form.client_name} — ${form.appointment_time}` });
+      toast({ title: '✅ Cita creada', description: `${clientNameSaved} — ${timeSaved}` });
     } catch (e: any) {
       logError('SmartAppointments:create', e);
       const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Error desconocido';
@@ -576,9 +580,10 @@ const SmartAppointments = () => {
 
   const deleteAppointment = async (id: string) => {
     if (!confirm('¿Eliminar esta cita?')) return;
-    await supabase.from('appointments').delete().eq('id', id);
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    if (error) { toast({ title: 'Error al eliminar', variant: 'destructive' }); return; }
     setSelectedApt(null);
-    loadDayAppointments(); loadWeekAppointments();
+    loadDayAppointments(); loadWeekAppointments(); loadPendingAppointments();
     toast({ title: 'Cita eliminada' });
   };
 
