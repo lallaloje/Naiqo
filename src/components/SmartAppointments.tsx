@@ -510,7 +510,7 @@ const SmartAppointments = () => {
     setClientSuggestions(suggestions);
     if (suggestions.length > 0 && clientNameRef.current) {
       const r = clientNameRef.current.getBoundingClientRect();
-      setDropdownRect({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width });
+      setDropdownRect({ top: r.bottom, left: r.left, width: r.width });
     }
     setShowSuggestions(suggestions.length > 0);
   };
@@ -1566,7 +1566,7 @@ const SmartAppointments = () => {
                             <Input ref={clientNameRef} placeholder="Ej: Ana García" value={form.client_name}
                               onChange={e => { setForm({...form, client_name: e.target.value}); searchClients(e.target.value); }}
                               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                              onFocus={() => { if (clientSuggestions.length > 0 && clientNameRef.current) { const r = clientNameRef.current.getBoundingClientRect(); setDropdownRect({ top: r.bottom + window.scrollY, left: r.left + window.scrollX, width: r.width }); setShowSuggestions(true); } }}
+                              onFocus={() => { if (clientSuggestions.length > 0 && clientNameRef.current) { const r = clientNameRef.current.getBoundingClientRect(); setDropdownRect({ top: r.bottom, left: r.left, width: r.width }); setShowSuggestions(true); } }}
                               autoComplete="off"
                               required />
                           </div>
