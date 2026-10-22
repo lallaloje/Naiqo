@@ -424,43 +424,51 @@ export default function Clientes() {
 
       if (aptsResult.error) throw aptsResult.error;
 
-      const fromApts = aggregateClients((aptsResult.data as any[]) || []);
+      const aptsData = (aptsResult.data as any[]) || [];
       const imported: ImportedClient[] = importedResult.data || [];
 
-      // Merge: imported clients not already in appointments list
-      const aptKeys = new Map(fromApts.map(c => [c.name.toLowerCase().trim(), c]));
-      const merged: Client[] = fromApts.map(c => {
-        const ic = imported.find(i => i.name.toLowerCase().trim() === c.name.toLowerCase().trim());
-        return ic ? {
-          ...c,
-          importedId: ic.id,
-          name:  ic.name  || c.name,
-          phone: ic.phone || c.phone,
-          email: ic.email || c.email,
-        } : c;
-      });
-
-      for (const ic of imported) {
-        const nameKey = ic.name.toLowerCase().trim();
-        if (!aptKeys.has(nameKey)) {
-          merged.push({
-            key: ic.id,
-            name: ic.name,
-            phone: ic.phone,
-            email: ic.email,
-            totalApts: ic.total_visits,
-            completedApts: ic.total_visits,
-            cancelledApts: ic.no_shows,
-            totalSpent: ic.total_spent || 0,
-            lastVisit: ic.last_visit || ic.first_visit || new Date().toISOString(),
-            firstVisit: ic.first_visit || new Date().toISOString(),
-            appointments: [],
-            tags: ic.tags,
-            importedFrom: ic.imported_from,
-            importedId: ic.id,
-          });
+      // Build appointment stats per client name for enriching salon_clients
+      const aptStatsMap = new Map<string, {
+        totalApts: number; completedApts: number; cancelledApts: number;
+        totalSpent: number; lastVisit: string; firstVisit: string;
+        appointments: any[];
+      }>();
+      for (const apt of aptsData) {
+        const key = apt.client_name?.trim().toLowerCase();
+        if (!key) continue;
+        if (!aptStatsMap.has(key)) {
+          aptStatsMap.set(key, { totalApts: 0, completedApts: 0, cancelledApts: 0, totalSpent: 0, lastVisit: apt.start_time, firstVisit: apt.start_time, appointments: [] });
         }
+        const s = aptStatsMap.get(key)!;
+        s.totalApts++;
+        if (['completed', 'confirmed'].includes(apt.status)) { s.completedApts++; s.totalSpent += apt.services?.price || 0; }
+        if (apt.status === 'cancelled') s.cancelledApts++;
+        if (apt.start_time > s.lastVisit) s.lastVisit = apt.start_time;
+        if (apt.start_time < s.firstVisit) s.firstVisit = apt.start_time;
+        s.appointments.push(apt);
       }
+
+      // Show ONLY salon_clients — use appointment stats for enrichment
+      const merged: Client[] = imported.map(ic => {
+        const key = ic.name.trim().toLowerCase();
+        const stats = aptStatsMap.get(key);
+        return {
+          key: ic.id,
+          name: ic.name,
+          phone: ic.phone,
+          email: ic.email,
+          totalApts: stats?.totalApts ?? ic.total_visits ?? 0,
+          completedApts: stats?.completedApts ?? ic.total_visits ?? 0,
+          cancelledApts: stats?.cancelledApts ?? ic.no_shows ?? 0,
+          totalSpent: stats?.totalSpent ?? ic.total_spent ?? 0,
+          lastVisit: stats?.lastVisit ?? ic.last_visit ?? ic.first_visit ?? new Date().toISOString(),
+          firstVisit: stats?.firstVisit ?? ic.first_visit ?? new Date().toISOString(),
+          appointments: stats?.appointments ?? [],
+          tags: ic.tags,
+          importedFrom: ic.imported_from,
+          importedId: ic.id,
+        };
+      });
 
       merged.sort((a, b) => a.name.localeCompare(b.name, 'es'));
       setClients(merged);
