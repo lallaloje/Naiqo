@@ -100,14 +100,16 @@ const PublicBooking = () => {
   // ── Cargar salón (via RPC para evitar RLS) ─────────────────────
   useEffect(() => {
     if (!salonId) return;
+    let loaded = false;
     const load = async () => {
       const { data, error } = await supabase.rpc('get_salon_for_booking', { p_salon_id: salonId });
       if (error || !data || data.length === 0) { setNotFound(true); return; }
+      loaded = true;
       setSalon(data[0] as Salon);
     };
     load();
-    // Timeout: si tras 8s sigue cargando, mostrar error
-    const t = setTimeout(() => setNotFound(true), 8000);
+    // Timeout: solo mostrar error si no cargó en 8s
+    const t = setTimeout(() => { if (!loaded) setNotFound(true); }, 8000);
     return () => clearTimeout(t);
   }, [salonId]);
 
