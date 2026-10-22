@@ -126,7 +126,8 @@ const PublicBooking = () => {
   // ── Cargar citas ocupadas (via RPC) ────────────────────────────
   useEffect(() => {
     if (!salonId || !selectedService) return;
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateStr = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth()+1)}-${pad(selectedDate.getDate())}`;
     const load = async () => {
       const { data } = await supabase.rpc('get_busy_slots', { p_salon_id: salonId, p_date: dateStr });
       setBusyApts((data as SlimApt[]) || []);
@@ -149,7 +150,8 @@ const PublicBooking = () => {
     setIsLoading(true);
 
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const pad2 = (n: number) => String(n).padStart(2, '0');
+      const dateStr = `${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth()+1)}-${pad2(selectedDate.getDate())}`;
       // Fijar zona horaria España para evitar conversiones incorrectas del navegador
       const offset = selectedDate.getMonth() >= 2 && selectedDate.getMonth() <= 9 ? '+02:00' : '+01:00';
       const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
