@@ -64,8 +64,8 @@ LANGUAGE SQL SECURITY DEFINER SET search_path = public AS $$
     AND b.start_time::DATE = p_date
   UNION ALL
   SELECT
-    (p_date || 'T' || rb.start_hour || ':00')::TIMESTAMPTZ,
-    (p_date || 'T' || rb.end_hour   || ':00')::TIMESTAMPTZ
+    TIMEZONE('Europe/Madrid', (p_date || 'T' || rb.start_hour || ':00')::TIMESTAMP),
+    TIMEZONE('Europe/Madrid', (p_date || 'T' || rb.end_hour   || ':00')::TIMESTAMP)
   FROM public.recurring_blocks rb
   JOIN public.salons s ON s.user_id = rb.user_id
   WHERE (s.id::TEXT = p_salon_id OR s.booking_slug = LOWER(p_salon_id))
