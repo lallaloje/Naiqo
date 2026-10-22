@@ -471,8 +471,8 @@ export default function Clientes() {
         .then(({ data }) => {
           if (data) {
             setSalonId(data.id);
-            const url = `${window.location.origin}/reservar/${data.id}`;
-            setDifusionMsg(`¡Hola! 👋\n\nYa puedes reservar tu próxima cita conmigo de forma fácil y rápida desde la app. Aquí tienes el enlace:\n\n${url}\n\nPara tenerlo siempre a mano, puedes añadirlo a la pantalla de inicio de tu móvil:\n\n📱 *iPhone:* Abre el enlace en Safari → toca el botón compartir (cuadrado con flecha) → "Añadir a pantalla de inicio"\n\n🤖 *Android:* Abre el enlace en Chrome → toca los tres puntos del menú → "Añadir a pantalla de inicio"\n\nAsí lo tendrás como una app sin necesidad de descargar nada. ¡Cualquier duda me dices! 💅`);
+            const url = `https://app.naiqo.es`;
+            setDifusionMsg(`¡Hola! 👋\n\nTe presento NAIQO, la app para reservar citas en salones de belleza de forma fácil y rápida 💅\n\nAquí tienes el enlace:\n\n${url}\n\nBusca tu salón favorito y reserva en segundos. Para tenerla siempre a mano, puedes añadirla a la pantalla de inicio de tu móvil:\n\n📱 *iPhone:* Abre el enlace en Safari → toca el botón compartir (cuadrado con flecha) → "Añadir a pantalla de inicio"\n\n🤖 *Android:* Abre el enlace en Chrome → toca los tres puntos del menú → "Añadir a pantalla de inicio"\n\nAsí la tendrás como una app sin necesidad de descargar nada. ¡Cualquier duda me dices! 😊`);
           }
         });
     }
@@ -743,7 +743,7 @@ export default function Clientes() {
 
           {/* Alpha sidebar */}
           {!search && (
-            <div className="fixed right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-0.5 select-none">
+            <div className="sticky top-4 self-start z-20 flex flex-col items-center gap-0.5 select-none max-h-[80vh] overflow-y-auto scrollbar-none">
               {availableLetters.map(letter => (
                 <button
                   key={letter}
