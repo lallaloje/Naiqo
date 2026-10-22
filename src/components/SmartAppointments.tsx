@@ -267,6 +267,8 @@ const SmartAppointments = () => {
     client_name: '', client_email: '', client_phone: '',
     service_id: '', appointment_time: '', notes: '', employee_id: '',
   });
+  const [clientSuggestions, setClientSuggestions] = useState<{name:string;phone:string|null;email:string|null;topServiceId:string|null}[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [svcForm, setSvcForm] = useState({
     name: '', duration_minutes: 60, price: '', description: '', category: '',
   });
@@ -467,6 +469,56 @@ const SmartAppointments = () => {
     setEmployees(data || []);
   };
 
+  const searchClients = async (q: string) => {
+    if (!q.trim() || q.length < 2 || !user) { setClientSuggestions([]); return; }
+    // Search in salon_clients
+    const { data: imported } = await (supabase as any)
+      .from('salon_clients')
+      .select('name, phone, email')
+      .eq('user_id', user.id)
+      .ilike('name', `%${q}%`)
+      .limit(8);
+    // Search in appointments history (distinct names)
+    const { data: aptClients } = await supabase
+      .from('appointments')
+      .select('client_name, client_phone, client_email, service_id')
+      .eq('user_id', user.id)
+      .ilike('client_name' as any, `%${q}%`)
+      .limit(50);
+    // Build suggestions map: name → {phone, email, serviceCount}
+    const map = new Map<string, {name:string;phone:string|null;email:string|null;serviceCounts:Record<string,number>}>();
+    for (const ic of (imported || [])) {
+      const key = ic.name.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, {name: ic.name, phone: ic.phone, email: ic.email, serviceCounts: {}});
+    }
+    for (const a of (aptClients || [])) {
+      const key = a.client_name.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, {name: a.client_name, phone: a.client_phone, email: a.client_email, serviceCounts: {}});
+      const entry = map.get(key)!;
+      if (!entry.phone && a.client_phone) entry.phone = a.client_phone;
+      if (!entry.email && a.client_email) entry.email = a.client_email;
+      if (a.service_id) entry.serviceCounts[a.service_id] = (entry.serviceCounts[a.service_id] || 0) + 1;
+    }
+    const suggestions = Array.from(map.values()).slice(0, 6).map(c => {
+      const topServiceId = Object.entries(c.serviceCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+      return { name: c.name, phone: c.phone, email: c.email, topServiceId };
+    });
+    setClientSuggestions(suggestions);
+    setShowSuggestions(suggestions.length > 0);
+  };
+
+  const selectClientSuggestion = (s: {name:string;phone:string|null;email:string|null;topServiceId:string|null}) => {
+    setForm(f => ({
+      ...f,
+      client_name: s.name,
+      client_phone: s.phone || f.client_phone,
+      client_email: s.email || f.client_email,
+      service_id: s.topServiceId || f.service_id,
+    }));
+    setShowSuggestions(false);
+    setClientSuggestions([]);
+  };
+
   // ─── Appointment CRUD ───────────────────────────────────────────
   const createAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -489,6 +541,7 @@ const SmartAppointments = () => {
       } as any);
       if (error) throw error;
       setForm({ client_name:'', client_email:'', client_phone:'', service_id:'', appointment_time:'', notes:'', employee_id:'' });
+      setClientSuggestions([]); setShowSuggestions(false);
       setShowForm(false);
       loadDayAppointments(); loadWeekAppointments();
       toast({ title: '✅ Cita creada', description: `${form.client_name} — ${form.appointment_time}` });
@@ -1497,10 +1550,31 @@ const SmartAppointments = () => {
                       {/* ── NEW APPOINTMENT FORM ── */}
                       {showForm && (
                         <form onSubmit={createAppointment} className="space-y-3">
-                          <div>
+                          <div className="relative">
                             <Label className="text-xs">Nombre del cliente *</Label>
                             <Input placeholder="Ej: Ana García" value={form.client_name}
-                              onChange={e => setForm({...form, client_name: e.target.value})} required />
+                              onChange={e => { setForm({...form, client_name: e.target.value}); searchClients(e.target.value); }}
+                              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                              onFocus={() => { if (clientSuggestions.length > 0) setShowSuggestions(true); }}
+                              autoComplete="off"
+                              required />
+                            {showSuggestions && clientSuggestions.length > 0 && (
+                              <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover border rounded-xl shadow-lg overflow-hidden">
+                                {clientSuggestions.map((s, i) => {
+                                  const svc = services.find(sv => sv.id === s.topServiceId);
+                                  return (
+                                    <button key={i} type="button"
+                                      onMouseDown={() => selectClientSuggestion(s)}
+                                      className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-0">
+                                      <p className="text-sm font-medium">{s.name}</p>
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {[s.phone, svc?.name].filter(Boolean).join(' · ')}
+                                      </p>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <Label className="text-xs">Hora *</Label>
