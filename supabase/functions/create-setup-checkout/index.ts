@@ -15,7 +15,8 @@ serve(async (req) => {
     const {
       salonId, userId, serviceId, serviceName, servicePrice,
       clientName, clientEmail, clientPhone,
-      startTime, endTime, notes, origin
+      startTime, endTime, notes, origin,
+      localDate, localTime,
     } = await req.json();
 
     const successUrl = `${origin}/reservar/exito?session_id={CHECKOUT_SESSION_ID}`;
@@ -40,6 +41,8 @@ serve(async (req) => {
       'metadata[start_time]':        startTime,
       'metadata[end_time]':          endTime,
       'metadata[notes]':             notes || '',
+      'metadata[local_date]':        localDate || '',
+      'metadata[local_time]':        localTime || '',
     });
 
     if (clientEmail) params.set('customer_email', clientEmail);

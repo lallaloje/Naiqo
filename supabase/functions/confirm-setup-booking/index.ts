@@ -84,10 +84,25 @@ serve(async (req) => {
 
     if (insertError) throw new Error(insertError.message);
 
-    // 5. Push notification al salón
-    const dt   = new Date(meta.start_time);
-    const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    // 5. Push notification al salón — usar hora local pasada desde el cliente (sin conversión Deno)
+    const date = meta.local_date || (() => {
+      const dt = new Date(meta.start_time);
+      const _y = dt.getUTCFullYear();
+      const _lsm = new Date(Date.UTC(_y, 2, 31 - new Date(Date.UTC(_y, 2, 31)).getUTCDay(), 1));
+      const _lso = new Date(Date.UTC(_y, 9, 31 - new Date(Date.UTC(_y, 9, 31)).getUTCDay(), 1));
+      const _loc = new Date(dt.getTime() + ((dt >= _lsm && dt < _lso) ? 2 : 1) * 3600000);
+      const DIAS  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+      const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return `${DIAS[_loc.getUTCDay()]}, ${_loc.getUTCDate()} de ${MESES[_loc.getUTCMonth()]}`;
+    })();
+    const time = meta.local_time || (() => {
+      const dt = new Date(meta.start_time);
+      const _y = dt.getUTCFullYear();
+      const _lsm = new Date(Date.UTC(_y, 2, 31 - new Date(Date.UTC(_y, 2, 31)).getUTCDay(), 1));
+      const _lso = new Date(Date.UTC(_y, 9, 31 - new Date(Date.UTC(_y, 9, 31)).getUTCDay(), 1));
+      const _loc = new Date(dt.getTime() + ((dt >= _lsm && dt < _lso) ? 2 : 1) * 3600000);
+      return `${String(_loc.getUTCHours()).padStart(2,'0')}:${String(_loc.getUTCMinutes()).padStart(2,'0')}`;
+    })();
     try {
       await fetch(`${supabaseUrl}/functions/v1/send-push`, {
         method: 'POST',

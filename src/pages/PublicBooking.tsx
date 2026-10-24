@@ -275,6 +275,10 @@ const PublicBooking = () => {
       const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
       const end    = new Date(start.getTime() + selectedService.duration_minutes * 60000);
 
+      // Hora local española (para pasar a las Edge Functions sin depender de Intl en Deno)
+      const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const localTime = selectedSlot;
+
       // Si el servicio tiene precio → guardar tarjeta via Stripe (sin cobro)
       if (selectedService.price && selectedService.price > 0) {
         const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
@@ -291,6 +295,8 @@ const PublicBooking = () => {
             endTime:      end.toISOString(),
             notes:        form.notes,
             origin:       window.location.origin,
+            localDate,
+            localTime,
           }
         });
         if (error || !data?.url) throw new Error(data?.error || 'Error al procesar la reserva');
@@ -314,10 +320,6 @@ const PublicBooking = () => {
         notes:        form.notes || null,
       } as any);
       if (error) throw error;
-
-      // Formatear fecha y hora en zona horaria España (ya correcta porque selectedSlot es local)
-      const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      const localTime = selectedSlot; // "13:30" — hora española directa, sin conversión UTC
 
       // Send confirmation email (non-blocking)
       if (form.client_email) {
