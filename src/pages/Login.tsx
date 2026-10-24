@@ -100,6 +100,7 @@ const Login = () => {
     }
     setLoading(true);
     const { error } = await signIn(email, password);
+    if (!error) localStorage.removeItem('naiqo_client_booking');
     if (error) {
       let msg = error.message;
       if (msg.includes('Invalid login credentials')) msg = 'Email o contraseña incorrectos';

@@ -12,12 +12,37 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-    const { clientName, clientEmail, salonName, salonPhone, serviceName, startTime, durationMinutes } = await req.json();
+    const { clientName, clientEmail, salonName, salonPhone, serviceName, startTime, durationMinutes, localDate, localTime } = await req.json();
     if (!clientEmail || !clientName) throw new Error("clientEmail and clientName required");
 
+    // Calcular offset real de España (CET=+1 invierno, CEST=+2 verano)
+    // DST: empieza último domingo de marzo (1:00 UTC), termina último domingo de octubre (1:00 UTC)
+    const getMadridOffset = (d: Date): number => {
+      const y = d.getUTCFullYear();
+      const lastSunMarch = new Date(Date.UTC(y, 2, 31 - new Date(Date.UTC(y, 2, 31)).getUTCDay(), 1));
+      const lastSunOct   = new Date(Date.UTC(y, 9, 31 - new Date(Date.UTC(y, 9, 31)).getUTCDay(), 1));
+      return (d >= lastSunMarch && d < lastSunOct) ? 2 : 1;
+    };
+
     const dt = new Date(startTime);
-    const dateStr = dt.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    const timeStr = dt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    let dateStr: string;
+    let timeStr: string;
+
+    if (localDate && localTime) {
+      // Valores ya formateados en hora española, pasados directamente desde el cliente
+      dateStr = localDate;
+      timeStr = localTime;
+    } else {
+      // Fallback: calcular hora española manualmente desde UTC
+      const offset = getMadridOffset(dt);
+      const local  = new Date(dt.getTime() + offset * 3600000);
+      const DIAS  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+      const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+      dateStr = `${DIAS[local.getUTCDay()]}, ${local.getUTCDate()} de ${MESES[local.getUTCMonth()]} de ${local.getUTCFullYear()}`;
+      timeStr = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
+    }
 
     const html = `<!DOCTYPE html>
 <html lang="es">

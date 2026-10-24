@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,15 @@ function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[], day
   return slots;
 }
 
+// Obtiene el offset real de Europe/Madrid para una fecha dada (respeta cambio de hora)
+function getSpainOffset(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+  const tz = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', timeZoneName: 'longOffset' })
+    .formatToParts(d)
+    .find(p => p.type === 'timeZoneName')?.value ?? 'GMT+02:00';
+  return tz.replace('GMT', '');
+}
+
 const PublicBooking = () => {
   const { centerId: salonId } = useParams<{ centerId: string }>();
   const [salon, setSalon]             = useState<Salon | null>(null);
@@ -83,15 +92,103 @@ const PublicBooking = () => {
   const [busyApts, setBusyApts]       = useState<SlimApt[]>([]);
   const [slots, setSlots]             = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
-  const [step, setStep]               = useState<1 | 2 | 3>(1); // 1=service, 2=datetime, 3=datos
+  const [step, setStep]               = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading]     = useState(false);
   const [done, setDone]               = useState(false);
   const [notFound, setNotFound]       = useState(false);
+  const [disabledDates, setDisabledDates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const [form, setForm] = useState({
     client_name: '', client_email: '', client_phone: '', notes: ''
   });
+  const [clientSuggestions, setClientSuggestions] = useState<Array<{name:string;phone:string;email:string}>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const phoneSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Sobreescribir manifest PWA inmediatamente (sólo con salonId, sin esperar datos) ──
+  useEffect(() => {
+    if (!salonId) return;
+    const buildManifest = (name: string) => ({
+      name,
+      short_name: name.split(' ')[0],
+      description: `Reserva tu cita en ${name}`,
+      start_url: `/reservar/${salonId}`,
+      display: 'standalone',
+      background_color: '#ffffff',
+      theme_color: '#d946ef',
+      orientation: 'portrait',
+      lang: 'es',
+      scope: `/reservar/${salonId}`,
+      icons: [
+        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+    });
+
+    let blobUrl = '';
+    const applyManifest = (name: string) => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      const blob = new Blob([JSON.stringify(buildManifest(name))], { type: 'application/manifest+json' });
+      blobUrl = URL.createObjectURL(blob);
+      const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+      if (link) link.href = blobUrl;
+    };
+
+    // Aplicar inmediatamente con nombre genérico
+    applyManifest('Reservas Online');
+
+    // Meta tags para iOS (Apple ignora el manifest estándar)
+    const setMeta = (name: string, content: string) => {
+      let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
+      if (!el) { el = document.createElement('meta'); el.name = name; document.head.appendChild(el); }
+      el.content = content;
+    };
+    const setLink = (rel: string, href: string) => {
+      let el = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+      if (!el) { el = document.createElement('link'); el.rel = rel; document.head.appendChild(el); }
+      el.href = href;
+    };
+    setMeta('apple-mobile-web-app-capable', 'yes');
+    setMeta('apple-mobile-web-app-status-bar-style', 'default');
+    setMeta('apple-mobile-web-app-title', 'Reservas');
+    setLink('apple-touch-icon', '/NAIQO_Logo_Magenta_Transparent.png');
+
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [salonId]);
+
+  // Actualizar nombre en el manifest cuando llegan los datos del salón
+  useEffect(() => {
+    if (!salon?.salon_name || !salonId) return;
+    const name = salon.salon_name;
+    const manifest = {
+      name,
+      short_name: name.split(' ')[0],
+      description: `Reserva tu cita en ${name}`,
+      start_url: `/reservar/${salonId}`,
+      display: 'standalone',
+      background_color: '#ffffff',
+      theme_color: '#d946ef',
+      orientation: 'portrait',
+      lang: 'es',
+      scope: `/reservar/${salonId}`,
+      icons: [
+        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (link) link.href = url;
+    document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]')!.content = name;
+    return () => URL.revokeObjectURL(url);
+  }, [salon?.salon_name, salonId]);
+
+  // ── Guardar slug en localStorage para redirección cuando la clienta abre la PWA ──
+  useEffect(() => {
+    if (salonId) localStorage.setItem('naiqo_client_booking', salonId);
+  }, [salonId]);
 
   // ── Cargar salón (via RPC para evitar RLS) ─────────────────────
   useEffect(() => {
@@ -104,7 +201,6 @@ const PublicBooking = () => {
       setSalon(data[0] as Salon);
     };
     load();
-    // Timeout: solo mostrar error si no cargó en 8s
     const t = setTimeout(() => { if (!loaded) setNotFound(true); }, 8000);
     return () => clearTimeout(t);
   }, [salonId]);
@@ -137,7 +233,34 @@ const PublicBooking = () => {
     const s = generateSlots(selectedDate, selectedService.duration_minutes, busyApts, salon.day_schedules || {});
     setSlots(s);
     setSelectedSlot('');
+    // Marcar día como completo si es laborable pero no tiene huecos
+    if (s.length === 0) {
+      const dow = selectedDate.getDay();
+      const hasSched = !!(salon.day_schedules || {})[String(dow)];
+      if (hasSched) {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const key = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth()+1)}-${pad(selectedDate.getDate())}`;
+        setDisabledDates(prev => new Set([...prev, key]));
+      }
+    }
   }, [busyApts, selectedService, selectedDate, salon]);
+
+  // ── Buscar cliente por teléfono al escribir ────────────────────
+  const handlePhoneChange = (phone: string) => {
+    setForm(f => ({ ...f, client_phone: phone }));
+    if (phoneSearchTimeout.current) clearTimeout(phoneSearchTimeout.current);
+    if (phone.replace(/\D/g,'').length < 6) { setClientSuggestions([]); return; }
+    phoneSearchTimeout.current = setTimeout(async () => {
+      const { data } = await supabase.rpc('lookup_client_by_phone', { p_salon_id: salonId, p_phone: phone });
+      if (data && data.length > 0) { setClientSuggestions(data as any[]); setShowSuggestions(true); }
+      else setClientSuggestions([]);
+    }, 400);
+  };
+
+  const applySuggestion = (c: { name: string; phone: string; email: string }) => {
+    setForm(f => ({ ...f, client_name: c.name, client_phone: c.phone, client_email: c.email || '' }));
+    setShowSuggestions(false);
+  };
 
   // ── Confirmar reserva con pago Stripe ──────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,8 +271,7 @@ const PublicBooking = () => {
     try {
       const pad2 = (n: number) => String(n).padStart(2, '0');
       const dateStr = `${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth()+1)}-${pad2(selectedDate.getDate())}`;
-      // Fijar zona horaria España para evitar conversiones incorrectas del navegador
-      const offset = selectedDate.getMonth() >= 2 && selectedDate.getMonth() <= 9 ? '+02:00' : '+01:00';
+      const offset = getSpainOffset(selectedDate);
       const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
       const end    = new Date(start.getTime() + selectedService.duration_minutes * 60000);
 
@@ -193,6 +315,10 @@ const PublicBooking = () => {
       } as any);
       if (error) throw error;
 
+      // Formatear fecha y hora en zona horaria España (ya correcta porque selectedSlot es local)
+      const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const localTime = selectedSlot; // "13:30" — hora española directa, sin conversión UTC
+
       // Send confirmation email (non-blocking)
       if (form.client_email) {
         supabase.functions.invoke('send-booking-confirmation', {
@@ -203,15 +329,16 @@ const PublicBooking = () => {
             salonPhone:      salon.phone || null,
             serviceName:     selectedService.name,
             startTime:       start.toISOString(),
+            localDate,
+            localTime,
             durationMinutes: selectedService.duration_minutes,
           },
         }).catch(console.error);
       }
 
       // Send push notification to salon owner (non-blocking)
-      const dt   = new Date(start);
-      const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-      const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const date = localDate;
+      const time = localTime;
       supabase.functions.invoke('send-push', {
         body: {
           user_id: salon.user_id,
@@ -382,8 +509,14 @@ const PublicBooking = () => {
                 mode="single"
                 selected={selectedDate}
                 onSelect={date => { if (date) { setSelectedDate(date); setSelectedSlot(''); } }}
-                disabled={date => date < new Date(new Date().setHours(0,0,0,0))}
+                disabled={(date: Date) => {
+                  if (date < new Date(new Date().setHours(0,0,0,0))) return true;
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  const key = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+                  return disabledDates.has(key);
+                }}
                 className="rounded-xl border w-full"
+                weekStartsOn={1}
               />
 
               <div>
@@ -439,15 +572,28 @@ const PublicBooking = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="relative">
+                  <Label>Teléfono (WhatsApp) *</Label>
+                  <Input type="tel" placeholder="+34 600 000 000" value={form.client_phone}
+                    onChange={e => handlePhoneChange(e.target.value)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    required />
+                  {showSuggestions && clientSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+                      {clientSuggestions.map((c, i) => (
+                        <button key={i} type="button" onMouseDown={() => applySuggestion(c)}
+                          className="w-full text-left px-4 py-2 hover:bg-primary/10 text-sm first:rounded-t-lg last:rounded-b-lg">
+                          <span className="font-medium">{c.name}</span>
+                          {c.email && <span className="text-muted-foreground ml-2 text-xs">{c.email}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div>
                   <Label>Nombre completo *</Label>
                   <Input placeholder="Ana García" value={form.client_name}
                     onChange={e => setForm({...form, client_name: e.target.value})} required />
-                </div>
-                <div>
-                  <Label>Teléfono (WhatsApp) *</Label>
-                  <Input type="tel" placeholder="+34 600 000 000" value={form.client_phone}
-                    onChange={e => setForm({...form, client_phone: e.target.value})} required />
                 </div>
                 <div>
                   <Label>Email</Label>

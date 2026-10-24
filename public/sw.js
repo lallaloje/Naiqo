@@ -1,4 +1,4 @@
-const CACHE_NAME = 'naiqo-pro-v2';
+const CACHE_NAME = 'naiqo-v3';
 const STATIC_ASSETS = ['/', '/dashboard', '/naiqo-logo.png'];
 
 self.addEventListener('install', (event) => {

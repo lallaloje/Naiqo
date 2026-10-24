@@ -109,6 +109,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!user) {
+    const clientSlug = localStorage.getItem('naiqo_client_booking');
+    if (clientSlug) return <Navigate to={`/reservar/${clientSlug}`} replace />;
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

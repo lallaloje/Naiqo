@@ -1,6 +1,6 @@
 {
-  "name": "Naiqo Pro",
-  "short_name": "Naiqo Pro",
+  "name": "Naiqo",
+  "short_name": "Naiqo",
   "description": "Gestión inteligente para tu salón de uñas",
   "start_url": "/dashboard",
   "display": "standalone",
