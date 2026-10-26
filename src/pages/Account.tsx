@@ -16,7 +16,7 @@ import { startRegistration } from '@simplewebauthn/browser';
 import {
   Save, LogOut, CreditCard, Calendar, RefreshCw, ExternalLink,
   CheckCircle, Loader2, FileText, Download, BarChart3, AlertTriangle,
-  Fingerprint, Hash, Trash2, Link, Copy, Instagram
+  Fingerprint, Hash, Trash2, Link, Copy, Instagram, Gift
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Header } from '@/components/Header';
@@ -48,6 +48,9 @@ interface SalonData {
   trial_ends_at: string;
   created_at: string;
   booking_slug: string | null;
+  loyalty_enabled: boolean;
+  loyalty_stamps_required: number;
+  loyalty_reward: string;
 }
 
 interface SubscriptionInfo {
@@ -114,6 +117,13 @@ const Account = () => {
     phone: '',
   });
 
+  const [loyaltyData, setLoyaltyData] = useState({
+    loyalty_enabled: false,
+    loyalty_stamps_required: 10,
+    loyalty_reward: 'Servicio gratis',
+  });
+  const [savingLoyalty, setSavingLoyalty] = useState(false);
+
   useEffect(() => {
     const success = searchParams.get('success');
     const plan = searchParams.get('plan');
@@ -155,6 +165,11 @@ const Account = () => {
         phone: data.phone || '',
       });
       setSlugInput(data.booking_slug || '');
+      setLoyaltyData({
+        loyalty_enabled: data.loyalty_enabled ?? false,
+        loyalty_stamps_required: data.loyalty_stamps_required ?? 10,
+        loyalty_reward: data.loyalty_reward ?? 'Servicio gratis',
+      });
     }
     setLoading(false);
   };
@@ -286,6 +301,25 @@ const Account = () => {
       fetchSalonData();
     }
     setSavingSlug(false);
+  };
+
+  const handleSaveLoyalty = async () => {
+    if (!user) return;
+    setSavingLoyalty(true);
+    const { error } = await supabase
+      .from('salons')
+      .update({
+        loyalty_enabled: loyaltyData.loyalty_enabled,
+        loyalty_stamps_required: loyaltyData.loyalty_stamps_required,
+        loyalty_reward: loyaltyData.loyalty_reward,
+      })
+      .eq('user_id', user.id);
+    if (error) {
+      toast({ title: 'Error', description: 'No se pudo guardar la configuración.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Guardado', description: 'Configuración de fidelización actualizada.' });
+    }
+    setSavingLoyalty(false);
   };
 
   const bookingUrl = salonData
@@ -815,11 +849,76 @@ const Account = () => {
         </CardContent>
       </Card>
 
+      {/* ── Loyalty Card Config ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gift className="h-4 w-4" />
+            Tarjeta de fidelización
+          </CardTitle>
+          <CardDescription className="text-xs">Premia a tus clientas con servicios gratis por sus visitas</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Activar programa</p>
+              <p className="text-xs text-muted-foreground">Tus clientas podrán ver su tarjeta en la app</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLoyaltyData(prev => ({ ...prev, loyalty_enabled: !prev.loyalty_enabled }))}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                loyaltyData.loyalty_enabled ? 'bg-gradient-to-r from-pink-500 to-purple-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  loyaltyData.loyalty_enabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {loyaltyData.loyalty_enabled && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="stamps-required" className="text-sm">Visitas necesarias para el premio</Label>
+                <Input
+                  id="stamps-required"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={loyaltyData.loyalty_stamps_required}
+                  onChange={e => setLoyaltyData(prev => ({ ...prev, loyalty_stamps_required: parseInt(e.target.value) || 10 }))}
+                  className="h-12"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="loyalty-reward" className="text-sm">Premio</Label>
+                <Input
+                  id="loyalty-reward"
+                  value={loyaltyData.loyalty_reward}
+                  onChange={e => setLoyaltyData(prev => ({ ...prev, loyalty_reward: e.target.value }))}
+                  placeholder="Servicio gratis"
+                  className="h-12"
+                />
+              </div>
+            </>
+          )}
+
+          <TouchButton onClick={handleSaveLoyalty} disabled={savingLoyalty} fullWidth>
+            <Save className="mr-2 h-4 w-4" />
+            {savingLoyalty ? 'Guardando...' : 'Guardar configuración'}
+          </TouchButton>
+        </CardContent>
+      </Card>
+
       {/* Logout */}
       <Card>
         <CardContent className="pt-4">
-          <TouchButton 
-            variant="outline" 
+          <TouchButton
+            variant="outline"
             className="text-destructive hover:text-destructive"
             onClick={handleLogout}
             fullWidth

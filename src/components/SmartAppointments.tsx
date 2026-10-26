@@ -232,6 +232,7 @@ const SmartAppointments = () => {
   const [services,     setServices]        = useState<Service[]>([]);
   const [salonId,      setSalonId]         = useState<string | null>(null);
   const [salonName,    setSalonName]       = useState('Mi salón');
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const isMobile = useIsMobile();
   const [selectedDate, setSelectedDate]   = useState(toDateStr(new Date()));
   const [view,         setView]            = useState<'day' | 'week'>('day');
@@ -299,13 +300,14 @@ const SmartAppointments = () => {
     setPageLoading(true);
     try {
       const { data } = await supabase.from('salons')
-        .select('id, salon_name, work_start_hour, work_end_hour')
+        .select('id, salon_name, work_start_hour, work_end_hour, loyalty_enabled')
         .eq('user_id', user!.id).single();
       if (data) {
         setSalonId(data.id);
         setSalonName(data.salon_name || 'Mi salón');
         if ((data as any).work_start_hour != null) setWorkStart((data as any).work_start_hour);
         if ((data as any).work_end_hour   != null) setWorkEnd((data as any).work_end_hour);
+        setLoyaltyEnabled((data as any).loyalty_enabled ?? false);
       }
     } catch (e) { logError('SmartAppointments:loadSalon', e); }
     finally { setPageLoading(false); }
@@ -618,7 +620,7 @@ const SmartAppointments = () => {
 
     // Añadir sello de fidelidad cuando se completa una cita
     const apt = appointments.find(a => a.id === id) || selectedApt;
-    if (apt && status === 'completed' && apt.client_email) {
+    if (apt && status === 'completed' && apt.client_email && loyaltyEnabled) {
       supabase.rpc('add_loyalty_stamp', {
         p_salon_id:    apt.salon_id,
         p_client_email: apt.client_email,

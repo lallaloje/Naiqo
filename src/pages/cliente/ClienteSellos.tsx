@@ -7,13 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Search, Gift } from 'lucide-react';
 
-const STAMPS_FOR_REWARD = 10;
-
 interface LoyaltyCard {
   stamps: number;
   stamps_used: number;
   client_name: string;
-  salons: { salon_name: string } | null;
+  salons: { salon_name: string; loyalty_stamps_required: number; loyalty_reward: string } | null;
 }
 
 const ClienteSellos = () => {
@@ -31,11 +29,12 @@ const ClienteSellos = () => {
     setLoading(true);
     const query = supabase
       .from('loyalty_cards')
-      .select('stamps, stamps_used, client_name, salons(salon_name)')
+      .select('stamps, stamps_used, client_name, salons(salon_name, loyalty_stamps_required, loyalty_reward, loyalty_enabled)')
       .ilike('client_email' as any, inputEmail.trim());
     if (salonId) (query as any).eq('salon_id', salonId);
     const { data } = await query;
-    setCards((data as any) || []);
+    const filtered = ((data as any) || []).filter((c: any) => c.salons?.loyalty_enabled !== false);
+    setCards(filtered);
     setSearched(true);
     setLoading(false);
   };
@@ -97,9 +96,11 @@ const ClienteSellos = () => {
         )}
 
         {cards.map((card, i) => {
-          const available = card.stamps - card.stamps_used * STAMPS_FOR_REWARD;
-          const currentStamps = available % STAMPS_FOR_REWARD;
-          const rewards = Math.floor(available / STAMPS_FOR_REWARD);
+          const stampsRequired = (card.salons as any)?.loyalty_stamps_required ?? 10;
+          const rewardText = (card.salons as any)?.loyalty_reward ?? 'Servicio gratis';
+          const available = card.stamps - card.stamps_used * stampsRequired;
+          const currentStamps = available % stampsRequired;
+          const rewards = Math.floor(available / stampsRequired);
 
           return (
             <Card key={i} className="border-0 shadow-md overflow-hidden">
@@ -111,10 +112,10 @@ const ClienteSellos = () => {
                 {/* Grid de sellos */}
                 <div>
                   <p className="text-xs text-gray-500 mb-3">
-                    {currentStamps} de {STAMPS_FOR_REWARD} visitas · {STAMPS_FOR_REWARD - currentStamps} más para tu próximo regalo
+                    {currentStamps} de {stampsRequired} visitas · {stampsRequired - currentStamps} más para tu próximo regalo
                   </p>
                   <div className="grid grid-cols-5 gap-2">
-                    {Array.from({ length: STAMPS_FOR_REWARD }).map((_, idx) => (
+                    {Array.from({ length: stampsRequired }).map((_, idx) => (
                       <div
                         key={idx}
                         className={`aspect-square rounded-xl flex items-center justify-center text-lg transition-all ${
@@ -133,7 +134,7 @@ const ClienteSellos = () => {
                 <div className="w-full bg-gray-100 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-pink-400 to-purple-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(currentStamps / STAMPS_FOR_REWARD) * 100}%` }}
+                    style={{ width: `${(currentStamps / stampsRequired) * 100}%` }}
                   />
                 </div>
 
@@ -143,7 +144,7 @@ const ClienteSellos = () => {
                     <Gift className="w-5 h-5 text-purple-500 shrink-0" />
                     <div>
                       <p className="font-semibold text-sm text-gray-800">
-                        🎉 ¡Tienes {rewards} servicio{rewards > 1 ? 's' : ''} gratis!
+                        🎉 ¡Tienes {rewards} {rewardText}{rewards > 1 ? 's' : ''}!
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">Díselo al salón en tu próxima visita</p>
                     </div>
