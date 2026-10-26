@@ -21,6 +21,7 @@ import PublicBooking from "./pages/PublicBooking";
 import BookingSuccess from "./pages/BookingSuccess";
 import ClienteHome from "./pages/cliente/ClienteHome";
 import ClienteMisCitas from "./pages/cliente/ClienteMisCitas";
+import ClienteSellos from "./pages/cliente/ClienteSellos";
 import NotFound from "./pages/NotFound";
 
 // Protected pages
@@ -71,6 +72,7 @@ const App = () => (
             {/* App cliente */}
             <Route path="/cliente" element={<ClienteHome />} />
             <Route path="/cliente/mis-citas" element={<ClienteMisCitas />} />
+            <Route path="/cliente/mis-sellos" element={<ClienteSellos />} />
 
             {/* Protected routes */}
             <Route path="/dashboard" element={

@@ -616,8 +616,18 @@ const SmartAppointments = () => {
     await supabase.from('appointments').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
     loadDayAppointments(); loadWeekAppointments(); loadPendingAppointments();
 
-    // Buscar la cita para enviar WhatsApp si hay teléfono
+    // Añadir sello de fidelidad cuando se completa una cita
     const apt = appointments.find(a => a.id === id) || selectedApt;
+    if (apt && status === 'completed' && apt.client_email) {
+      supabase.rpc('add_loyalty_stamp', {
+        p_salon_id:    apt.salon_id,
+        p_client_email: apt.client_email,
+        p_client_name:  apt.client_name,
+        p_client_phone: apt.client_phone || null,
+      } as any).then(({ error }) => {
+        if (error) console.error('Loyalty stamp error:', error);
+      });
+    }
     if (apt?.client_phone && (status === 'confirmed' || status === 'cancelled')) {
       const dt = new Date(apt.start_time);
       const dateStr = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });

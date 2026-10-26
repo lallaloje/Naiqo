@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Calendar, Clock, Scissors, ArrowLeft, Search, X, Pencil, ChevronLeft } from 'lucide-react';
+import { Calendar, Clock, Scissors, ArrowLeft, Search, X, Pencil, ChevronLeft, Gift } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -361,7 +361,7 @@ const ClienteMisCitas = () => {
         </Card>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around max-w-lg mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-3 flex justify-around max-w-lg mx-auto">
         <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate('/cliente')}>
           <Search className="w-5 h-5" />
           <span className="text-xs">Explorar</span>
@@ -369,6 +369,10 @@ const ClienteMisCitas = () => {
         <button className="flex flex-col items-center gap-1 text-primary">
           <Calendar className="w-5 h-5" />
           <span className="text-xs font-medium">Mis citas</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate('/cliente/mis-sellos')}>
+          <Gift className="w-5 h-5" />
+          <span className="text-xs">Mis sellos</span>
         </button>
       </div>
 
