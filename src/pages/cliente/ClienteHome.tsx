@@ -19,17 +19,6 @@ const ClienteHome = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Usar el manifest de la app cliente (icono y nombre correctos al instalar PWA)
-  useEffect(() => {
-    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    if (link) {
-      link.href = '/manifest-cliente.json';
-    }
-    return () => {
-      if (link) link.href = '/manifest.json';
-    };
-  }, []);
-
   // Si el usuario es un salón logueado, redirigir al dashboard
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

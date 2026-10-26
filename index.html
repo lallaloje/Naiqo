@@ -45,7 +45,7 @@
     <!-- PWA — manifest según dominio -->
     <script>
       (function() {
-        var isCliente = location.hostname === 'app.naiqo.es' || location.pathname.startsWith('/cliente');
+        var isCliente = location.hostname === 'app.naiqo.es';
         var link = document.createElement('link');
         link.rel = 'manifest';
         link.href = isCliente ? '/manifest-cliente.json' : '/manifest.json';
@@ -57,8 +57,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <script>
       document.write('<meta name="apple-mobile-web-app-title" content="' +
-        (location.hostname === 'app.naiqo.es' || location.pathname.startsWith('/cliente') ? 'Naiqo' : 'Naiqo Pro') +
-        '">');
+        (location.hostname === 'app.naiqo.es' ? 'Naiqo' : 'Naiqo Pro') + '">');
     </script>
 
     <!-- Theme Color -->
