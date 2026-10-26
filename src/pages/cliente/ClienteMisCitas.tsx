@@ -191,9 +191,10 @@ const ClienteMisCitas = () => {
       ));
       toast({ title: '✅ Cita modificada', description: `Nueva cita el ${newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${reschedSlot}.` });
 
+      const fechaStr = newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
       // Notificar al salón por push
       if (cita.salons?.user_id) {
-        const fechaStr = newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
         supabase.functions.invoke('send-push', {
           body: {
             user_id: cita.salons.user_id,
@@ -202,6 +203,32 @@ const ClienteMisCitas = () => {
             url: '/gestion-citas',
           },
         });
+      }
+
+      // Notificar a la clienta por WhatsApp
+      if (cita.client_email) {
+        // Buscar teléfono de la clienta por email en appointments
+        const { data: aptData } = await supabase
+          .from('appointments')
+          .select('client_phone')
+          .ilike('client_email' as any, cita.client_email)
+          .not('client_phone' as any, 'is', null)
+          .limit(1)
+          .single();
+        const phone = (aptData as any)?.client_phone;
+        if (phone) {
+          supabase.functions.invoke('send-whatsapp', {
+            body: {
+              type: 'cita_modificada',
+              to: phone,
+              clientName:  cita.client_name,
+              serviceName: cita.services?.name || '',
+              salonName:   cita.salons?.salon_name || '',
+              date: fechaStr,
+              time: reschedSlot,
+            },
+          });
+        }
       }
 
       setReschedulingId(null);
