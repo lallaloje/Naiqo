@@ -19,6 +19,13 @@ const ClienteHome = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Si el usuario es un salón logueado, redirigir al dashboard
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate('/dashboard', { replace: true });
+    });
+  }, [navigate]);
+
   useEffect(() => {
     const loadSalones = async () => {
       const { data, error } = await supabase
