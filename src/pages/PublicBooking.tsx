@@ -106,39 +106,15 @@ const PublicBooking = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const phoneSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Sobreescribir manifest PWA inmediatamente (sólo con salonId, sin esperar datos) ──
+  // ── Sobreescribir manifest PWA con URL real (para que iOS la lea correctamente) ──
   useEffect(() => {
     if (!salonId) return;
-    const buildManifest = (name: string) => ({
-      name,
-      short_name: name.split(' ')[0],
-      description: `Reserva tu cita en ${name}`,
-      start_url: `/reservar/${salonId}`,
-      display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#d946ef',
-      orientation: 'portrait',
-      lang: 'es',
-      scope: `/reservar/${salonId}`,
-      icons: [
-        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ],
-    });
 
-    let blobUrl = '';
-    const applyManifest = (name: string) => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-      const blob = new Blob([JSON.stringify(buildManifest(name))], { type: 'application/manifest+json' });
-      blobUrl = URL.createObjectURL(blob);
-      const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-      if (link) link.href = blobUrl;
-    };
+    // Apuntar al manifest dinámico real (no blob URL — iOS no lee blob URLs para PWA)
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (link) link.href = `/api/manifest/${salonId}`;
 
-    // Aplicar inmediatamente con nombre genérico
-    applyManifest('Reservas Online');
-
-    // Meta tags para iOS (Apple ignora el manifest estándar)
+    // Meta tags para iOS
     const setMeta = (name: string, content: string) => {
       let el = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
       if (!el) { el = document.createElement('meta'); el.name = name; document.head.appendChild(el); }
@@ -153,37 +129,15 @@ const PublicBooking = () => {
     setMeta('apple-mobile-web-app-status-bar-style', 'default');
     setMeta('apple-mobile-web-app-title', 'Reservas');
     setLink('apple-touch-icon', '/NAIQO_Logo_Magenta_Transparent.png');
-
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [salonId]);
 
   // Actualizar nombre en el manifest cuando llegan los datos del salón
+  // Actualizar título Apple con nombre del salón cuando llegan los datos
   useEffect(() => {
-    if (!salon?.salon_name || !salonId) return;
-    const name = salon.salon_name;
-    const manifest = {
-      name,
-      short_name: name.split(' ')[0],
-      description: `Reserva tu cita en ${name}`,
-      start_url: `/reservar/${salonId}`,
-      display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#d946ef',
-      orientation: 'portrait',
-      lang: 'es',
-      scope: `/reservar/${salonId}`,
-      icons: [
-        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-        { src: '/NAIQO_Logo_Magenta_Transparent.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-      ],
-    };
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    const url  = URL.createObjectURL(blob);
-    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    if (link) link.href = url;
-    document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]')!.content = name;
-    return () => URL.revokeObjectURL(url);
-  }, [salon?.salon_name, salonId]);
+    if (!salon?.salon_name) return;
+    const el = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
+    if (el) el.content = salon.salon_name;
+  }, [salon?.salon_name]);
 
   // ── Guardar slug en localStorage para redirección cuando la clienta abre la PWA ──
   useEffect(() => {
