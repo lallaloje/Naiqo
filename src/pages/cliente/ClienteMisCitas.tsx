@@ -19,7 +19,7 @@ interface Cita {
   start_time: string;
   end_time: string;
   status: string;
-  salons: { salon_name: string; id: string; day_schedules: DaySchedules | null } | null;
+  salons: { salon_name: string; id: string; user_id: string; day_schedules: DaySchedules | null } | null;
   services: { name: string; price: number | null; duration_minutes: number } | null;
 }
 
@@ -95,7 +95,7 @@ const ClienteMisCitas = () => {
     setLoading(true);
     const { data } = await supabase
       .from('appointments')
-      .select('*, salons(salon_name, id, day_schedules), services(name, price, duration_minutes)')
+      .select('*, salons(salon_name, id, user_id, day_schedules), services(name, price, duration_minutes)')
       .ilike('client_email' as any, inputEmail.trim())
       .order('start_time', { ascending: false });
     setCitas((data as any) || []);
@@ -190,6 +190,20 @@ const ClienteMisCitas = () => {
           : c
       ));
       toast({ title: '✅ Cita modificada', description: `Nueva cita el ${newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${reschedSlot}.` });
+
+      // Notificar al salón por push
+      if (cita.salons?.user_id) {
+        const fechaStr = newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+        supabase.functions.invoke('send-push', {
+          body: {
+            user_id: cita.salons.user_id,
+            title: '📅 Cita modificada',
+            body: `${cita.client_name} ha cambiado su cita de ${cita.services?.name || 'servicio'} al ${fechaStr} a las ${reschedSlot}.`,
+            url: '/gestion-citas',
+          },
+        });
+      }
+
       setReschedulingId(null);
     }
     setSaving(false);
