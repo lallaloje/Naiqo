@@ -124,6 +124,10 @@ const Account = () => {
   });
   const [savingLoyalty, setSavingLoyalty] = useState(false);
 
+  // Change email state
+  const [newEmail, setNewEmail]           = useState('');
+  const [savingEmail, setSavingEmail]     = useState(false);
+
   useEffect(() => {
     const success = searchParams.get('success');
     const plan = searchParams.get('plan');
@@ -303,6 +307,25 @@ const Account = () => {
     setSavingSlug(false);
   };
 
+  const handleChangeEmail = async () => {
+    if (!newEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      toast({ title: 'Email inválido', description: 'Introduce una dirección de correo válida.', variant: 'destructive' });
+      return;
+    }
+    setSavingEmail(true);
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({
+        title: 'Confirma el cambio',
+        description: `Te hemos enviado un enlace a ${newEmail.trim()}. Haz clic en él para confirmar el nuevo email.`,
+      });
+      setNewEmail('');
+    }
+    setSavingEmail(false);
+  };
+
   const handleSaveLoyalty = async () => {
     if (!user) return;
     setSavingLoyalty(true);
@@ -479,7 +502,7 @@ const Account = () => {
           </div>
           
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-sm">Email</Label>
+            <Label htmlFor="email" className="text-sm">Email actual</Label>
             <Input
               id="email"
               type="email"
@@ -488,7 +511,28 @@ const Account = () => {
               className="bg-muted h-12"
             />
           </div>
-          
+
+          <div className="space-y-1.5">
+            <Label htmlFor="new-email" className="text-sm">Cambiar email</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-email"
+                type="email"
+                placeholder="nuevo@correo.com"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                className="h-12"
+              />
+              <TouchButton
+                onClick={handleChangeEmail}
+                disabled={savingEmail || !newEmail.trim()}
+              >
+                {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              </TouchButton>
+            </div>
+            <p className="text-xs text-muted-foreground">Te llegará un enlace de confirmación al nuevo correo.</p>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="contact_name" className="text-sm">Nombre de contacto</Label>
             <Input
