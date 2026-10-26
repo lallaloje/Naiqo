@@ -7,10 +7,11 @@ const corsHeaders = {
 
 // Plantillas aprobadas en Meta — los nombres deben coincidir exactamente
 const TEMPLATES: Record<string, { name: string; language: string }> = {
-  cita_pendiente:  { name: "naiqo_cita_pendiente",  language: "es" },
-  cita_confirmada: { name: "naiqo_cita_confirmada", language: "es" },
-  cita_modificada: { name: "naiqo_cita_modificada", language: "es" },
-  cita_cancelada:  { name: "naiqo_cita_cancelada",  language: "es" },
+  cita_pendiente:    { name: "naiqo_cita_pendiente",    language: "es" },
+  cita_confirmada:   { name: "naiqo_cita_confirmada",   language: "es" },
+  cita_modificada:   { name: "naiqo_cita_modificada",   language: "es" },
+  cita_cancelada:    { name: "naiqo_cita_cancelada",    language: "es" },
+  cita_recordatorio: { name: "naiqo_cita_recordatorio", language: "es" },
 };
 
 serve(async (req) => {

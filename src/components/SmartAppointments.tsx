@@ -233,6 +233,7 @@ const SmartAppointments = () => {
   const [salonId,      setSalonId]         = useState<string | null>(null);
   const [salonName,    setSalonName]       = useState('Mi salón');
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltyStampsRequired, setLoyaltyStampsRequired] = useState(10);
   const isMobile = useIsMobile();
   const [selectedDate, setSelectedDate]   = useState(toDateStr(new Date()));
   const [view,         setView]            = useState<'day' | 'week'>('day');
@@ -258,6 +259,8 @@ const SmartAppointments = () => {
   const [recurringForm,    setRecurringForm]    = useState({ title: 'Descanso', start_hour: '14:00', end_hour: '16:00', days_of_week: [1,2,3,4,5,6] });
   const [clientHistory,    setClientHistory]    = useState<any[]>([]);
   const [historyLoading,   setHistoryLoading]   = useState(false);
+  const [loyaltyCard,      setLoyaltyCard]      = useState<{stamps:number;stamps_used:number} | null>(null);
+  const [redeemingLoyalty, setRedeemingLoyalty] = useState(false);
   const [employees,        setEmployees]        = useState<Employee[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -312,6 +315,7 @@ const SmartAppointments = () => {
         if ((data as any).work_start_hour != null) setWorkStart((data as any).work_start_hour);
         if ((data as any).work_end_hour   != null) setWorkEnd((data as any).work_end_hour);
         setLoyaltyEnabled((data as any).loyalty_enabled ?? false);
+        setLoyaltyStampsRequired((data as any).loyalty_stamps_required ?? 10);
       }
     } catch (e) { logError('SmartAppointments:loadSalon', e); }
     finally { setPageLoading(false); }
@@ -460,6 +464,33 @@ const SmartAppointments = () => {
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  const loadLoyaltyCard = async (apt: Appointment) => {
+    if (!apt.client_email || !salonId) { setLoyaltyCard(null); return; }
+    const { data } = await supabase
+      .from('loyalty_cards')
+      .select('stamps, stamps_used')
+      .eq('salon_id', salonId)
+      .ilike('client_email' as any, apt.client_email)
+      .maybeSingle();
+    setLoyaltyCard(data as any || null);
+  };
+
+  const redeemLoyalty = async (apt: Appointment, stampsRequired: number) => {
+    if (!apt.client_email || !salonId) return;
+    setRedeemingLoyalty(true);
+    const { data, error } = await supabase.rpc('redeem_loyalty_reward', {
+      p_salon_id: salonId,
+      p_client_email: apt.client_email,
+    } as any);
+    if (error || !data) {
+      toast({ title: 'No se pudo canjear', description: error?.message || 'La clienta no tiene suficientes sellos', variant: 'destructive' });
+    } else {
+      toast({ title: '🎁 Premio canjeado', description: `Se han descontado ${stampsRequired} sellos` });
+      loadLoyaltyCard(apt);
+    }
+    setRedeemingLoyalty(false);
   };
 
   const saveWorkHours = async () => {
@@ -973,7 +1004,7 @@ const SmartAppointments = () => {
                         </div>
                         <div className="flex gap-1.5">
                           <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs px-2"
-                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); setSelectedApt(apt); loadClientHistory(apt); }}>
+                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); setSelectedApt(apt); loadClientHistory(apt); loadLoyaltyCard(apt); }}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirmar
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-red-600 border-red-200 hover:bg-red-50 text-xs px-2"
@@ -1627,7 +1658,7 @@ const SmartAppointments = () => {
                                 left:   `calc(${colL} + 2px)`,
                                 width:  `calc(${colW} - 4px)`,
                               }}
-                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); }}
+                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); }}
                             >
                               <p className="font-semibold text-xs leading-tight truncate">
                                 {isPending && '⏳ '}
@@ -2109,6 +2140,46 @@ const SmartAppointments = () => {
                                 );
                               })()}
                             </div>
+
+                            {/* ── Tarjeta de sellos ── */}
+                            {loyaltyEnabled && apt.client_email && (
+                              <div className="border-t border-muted/40 pt-3">
+                                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                                  🎁 Tarjeta de fidelidad
+                                </p>
+                                {loyaltyCard ? (() => {
+                                  const available = loyaltyCard.stamps - loyaltyCard.stamps_used * loyaltyStampsRequired;
+                                  const current = available % loyaltyStampsRequired;
+                                  const rewards = Math.floor(available / loyaltyStampsRequired);
+                                  return (
+                                    <div className="space-y-2">
+                                      <div className="grid grid-cols-5 gap-1">
+                                        {Array.from({ length: loyaltyStampsRequired }).map((_, i) => (
+                                          <div key={i} className={`aspect-square rounded-lg flex items-center justify-center text-sm ${i < current ? 'bg-gradient-to-br from-pink-400 to-purple-500' : 'bg-gray-100'}`}>
+                                            {i < current ? '💅' : <span className="w-2 h-2 rounded-full bg-gray-300 block mx-auto" />}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <p className="text-xs text-muted-foreground text-center">
+                                        {current} de {loyaltyStampsRequired} sellos · {loyaltyCard.stamps} visitas totales
+                                      </p>
+                                      {rewards > 0 && (
+                                        <div className="bg-pink-50 border border-pink-200 rounded-lg p-2 flex items-center justify-between gap-2">
+                                          <p className="text-xs font-semibold text-pink-700">🎉 {rewards} premio{rewards > 1 ? 's' : ''} disponible{rewards > 1 ? 's' : ''}</p>
+                                          <Button size="sm" className="h-7 text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white border-0"
+                                            onClick={() => redeemLoyalty(apt, loyaltyStampsRequired)}
+                                            disabled={redeemingLoyalty}>
+                                            {redeemingLoyalty ? '...' : 'Canjear'}
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })() : (
+                                  <p className="text-xs text-muted-foreground italic">Sin tarjeta de sellos aún</p>
+                                )}
+                              </div>
+                            )}
 
                             {/* Delete */}
                             <Button size="sm" variant="ghost" className="text-destructive w-full mt-1"
