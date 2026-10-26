@@ -615,6 +615,27 @@ const SmartAppointments = () => {
   const updateStatus = async (id: string, status: string) => {
     await supabase.from('appointments').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
     loadDayAppointments(); loadWeekAppointments(); loadPendingAppointments();
+
+    // Buscar la cita para enviar WhatsApp si hay teléfono
+    const apt = appointments.find(a => a.id === id) || selectedApt;
+    if (apt?.client_phone && (status === 'confirmed' || status === 'cancelled')) {
+      const dt = new Date(apt.start_time);
+      const dateStr = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      const timeStr = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const serviceName = services.find(s => s.id === apt.service_id)?.name || '';
+      supabase.functions.invoke('send-whatsapp', {
+        body: {
+          type: status === 'confirmed' ? 'cita_confirmada' : 'cita_cancelada',
+          to: apt.client_phone,
+          clientName:  apt.client_name,
+          serviceName,
+          salonName,
+          date: dateStr,
+          time: timeStr,
+        },
+      });
+    }
+
     if (selectedApt?.id === id) setSelectedApt(prev => prev ? { ...prev, status } : null);
     toast({ title: 'Estado actualizado', description: STATUS_LABEL[status] });
   };

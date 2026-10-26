@@ -304,6 +304,21 @@ const PublicBooking = () => {
         },
       }).catch(console.error);
 
+      // WhatsApp a la clienta: cita pendiente de confirmación
+      if (form.client_phone) {
+        supabase.functions.invoke('send-whatsapp', {
+          body: {
+            type:        'cita_pendiente',
+            to:          form.client_phone,
+            clientName:  form.client_name,
+            serviceName: selectedService.name,
+            salonName:   salon.salon_name || salonDisplayName,
+            date,
+            time,
+          },
+        }).catch(console.error);
+      }
+
       setDone(true);
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'No se pudo crear la cita.', variant: 'destructive' });

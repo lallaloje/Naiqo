@@ -79,8 +79,8 @@ serve(async (req) => {
 
     // 4. Enviar push notification al salón
     const dt   = new Date(meta.start_time);
-    const date = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    const time = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const date = meta.local_date || dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const time = meta.local_time || dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     try {
       await fetch(`${supabaseUrl}/functions/v1/send-push`, {
         method: 'POST',
@@ -97,6 +97,30 @@ serve(async (req) => {
       });
     } catch (pushErr) {
       console.error('Push notification error (non-fatal):', pushErr);
+    }
+
+    // 5. Enviar WhatsApp de confirmación a la clienta (cita confirmada por pago)
+    if (meta.client_phone) {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseService}`,
+          },
+          body: JSON.stringify({
+            type:        'cita_confirmada',
+            to:          meta.client_phone,
+            clientName:  meta.client_name,
+            serviceName: meta.service_name,
+            salonName:   meta.salon_name || '',
+            date,
+            time,
+          }),
+        });
+      } catch (waErr) {
+        console.error('WhatsApp error (non-fatal):', waErr);
+      }
     }
 
     return new Response(JSON.stringify({
