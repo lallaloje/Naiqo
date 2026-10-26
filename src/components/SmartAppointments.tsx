@@ -272,6 +272,10 @@ const SmartAppointments = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const clientNameRef = useRef<HTMLInputElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{top:number;left:number;width:number} | null>(null);
+  const [editClientSuggestions, setEditClientSuggestions] = useState<{name:string;phone:string|null;email:string|null;topServiceId:string|null}[]>([]);
+  const [showEditSuggestions, setShowEditSuggestions] = useState(false);
+  const editClientNameRef = useRef<HTMLInputElement>(null);
+  const [editDropdownRect, setEditDropdownRect] = useState<{top:number;left:number;width:number} | null>(null);
   const [svcForm, setSvcForm] = useState({
     name: '', duration_minutes: 60, price: '', description: '', category: '',
   });
@@ -533,6 +537,50 @@ const SmartAppointments = () => {
     setClientSuggestions([]);
   };
 
+  const searchEditClients = async (q: string) => {
+    if (!q.trim() || q.length < 2 || !user) { setEditClientSuggestions([]); return; }
+    const { data: imported } = await (supabase as any)
+      .from('salon_clients').select('name, phone, email').eq('user_id', user.id).ilike('name', `%${q}%`).limit(8);
+    const { data: aptClients } = await supabase
+      .from('appointments').select('client_name, client_phone, client_email, service_id')
+      .eq('user_id', user.id).ilike('client_name' as any, `%${q}%`).limit(50);
+    const map = new Map<string, {name:string;phone:string|null;email:string|null;serviceCounts:Record<string,number>}>();
+    for (const ic of (imported || [])) {
+      const key = ic.name.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, {name: ic.name, phone: ic.phone, email: ic.email, serviceCounts: {}});
+    }
+    for (const a of (aptClients || [])) {
+      const key = a.client_name.trim().toLowerCase();
+      if (!map.has(key)) map.set(key, {name: a.client_name, phone: a.client_phone, email: a.client_email, serviceCounts: {}});
+      const entry = map.get(key)!;
+      if (!entry.phone && a.client_phone) entry.phone = a.client_phone;
+      if (!entry.email && a.client_email) entry.email = a.client_email;
+      if (a.service_id) entry.serviceCounts[a.service_id] = (entry.serviceCounts[a.service_id] || 0) + 1;
+    }
+    const suggestions = Array.from(map.values()).slice(0, 6).map(c => {
+      const topServiceId = Object.entries(c.serviceCounts).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+      return { name: c.name, phone: c.phone, email: c.email, topServiceId };
+    });
+    setEditClientSuggestions(suggestions);
+    if (suggestions.length > 0 && editClientNameRef.current) {
+      const r = editClientNameRef.current.getBoundingClientRect();
+      setEditDropdownRect({ top: r.bottom, left: r.left, width: r.width });
+    }
+    setShowEditSuggestions(suggestions.length > 0);
+  };
+
+  const selectEditClientSuggestion = (s: {name:string;phone:string|null;email:string|null;topServiceId:string|null}) => {
+    setEditAptForm(f => ({
+      ...f,
+      client_name: s.name,
+      client_phone: s.phone || f.client_phone,
+      client_email: s.email || f.client_email,
+      service_id: s.topServiceId || f.service_id,
+    }));
+    setShowEditSuggestions(false);
+    setEditClientSuggestions([]);
+  };
+
   // ─── Appointment CRUD ───────────────────────────────────────────
   const createAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -607,6 +655,7 @@ const SmartAppointments = () => {
       } as any).eq('id', editingApt.id);
       if (error) throw error;
       setEditingApt(null);
+      setEditClientSuggestions([]); setShowEditSuggestions(false);
       loadDayAppointments(); loadWeekAppointments();
       toast({ title: '✅ Cita actualizada' });
     } catch (e: any) {
@@ -1720,7 +1769,14 @@ const SmartAppointments = () => {
                           <p className="text-sm font-medium text-muted-foreground">✏️ Editando cita</p>
                           <div>
                             <Label className="text-xs">Nombre del cliente *</Label>
-                            <Input value={editAptForm.client_name} onChange={e => setEditAptForm({...editAptForm, client_name: e.target.value})} required />
+                            <Input
+                              ref={editClientNameRef}
+                              value={editAptForm.client_name}
+                              onChange={e => { setEditAptForm({...editAptForm, client_name: e.target.value}); searchEditClients(e.target.value); }}
+                              onBlur={() => setTimeout(() => setShowEditSuggestions(false), 200)}
+                              onFocus={() => { if (editClientSuggestions.length > 0 && editClientNameRef.current) { const r = editClientNameRef.current.getBoundingClientRect(); setEditDropdownRect({ top: r.bottom, left: r.left, width: r.width }); setShowEditSuggestions(true); } }}
+                              autoComplete="off"
+                              required />
                           </div>
                           <div>
                             <Label className="text-xs">Hora *</Label>
@@ -2292,6 +2348,28 @@ const SmartAppointments = () => {
             return (
               <button key={i} type="button"
                 onPointerDown={e => { e.preventDefault(); selectClientSuggestion(s); setShowSuggestions(false); }}
+                className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-0">
+                <p className="text-sm font-medium">{s.name}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {[s.phone, svc?.name].filter(Boolean).join(' · ')}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Edit form client autocomplete dropdown ── */}
+      {showEditSuggestions && editClientSuggestions.length > 0 && editDropdownRect && (
+        <div
+          style={{ position: 'fixed', top: editDropdownRect.top, left: editDropdownRect.left, width: editDropdownRect.width, zIndex: 9999 }}
+          className="bg-popover border rounded-xl shadow-lg overflow-hidden"
+        >
+          {editClientSuggestions.map((s, i) => {
+            const svc = services.find(sv => sv.id === s.topServiceId);
+            return (
+              <button key={i} type="button"
+                onPointerDown={e => { e.preventDefault(); selectEditClientSuggestion(s); setShowEditSuggestions(false); }}
                 className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-0">
                 <p className="text-sm font-medium">{s.name}</p>
                 <p className="text-[11px] text-muted-foreground">
