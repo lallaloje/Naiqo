@@ -32,16 +32,34 @@
     <meta name="twitter:description" content="El primer asistente IA para salones de uñas. Diagnóstico en 5 segundos, recomendaciones personalizadas. 7 días gratis." />
     <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/H8NXgHboqkNbshBXbtBDhPIZe2c2/social-images/social-1758475577467-NAIQO_Icon_1024.png" />
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/naiqo-logo.png" />
-    <link rel="apple-touch-icon" href="/naiqo-logo.png" />
+    <!-- Favicon — icono según dominio -->
+    <script>
+      (function() {
+        var isCliente = location.hostname === 'app.naiqo.es';
+        var icon = isCliente ? '/naiqo-cliente-icon.png' : '/naiqo-logo.png';
+        document.write('<link rel="icon" type="image/png" href="' + icon + '">');
+        document.write('<link rel="apple-touch-icon" href="' + icon + '">');
+      })();
+    </script>
 
-    <!-- PWA -->
-    <link rel="manifest" href="/manifest.json" />
+    <!-- PWA — manifest según dominio -->
+    <script>
+      (function() {
+        var isCliente = location.hostname === 'app.naiqo.es' || location.pathname.startsWith('/cliente');
+        var link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = isCliente ? '/manifest-cliente.json' : '/manifest.json';
+        document.head.appendChild(link);
+      })();
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Naiqo Pro" />
+    <script>
+      document.write('<meta name="apple-mobile-web-app-title" content="' +
+        (location.hostname === 'app.naiqo.es' || location.pathname.startsWith('/cliente') ? 'Naiqo' : 'Naiqo Pro') +
+        '">');
+    </script>
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#9b87f5" />

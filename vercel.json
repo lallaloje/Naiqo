@@ -1,11 +1,6 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    {
-      "source": "/(.*)",
-      "has": [{ "type": "host", "value": "app.naiqo.es" }],
-      "destination": "/index-cliente.html"
-    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "redirects": [
