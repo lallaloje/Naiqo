@@ -3,5 +3,24 @@
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
-  "redirects": []
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "app.naiqo.es" }],
+      "destination": "https://app.naiqo.es/cliente",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "naiqo.es" }],
+      "destination": "https://naiqo.es/login",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.naiqo.es" }],
+      "destination": "https://www.naiqo.es/login",
+      "permanent": false
+    }
+  ]
 }
