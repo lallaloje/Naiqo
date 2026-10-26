@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors } from "lucide-react";
+import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays } from "lucide-react";
 
 type DaySchedules = Record<string, { start: number; end: number }>;
 
@@ -377,12 +377,21 @@ const PublicBooking = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0">
                 {salonDisplayName[0]?.toUpperCase()}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold">{salonDisplayName}</h1>
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
                   {salon.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{salon.phone}</span>}
                 </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 flex items-center gap-1.5 text-xs"
+                onClick={() => window.location.href = `/cliente/mis-citas?salon=${salonId}`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                Mis citas
+              </Button>
             </div>
           </CardContent>
         </Card>
