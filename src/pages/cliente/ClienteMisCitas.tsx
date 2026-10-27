@@ -40,14 +40,13 @@ function generateSlots(
   date: Date,
   durationMin: number,
   busyApts: { start_time: string; end_time: string }[],
-  workStart: number,
-  workEnd: number,
+  daySchedules: Record<string, { start: number; end: number }>,
 ): string[] {
   const slots: string[] = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  const sched = { start: workStart, end: workEnd };
-  if (!sched.start && !sched.end) return [];
+  const sched = daySchedules[String(date.getDay())];
+  if (!sched) return [];
 
   for (let h = sched.start; h < sched.end; h++) {
     for (let m = 0; m < 60; m += 30) {
@@ -133,6 +132,7 @@ const ClienteMisCitas = () => {
   const [reschedSlot, setReschedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [salonDaySchedules, setSalonDaySchedules] = useState<Record<string, { start: number; end: number }>>({});
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -221,11 +221,16 @@ const ClienteMisCitas = () => {
     setCancelling(null);
   };
 
-  const openReschedule = (citaId: string) => {
+  const openReschedule = async (citaId: string) => {
     setReschedulingId(citaId);
     setReschedDate(undefined);
     setReschedSlots([]);
     setReschedSlot(null);
+    const cita = citas.find(c => c.id === citaId);
+    if (cita?.salons?.id) {
+      const { data } = await supabase.rpc('get_salon_for_booking', { p_salon_id: cita.salons.id } as any);
+      setSalonDaySchedules((data as any)?.[0]?.day_schedules || {});
+    }
   };
 
   const handleReschedDate = async (date: Date | undefined) => {
@@ -238,24 +243,22 @@ const ClienteMisCitas = () => {
 
     setLoadingSlots(true);
     const dateStr = date.toISOString().split('T')[0];
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
 
-    const { data: busy } = await supabase
-      .from('appointments')
-      .select('start_time, end_time')
-      .eq('salon_id' as any, cita.salons.id)
-      .neq('id', reschedulingId)
-      .gte('start_time', `${dateStr}T00:00:00`)
-      .lt('start_time', nextDay.toISOString().split('T')[0] + 'T00:00:00')
-      .not('status', 'in', '("cancelled")');
+    // get_busy_slots incluye citas, bloques puntuales y descanso recurrente
+    const { data: busyRaw } = await supabase.rpc('get_busy_slots', {
+      p_salon_id: cita.salons.id,
+      p_date: dateStr,
+    } as any);
+    // Excluir la propia cita que se está modificando
+    const busy = ((busyRaw as any) || []).filter((b: any) =>
+      !(new Date(b.start_time).getTime() === new Date(cita.start_time).getTime())
+    );
 
     const slots = generateSlots(
       date,
       cita.services.duration_minutes,
-      (busy as any) || [],
-      cita.salons.work_start_hour,
-      cita.salons.work_end_hour,
+      busy,
+      salonDaySchedules,
     );
     setReschedSlots(slots);
     setLoadingSlots(false);
@@ -448,6 +451,7 @@ const ClienteMisCitas = () => {
                               selectedSlot={reschedSlot}
                               loadingSlots={loadingSlots}
                               saving={saving}
+                              daySchedules={salonDaySchedules}
                               onDateChange={handleReschedDate}
                               onSlotSelect={setReschedSlot}
                               onSave={handleReschedSave}
@@ -604,6 +608,7 @@ const ReschedulePanel = ({
   selectedSlot,
   loadingSlots,
   saving,
+  daySchedules,
   onDateChange,
   onSlotSelect,
   onSave,
@@ -615,15 +620,13 @@ const ReschedulePanel = ({
   selectedSlot: string | null;
   loadingSlots: boolean;
   saving: boolean;
+  daySchedules: Record<string, { start: number; end: number }>;
   onDateChange: (d: Date | undefined) => void;
   onSlotSelect: (s: string) => void;
   onSave: () => void;
   onClose: () => void;
 }) => {
-  const isDisabled = (d: Date) => {
-    // Deshabilitar domingos si el salón trabaja L-S (heurístico por defecto)
-    return d.getDay() === 0;
-  };
+  const isDisabled = (d: Date) => !daySchedules[String(d.getDay())];
 
   return (
     <Card className="border-0 shadow-md mt-2 overflow-hidden">
