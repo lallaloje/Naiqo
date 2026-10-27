@@ -59,7 +59,7 @@ const ClienteLogin = () => {
       }
       navigate('/cliente/mis-citas', { replace: true });
     } else {
-      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) {
         if (signInErr.message.toLowerCase().includes('confirm')) {
           setError('Revisa tu email y confirma tu cuenta antes de entrar.');
@@ -70,6 +70,11 @@ const ClienteLogin = () => {
         }
         setLoading(false);
         return;
+      }
+      // Si es propietaria de salón, redirigir al dashboard
+      if (signInData?.user) {
+        const { data: salon } = await supabase.from('salons').select('id').eq('user_id', signInData.user.id).maybeSingle();
+        if (salon) { navigate('/dashboard', { replace: true }); setLoading(false); return; }
       }
       navigate('/cliente/mis-citas', { replace: true });
     }
