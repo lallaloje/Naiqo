@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SmtpClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,40 +10,20 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
+    const smtpHost     = Deno.env.get("SMTP_HOST")     || "smtp.gmail.com";
+    const smtpPort     = Number(Deno.env.get("SMTP_PORT") || "465");
+    const smtpUser     = Deno.env.get("SMTP_USER")     || "";
+    const smtpPassword = Deno.env.get("SMTP_PASSWORD") || "";
+    const fromName     = Deno.env.get("SMTP_FROM_NAME") || "Naiqo";
+
+    if (!smtpUser || !smtpPassword) throw new Error("SMTP credentials not configured");
 
     const { clientName, clientEmail, salonName, salonPhone, serviceName, startTime, durationMinutes, localDate, localTime } = await req.json();
     if (!clientEmail || !clientName) throw new Error("clientEmail and clientName required");
 
-    // Calcular offset real de España (CET=+1 invierno, CEST=+2 verano)
-    // DST: empieza último domingo de marzo (1:00 UTC), termina último domingo de octubre (1:00 UTC)
-    const getMadridOffset = (d: Date): number => {
-      const y = d.getUTCFullYear();
-      const lastSunMarch = new Date(Date.UTC(y, 2, 31 - new Date(Date.UTC(y, 2, 31)).getUTCDay(), 1));
-      const lastSunOct   = new Date(Date.UTC(y, 9, 31 - new Date(Date.UTC(y, 9, 31)).getUTCDay(), 1));
-      return (d >= lastSunMarch && d < lastSunOct) ? 2 : 1;
-    };
-
-    const dt = new Date(startTime);
-    const pad = (n: number) => String(n).padStart(2, "0");
-
-    let dateStr: string;
-    let timeStr: string;
-
-    if (localDate && localTime) {
-      // Valores ya formateados en hora española, pasados directamente desde el cliente
-      dateStr = localDate;
-      timeStr = localTime;
-    } else {
-      // Fallback: calcular hora española manualmente desde UTC
-      const offset = getMadridOffset(dt);
-      const local  = new Date(dt.getTime() + offset * 3600000);
-      const DIAS  = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
-      const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-      dateStr = `${DIAS[local.getUTCDay()]}, ${local.getUTCDate()} de ${MESES[local.getUTCMonth()]} de ${local.getUTCFullYear()}`;
-      timeStr = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
-    }
+    // Usar localDate/localTime si vienen del cliente (ya en hora española)
+    const dateStr = localDate || startTime;
+    const timeStr = localTime || "";
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -53,7 +34,7 @@ serve(async (req) => {
       <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
         <tr><td style="background:linear-gradient(135deg,#ec4899,#8b5cf6);padding:32px;text-align:center;">
           <div style="font-size:36px;margin-bottom:8px;">💅</div>
-          <h1 style="color:#fff;margin:0;font-size:24px;">¡Cita confirmada!</h1>
+          <h1 style="color:#fff;margin:0;font-size:24px;">¡Cita solicitada!</h1>
           <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:15px;">${salonName}</p>
         </td></tr>
         <tr><td style="padding:32px;">
@@ -69,14 +50,14 @@ serve(async (req) => {
             </tr></table></td></tr>
             <tr><td style="padding:8px 0;border-top:1px solid #e5e7eb;"><table width="100%"><tr>
               <td style="color:#6b7280;font-size:14px;width:40%;">🕐 Hora</td>
-              <td style="color:#111827;font-size:14px;font-weight:600;">${timeStr} (${durationMinutes} min)</td>
+              <td style="color:#111827;font-size:14px;font-weight:600;">${timeStr}${durationMinutes ? ` (${durationMinutes} min)` : ""}</td>
             </tr></table></td></tr>
             ${salonPhone ? `<tr><td style="padding:8px 0;border-top:1px solid #e5e7eb;"><table width="100%"><tr>
               <td style="color:#6b7280;font-size:14px;width:40%;">📞 Salón</td>
               <td style="color:#111827;font-size:14px;font-weight:600;">${salonPhone}</td>
             </tr></table></td></tr>` : ""}
           </table>
-          <p style="color:#6b7280;font-size:13px;text-align:center;margin:0;">¿Necesitas cancelar? Visita <a href="https://naiqo.es/cliente/mis-citas" style="color:#8b5cf6;">naiqo.es/cliente/mis-citas</a> o contacta con el salón.</p>
+          <p style="color:#6b7280;font-size:13px;text-align:center;margin:0;">¿Necesitas cancelar? Visita <a href="https://app.naiqo.es/cliente/mis-citas" style="color:#8b5cf6;">app.naiqo.es</a> o contacta con el salón.</p>
         </td></tr>
         <tr><td style="background:#f3f4f6;padding:16px 32px;text-align:center;">
           <p style="color:#9ca3af;font-size:12px;margin:0;">Gestionado por <strong style="color:#8b5cf6;">NAIQO</strong> · naiqo.es</p>
@@ -87,24 +68,22 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "NAIQO <citas@naiqo.es>",
-        to: [clientEmail],
-        subject: `✅ Cita en ${salonName} — ${dateStr} a las ${timeStr}`,
-        html,
-      }),
+    const client = new SmtpClient();
+    await client.connectTLS({
+      hostname: smtpHost,
+      port: smtpPort,
+      username: smtpUser,
+      password: smtpPassword,
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Resend error:", errText);
-    }
+    await client.send({
+      from: `${fromName} <${smtpUser}>`,
+      to: clientEmail,
+      subject: `💅 Tu cita en ${salonName} — ${dateStr}${timeStr ? ` a las ${timeStr}` : ""}`,
+      html,
+    });
+
+    await client.close();
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
