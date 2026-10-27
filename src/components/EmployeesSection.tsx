@@ -13,6 +13,7 @@ import {
   Users, Plus, Edit3, Trash2, Phone, Mail, Clock,
   Calendar, TrendingUp, X, CheckCircle, XCircle,
   Star, Scissors, ChevronLeft, Award, BarChart2,
+  Palmtree, AlertCircle,
 } from "lucide-react";
 import { logError } from '@/lib/logger';
 
@@ -47,6 +48,15 @@ interface Employee {
   created_at: string;
 }
 
+interface TimeOff {
+  id: string;
+  employee_id: string;
+  type: 'vacation' | 'sick' | 'rest' | 'other';
+  start_date: string;
+  end_date: string;
+  notes: string | null;
+}
+
 interface EmpStats {
   totalApts: number;
   monthApts: number;
@@ -60,6 +70,13 @@ interface EmpStats {
 }
 
 // ─── Constants ────────────────────────────────────────────────────
+const TIME_OFF_TYPES: Record<string, { label: string; icon: string; color: string }> = {
+  vacation: { label: 'Vacaciones',    icon: '🌴', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  sick:     { label: 'Baja/Enfermedad', icon: '🤒', color: 'bg-red-100 text-red-700 border-red-200' },
+  rest:     { label: 'Descanso',      icon: '😴', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  other:    { label: 'Otro',          icon: '📅', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+};
+
 const ROLES: Record<string, string> = {
   nail_tech:    '💅 Técnica de uñas',
   receptionist: '📋 Recepcionista',
@@ -108,6 +125,14 @@ const EmployeesSection: React.FC = () => {
   const [empStats,     setEmpStats]     = useState<EmpStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [form,         setForm]         = useState(EMPTY_FORM);
+  const [detailTab,    setDetailTab]    = useState<'stats' | 'timeoff'>('stats');
+  const [timeOffList,  setTimeOffList]  = useState<TimeOff[]>([]);
+  const [timeOffLoading, setTimeOffLoading] = useState(false);
+  const [showTimeOffForm, setShowTimeOffForm] = useState(false);
+  const [timeOffForm, setTimeOffForm]   = useState({
+    type: 'vacation' as TimeOff['type'],
+    start_date: '', end_date: '', notes: '',
+  });
 
   const { user }  = useAuth();
   const { toast } = useToast();
@@ -198,6 +223,65 @@ const EmployeesSection: React.FC = () => {
     } finally {
       setStatsLoading(false);
     }
+  };
+
+  // ── Time Off ────────────────────────────────────────────────────
+  const loadTimeOff = async (emp: Employee) => {
+    setTimeOffLoading(true);
+    const { data } = await supabase
+      .from('employee_time_off')
+      .select('*')
+      .eq('employee_id', emp.id)
+      .order('start_date', { ascending: false });
+    setTimeOffList(data || []);
+    setTimeOffLoading(false);
+  };
+
+  const saveTimeOff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmp || !salonId) return;
+    if (!timeOffForm.start_date || !timeOffForm.end_date) {
+      toast({ title: 'Rellena las fechas', variant: 'destructive' }); return;
+    }
+    if (timeOffForm.end_date < timeOffForm.start_date) {
+      toast({ title: 'La fecha fin no puede ser anterior al inicio', variant: 'destructive' }); return;
+    }
+    setIsLoading(true);
+    const { error } = await supabase.from('employee_time_off').insert({
+      employee_id: selectedEmp.id,
+      salon_id: salonId,
+      user_id: user!.id,
+      type: timeOffForm.type,
+      start_date: timeOffForm.start_date,
+      end_date: timeOffForm.end_date,
+      notes: timeOffForm.notes || null,
+    } as any);
+    setIsLoading(false);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: '✅ Ausencia añadida' });
+      setShowTimeOffForm(false);
+      setTimeOffForm({ type: 'vacation', start_date: '', end_date: '', notes: '' });
+      await loadTimeOff(selectedEmp);
+    }
+  };
+
+  const deleteTimeOff = async (id: string) => {
+    if (!confirm('¿Eliminar esta ausencia?')) return;
+    await supabase.from('employee_time_off').delete().eq('id', id);
+    if (selectedEmp) await loadTimeOff(selectedEmp);
+    toast({ title: 'Ausencia eliminada' });
+  };
+
+  const fmtDate = (d: string) => {
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const daysBetween = (a: string, b: string) => {
+    const ms = new Date(b + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime();
+    return Math.round(ms / 86400000) + 1;
   };
 
   // ── CRUD ────────────────────────────────────────────────────────
@@ -401,10 +485,122 @@ const EmployeesSection: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Tabs */}
+        <div className="flex border-b border-muted">
+          <button
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${detailTab === 'stats' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setDetailTab('stats')}>
+            📊 Estadísticas
+          </button>
+          <button
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${detailTab === 'timeoff' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setDetailTab('timeoff')}>
+            🌴 Ausencias
+          </button>
+        </div>
+
+        {/* Time off panel */}
+        {detailTab === 'timeoff' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-muted-foreground">Vacaciones y periodos de descanso</p>
+              <Button size="sm" variant="outline" className="gap-1 h-8 text-xs"
+                onClick={() => { setShowTimeOffForm(v => !v); setTimeOffForm({ type: 'vacation', start_date: '', end_date: '', notes: '' }); }}>
+                <Plus className="w-3 h-3" /> Añadir ausencia
+              </Button>
+            </div>
+
+            {showTimeOffForm && (
+              <Card>
+                <CardContent className="pt-4">
+                  <form onSubmit={saveTimeOff} className="space-y-3">
+                    <div>
+                      <Label className="text-xs">Tipo</Label>
+                      <Select value={timeOffForm.type} onValueChange={v => setTimeOffForm(f => ({ ...f, type: v as TimeOff['type'] }))}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TIME_OFF_TYPES).map(([v, t]) => (
+                            <SelectItem key={v} value={v}>{t.icon} {t.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Desde</Label>
+                        <Input type="date" className="h-8 text-xs" value={timeOffForm.start_date}
+                          onChange={e => setTimeOffForm(f => ({ ...f, start_date: e.target.value }))} required />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Hasta</Label>
+                        <Input type="date" className="h-8 text-xs" value={timeOffForm.end_date}
+                          onChange={e => setTimeOffForm(f => ({ ...f, end_date: e.target.value }))} required />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Notas (opcional)</Label>
+                      <Input className="h-8 text-xs" placeholder="Ej: Verano 2027..." value={timeOffForm.notes}
+                        onChange={e => setTimeOffForm(f => ({ ...f, notes: e.target.value }))} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="submit" size="sm" className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 text-white" disabled={isLoading}>
+                        {isLoading ? 'Guardando...' : '✓ Guardar'}
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setShowTimeOffForm(false)}>Cancelar</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {timeOffLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Cargando...</p>
+            ) : timeOffList.length === 0 ? (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-3xl mb-2">🌴</p>
+                  <p className="text-sm text-muted-foreground">Sin ausencias registradas</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {timeOffList.map(to => {
+                  const t = TIME_OFF_TYPES[to.type] || TIME_OFF_TYPES.other;
+                  const days = daysBetween(to.start_date, to.end_date);
+                  return (
+                    <Card key={to.id}>
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${t.color}`}>
+                                {t.icon} {t.label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{days} día{days !== 1 ? 's' : ''}</span>
+                            </div>
+                            <p className="text-sm">
+                              {fmtDate(to.start_date)} → {fmtDate(to.end_date)}
+                            </p>
+                            {to.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{to.notes}</p>}
+                          </div>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                            onClick={() => deleteTimeOff(to.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats */}
-        {statsLoading ? (
+        {detailTab === 'stats' && statsLoading ? (
           <Card><CardContent className="p-6 text-center text-muted-foreground text-sm">Cargando estadísticas...</CardContent></Card>
-        ) : empStats ? (
+        ) : detailTab === 'stats' && empStats ? (
           <>
             {/* KPI grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -774,7 +970,7 @@ const EmployeesSection: React.FC = () => {
         {employees.map(emp => (
           <Card key={emp.id}
             className={`cursor-pointer hover:shadow-md transition-all ${!emp.active ? 'opacity-60' : ''}`}
-            onClick={() => { setSelectedEmp(emp); loadEmpStats(emp); }}>
+            onClick={() => { setSelectedEmp(emp); setDetailTab('stats'); loadEmpStats(emp); loadTimeOff(emp); }}>
             <CardContent className="pt-5">
               <div className="flex items-start gap-3">
                 {/* Avatar */}
