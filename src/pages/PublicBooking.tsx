@@ -420,12 +420,9 @@ const PublicBooking = () => {
             <p><strong>Hora:</strong> {selectedSlot}</p>
             <p><strong>Nombre:</strong> {form.client_name}</p>
           </div>
-          {salon.phone && (
-            <p className="text-sm text-muted-foreground">
-              Si necesitas cambiar la cita, escríbenos al{' '}
-              <a href={`tel:${salon.phone}`} className="text-primary font-medium">{salon.phone}</a>
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+            Puedes modificar o cancelar tu cita desde la sección <strong>Mis citas</strong> de la app.
+          </p>
         </CardContent>
       </Card>
     </div>
