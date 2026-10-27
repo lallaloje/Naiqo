@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,9 +20,29 @@ const ClienteSellos = () => {
   const [cards, setCards] = useState<LoyaltyCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [sessionUser, setSessionUser] = useState<{ name: string } | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const salonId = searchParams.get('salon');
+
+  // Auto-cargar sellos si hay sesión de clienta
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const { data: salon } = await supabase
+        .from('salons').select('id').eq('user_id', data.session.user.id).maybeSingle();
+      if (salon) return;
+      const user = data.session.user;
+      setSessionUser({ name: user.user_metadata?.display_name || user.email || '' });
+      setLoading(true);
+      const { data: loyaltyData } = await supabase.rpc('get_my_loyalty_cards' as any);
+      let filtered = ((loyaltyData as any) || []).filter((c: any) => c.salons?.loyalty_enabled !== false);
+      if (salonId) filtered = filtered.filter((c: any) => c.salon_id === salonId);
+      setCards(filtered);
+      setSearched(true);
+      setLoading(false);
+    });
+  }, [salonId]);
 
   const buscar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +84,19 @@ const ClienteSellos = () => {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-5">
-        {/* Buscador por email */}
+        {sessionUser ? (
+          <div className="flex items-center justify-between bg-purple-50 rounded-xl px-4 py-3">
+            <p className="text-sm text-purple-700 font-medium">
+              Hola, {sessionUser.name.split(' ')[0]} 👋
+            </p>
+            <button
+              className="text-xs text-purple-500 underline"
+              onClick={() => navigate('/cliente/login')}
+            >
+              Gestionar cuenta
+            </button>
+          </div>
+        ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4">
             <form onSubmit={buscar} className="space-y-3">
@@ -99,6 +131,7 @@ const ClienteSellos = () => {
             </form>
           </CardContent>
         </Card>
+        )}
 
         {/* Resultados */}
         {loading && (

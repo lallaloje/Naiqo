@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -78,6 +78,34 @@ const ClienteMisCitas = () => {
   const [citas, setCitas] = useState<Cita[]>([]);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ email: string; name: string } | null>(null);
+
+  // Auto-cargar citas si hay sesión de clienta
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      // Verificar que no es un salón
+      const { data: salon } = await supabase
+        .from('salons').select('id').eq('user_id', data.session.user.id).maybeSingle();
+      if (salon) return;
+      const user = data.session.user;
+      setSessionUser({
+        email: user.email || '',
+        name: user.user_metadata?.display_name || user.email || '',
+      });
+      setLoading(true);
+      const { data: appts } = await supabase.rpc('get_my_appointments' as any);
+      const mapped = (appts || []).map((r: any) => ({
+        id: r.id, client_name: r.client_name, client_email: r.client_email,
+        client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
+        status: r.status, salon_id: r.salon_id, service_id: r.service_id,
+        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, day_schedules: null } : null,
+        services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
+      }));
+      setCitas(mapped);
+      setLoading(false);
+    });
+  }, []);
 
   // Estado para modificar cita
   const [reschedulingId, setReschedulingId] = useState<string | null>(null);
@@ -140,7 +168,15 @@ const ClienteMisCitas = () => {
     setCancelling(citaId);
     try {
       let cancelled = false;
-      if (searchType === 'email') {
+      // Si hay sesión, cancelar directamente por ID (el usuario está autenticado)
+      if (sessionUser) {
+        const { error } = await supabase
+          .from('appointments')
+          .update({ status: 'cancelled' })
+          .eq('id', citaId);
+        if (error) throw error;
+        cancelled = true;
+      } else if (searchType === 'email') {
         const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
           p_appointment_id: citaId,
           p_client_email: email,
@@ -300,6 +336,19 @@ const ClienteMisCitas = () => {
       </div>
 
       <div className="px-4 py-5 max-w-lg mx-auto space-y-5">
+        {sessionUser ? (
+          <div className="flex items-center justify-between bg-purple-50 rounded-xl px-4 py-3">
+            <p className="text-sm text-purple-700 font-medium">
+              Hola, {sessionUser.name.split(' ')[0]} 👋
+            </p>
+            <button
+              className="text-xs text-purple-500 underline"
+              onClick={() => navigate('/cliente/login')}
+            >
+              Gestionar cuenta
+            </button>
+          </div>
+        ) : (
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4">
             <form onSubmit={buscarCitas} className="space-y-3">
@@ -340,6 +389,7 @@ const ClienteMisCitas = () => {
             </form>
           </CardContent>
         </Card>
+        )}
 
         {email && !loading && (
           <>

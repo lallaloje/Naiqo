@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Calendar, ChevronRight, Scissors, Gift } from 'lucide-react';
+import { Search, Calendar, ChevronRight, Scissors, Gift, User, LogOut } from 'lucide-react';
 
 interface Salon {
   id: string;
@@ -17,12 +17,27 @@ const ClienteHome = () => {
   const [filtered, setFiltered] = useState<Salon[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [clientUser, setClientUser] = useState<{ email: string; name: string } | null>(null);
   const navigate = useNavigate();
 
-  // Si el usuario es un salón logueado, redirigir al dashboard
+  // Detectar sesión: si es salón → dashboard; si es clienta → mostrar su perfil
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate('/dashboard', { replace: true });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      // Comprobar si es salón
+      const { data: salon } = await supabase
+        .from('salons')
+        .select('id')
+        .eq('user_id', data.session.user.id)
+        .maybeSingle();
+      if (salon) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        setClientUser({
+          email: data.session.user.email || '',
+          name: data.session.user.user_metadata?.display_name || data.session.user.email || '',
+        });
+      }
     });
   }, [navigate]);
 
@@ -62,16 +77,31 @@ const ClienteHome = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">💅 Naiqo</h1>
-            <p className="text-pink-100 text-sm">Encuentra tu salón perfecto</p>
+            {clientUser ? (
+              <p className="text-pink-100 text-sm">Hola, {clientUser.name.split(' ')[0]} 👋</p>
+            ) : (
+              <p className="text-pink-100 text-sm">Encuentra tu salón perfecto</p>
+            )}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white border border-white/30 hover:bg-white/20"
-            onClick={() => navigate('/cliente/mis-citas')}
-          >
-            Mis citas
-          </Button>
+          {clientUser ? (
+            <button
+              className="flex items-center gap-1 text-white/80 hover:text-white text-sm"
+              onClick={async () => { await supabase.auth.signOut(); setClientUser(null); }}
+            >
+              <LogOut className="w-4 h-4" />
+              Salir
+            </button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white border border-white/30 hover:bg-white/20"
+              onClick={() => navigate('/cliente/login')}
+            >
+              <User className="w-4 h-4 mr-1" />
+              Mi cuenta
+            </Button>
+          )}
         </div>
 
         {/* Search */}
@@ -170,6 +200,13 @@ const ClienteHome = () => {
         >
           <Gift className="w-5 h-5" />
           <span className="text-xs">Mis sellos</span>
+        </button>
+        <button
+          className="flex flex-col items-center gap-1 text-gray-400"
+          onClick={() => navigate(clientUser ? '/cliente' : '/cliente/login')}
+        >
+          <User className="w-5 h-5" />
+          <span className="text-xs">{clientUser ? 'Mi cuenta' : 'Acceder'}</span>
         </button>
       </div>
 
