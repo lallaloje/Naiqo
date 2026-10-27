@@ -849,13 +849,20 @@ const SmartAppointments = () => {
   };
 
   // ─── Dynamic calendar helpers ────────────────────────────────────
-  const TOTAL_HOURS = workEnd - workStart;
+  // If there are appointments earlier than workStart, extend the grid up
+  const earliestApt = appointments.reduce((min, apt) => {
+    const h = new Date(apt.start_time).getHours();
+    return h < min ? h : min;
+  }, workStart);
+  const gridStart   = Math.min(workStart, earliestApt);
+  const TOTAL_HOURS = workEnd - gridStart;
+
   const isToday     = selectedDate === toDateStr(new Date());
   const nowTop = (() => {
     const now = new Date();
     const h = now.getHours() + now.getMinutes() / 60;
-    if (h < workStart || h > workEnd) return null;
-    return (h - workStart) * HOUR_HEIGHT;
+    if (h < gridStart || h > workEnd) return null;
+    return (h - gridStart) * HOUR_HEIGHT;
   })();
 
   const serviceColor = (serviceId: string | null) => {
@@ -864,7 +871,7 @@ const SmartAppointments = () => {
     return PALETTES[Math.max(idx, 0) % PALETTES.length];
   };
 
-  const positions = assignColumns(appointments, workStart);
+  const positions = assignColumns(appointments, gridStart);
 
   const blockedPosition = (slot: BlockedSlot) => {
     const s  = new Date(slot.start_time);
@@ -872,7 +879,7 @@ const SmartAppointments = () => {
     const sh = s.getHours() + s.getMinutes() / 60;
     const eh = e.getHours() + e.getMinutes() / 60;
     return {
-      top:    (sh - workStart) * HOUR_HEIGHT,
+      top:    (sh - gridStart) * HOUR_HEIGHT,
       height: Math.max((eh - sh) * HOUR_HEIGHT, 28),
     };
   };
@@ -883,7 +890,7 @@ const SmartAppointments = () => {
     const startH = sh + sm / 60;
     const endH   = eh + em / 60;
     return {
-      top:    (startH - workStart) * HOUR_HEIGHT,
+      top:    (startH - gridStart) * HOUR_HEIGHT,
       height: Math.max((endH - startH) * HOUR_HEIGHT, 28),
     };
   };
@@ -922,9 +929,9 @@ const SmartAppointments = () => {
     if (calendarRef.current && appointments.length > 0) {
       const firstTime = new Date(appointments[0].start_time);
       const h = firstTime.getHours() + firstTime.getMinutes() / 60;
-      calendarRef.current.scrollTop = Math.max((h - workStart - 1) * HOUR_HEIGHT, 0);
+      calendarRef.current.scrollTop = Math.max((h - gridStart - 1) * HOUR_HEIGHT, 0);
     }
-  }, [appointments, workStart]);
+  }, [appointments, gridStart]);
 
   if (!user) return (
     <div className="max-w-xl mx-auto p-6 text-center">
@@ -1526,7 +1533,7 @@ const SmartAppointments = () => {
                             style={{ height: HOUR_HEIGHT }}
                             className="border-t border-muted/30 text-xs text-muted-foreground flex items-start px-1 pt-0.5"
                           >
-                            {String(workStart + i).padStart(2, '0')}:00
+                            {String(gridStart + i).padStart(2, '0')}:00
                           </div>
                         ))}
                       </div>
@@ -1538,7 +1545,7 @@ const SmartAppointments = () => {
                       >
                         {/* Hour lines + click zones */}
                         {Array.from({ length: TOTAL_HOURS * 2 }, (_, i) => {
-                          const h = Math.floor(i / 2) + workStart;
+                          const h = Math.floor(i / 2) + gridStart;
                           const m = i % 2 === 0 ? '00' : '30';
                           return (
                             <div
