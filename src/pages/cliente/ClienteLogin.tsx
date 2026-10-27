@@ -30,7 +30,18 @@ const ClienteLogin = () => {
         password,
         options: { data: { display_name: name } },
       });
-      if (signUpErr) { setError(signUpErr.message); setLoading(false); return; }
+
+      if (signUpErr) {
+        // Email ya registrado → redirigir a login
+        if (signUpErr.message.toLowerCase().includes('already') || signUpErr.message.toLowerCase().includes('exist')) {
+          setMode('login');
+          setError('Este email ya tiene cuenta. Inicia sesión con tu contraseña.');
+        } else {
+          setError(signUpErr.message);
+        }
+        setLoading(false);
+        return;
+      }
 
       // Crear perfil con teléfono
       if (data.user) {
@@ -41,17 +52,22 @@ const ClienteLogin = () => {
         });
       }
 
-      // Si Supabase requiere confirmación de email, informar
+      // Con autoconfirm activo siempre hay sesión; si por algún motivo no la hay, intentar login directo
       if (!data.session) {
-        setSent(true);
-        setLoading(false);
-        return;
+        const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginErr) { setSent(true); setLoading(false); return; }
       }
       navigate('/cliente/mis-citas', { replace: true });
     } else {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signInErr) {
-        setError('Email o contraseña incorrectos');
+        if (signInErr.message.toLowerCase().includes('confirm')) {
+          setError('Revisa tu email y confirma tu cuenta antes de entrar.');
+        } else if (signInErr.message.toLowerCase().includes('invalid')) {
+          setError('Email o contraseña incorrectos.');
+        } else {
+          setError(signInErr.message);
+        }
         setLoading(false);
         return;
       }
