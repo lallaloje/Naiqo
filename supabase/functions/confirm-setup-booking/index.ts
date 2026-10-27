@@ -98,10 +98,13 @@ serve(async (req) => {
           updated_at:               new Date().toISOString(),
         };
 
+        console.log('Guardando tarjeta:', { existingId, pmType: pm.type, hasCard: !!pm.card, customerId, paymentMethodId });
         if (existingId) {
-          await supabase.from('client_payment_methods').update(record).eq('id', existingId);
+          const { error: upErr } = await supabase.from('client_payment_methods').update(record).eq('id', existingId);
+          if (upErr) console.error('Error update tarjeta:', upErr);
         } else {
-          await supabase.from('client_payment_methods').insert(record);
+          const { error: insErr } = await supabase.from('client_payment_methods').insert(record);
+          if (insErr) console.error('Error insert tarjeta:', insErr);
         }
       } catch (cardSaveErr) {
         console.error('Error guardando tarjeta (no fatal):', cardSaveErr);
