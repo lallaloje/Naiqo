@@ -1514,8 +1514,8 @@ const SmartAppointments = () => {
                 <Card className="overflow-hidden">
                   <div
                     ref={calendarRef}
-                    className="overflow-y-auto"
-                    style={{ maxHeight: '75vh' }}
+                    className={isMobile ? "" : "overflow-y-auto"}
+                    style={isMobile ? {} : { maxHeight: '75vh' }}
                   >
                     <div className="flex">
                       {/* Time labels */}
