@@ -700,10 +700,10 @@ const SmartAppointments = () => {
 
     // Añadir sello de fidelidad cuando se completa una cita
     const apt = appointments.find(a => a.id === id) || selectedApt;
-    if (apt && status === 'completed' && apt.client_email && loyaltyEnabled) {
+    if (apt && status === 'completed' && loyaltyEnabled && (apt.client_email || apt.client_phone)) {
       supabase.rpc('add_loyalty_stamp', {
-        p_salon_id:    apt.salon_id,
-        p_client_email: apt.client_email,
+        p_salon_id:     apt.salon_id,
+        p_client_email: apt.client_email || null,
         p_client_name:  apt.client_name,
         p_client_phone: apt.client_phone || null,
       } as any).then(({ error }) => {

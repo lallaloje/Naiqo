@@ -16,6 +16,7 @@ interface LoyaltyCard {
 
 const ClienteSellos = () => {
   const [inputEmail, setInputEmail] = useState('');
+  const [searchType, setSearchType] = useState<'email' | 'phone'>('phone');
   const [cards, setCards] = useState<LoyaltyCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -27,11 +28,21 @@ const ClienteSellos = () => {
     e.preventDefault();
     if (!inputEmail.trim()) return;
     setLoading(true);
-    const query = supabase
+    const val = inputEmail.trim();
+
+    let query = supabase
       .from('loyalty_cards')
-      .select('stamps, stamps_used, client_name, salons(salon_name, loyalty_stamps_required, loyalty_reward, loyalty_enabled)')
-      .ilike('client_email' as any, inputEmail.trim());
-    if (salonId) (query as any).eq('salon_id', salonId);
+      .select('stamps, stamps_used, client_name, salons(salon_name, loyalty_stamps_required, loyalty_reward, loyalty_enabled)');
+
+    if (searchType === 'email') {
+      query = query.ilike('client_email' as any, val);
+    } else {
+      const normalized = val.replace(/[\s\-()]/g, '');
+      query = (query as any).or(`client_phone.ilike.%${normalized}%,client_phone.ilike.%${val}%`);
+    }
+
+    if (salonId) query = (query as any).eq('salon_id', salonId);
+
     const { data } = await query;
     const filtered = ((data as any) || []).filter((c: any) => c.salons?.loyalty_enabled !== false);
     setCards(filtered);
@@ -57,11 +68,21 @@ const ClienteSellos = () => {
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4">
             <form onSubmit={buscar} className="space-y-3">
-              <Label className="text-sm font-medium">Introduce tu email de reserva</Label>
+              <Label className="text-sm font-medium">Busca tu tarjeta de sellos</Label>
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button type="button" onClick={() => { setSearchType('phone'); setInputEmail(''); }}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${searchType === 'phone' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>
+                  📱 Teléfono
+                </button>
+                <button type="button" onClick={() => { setSearchType('email'); setInputEmail(''); }}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${searchType === 'email' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}>
+                  ✉️ Email
+                </button>
+              </div>
               <div className="flex gap-2">
                 <Input
-                  type="email"
-                  placeholder="tu@email.com"
+                  type={searchType === 'email' ? 'email' : 'tel'}
+                  placeholder={searchType === 'email' ? 'tu@email.com' : '612 345 678'}
                   value={inputEmail}
                   onChange={e => setInputEmail(e.target.value)}
                   className="flex-1"
