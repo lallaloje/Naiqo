@@ -10,8 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
-type DaySchedules = Record<string, { start: number; end: number }>;
-
 interface Cita {
   id: string;
   client_name: string;
@@ -19,7 +17,7 @@ interface Cita {
   start_time: string;
   end_time: string;
   status: string;
-  salons: { salon_name: string; id: string; user_id: string; day_schedules: DaySchedules | null } | null;
+  salons: { salon_name: string; id: string; user_id: string; work_start_hour: number; work_end_hour: number } | null;
   services: { name: string; price: number | null; duration_minutes: number } | null;
 }
 
@@ -42,13 +40,14 @@ function generateSlots(
   date: Date,
   durationMin: number,
   busyApts: { start_time: string; end_time: string }[],
-  daySchedules: DaySchedules,
+  workStart: number,
+  workEnd: number,
 ): string[] {
   const slots: string[] = [];
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
-  const sched = daySchedules[String(date.getDay())];
-  if (!sched) return [];
+  const sched = { start: workStart, end: workEnd };
+  if (!sched.start && !sched.end) return [];
 
   for (let h = sched.start; h < sched.end; h++) {
     for (let m = 0; m < 60; m += 30) {
@@ -104,7 +103,7 @@ const ClienteMisCitas = () => {
           id: r.id, client_name: r.client_name, client_email: r.client_email,
           client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
           status: r.status, salon_id: r.salon_id, service_id: r.service_id,
-          salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, day_schedules: null } : null,
+          salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
           services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
         }));
         setCitas(mapped);
@@ -147,7 +146,7 @@ const ClienteMisCitas = () => {
     if (searchType === 'email') {
       const { data } = await supabase
         .from('appointments')
-        .select('*, salons(salon_name, id, user_id, day_schedules), services(name, price, duration_minutes)')
+        .select('*, salons(salon_name, id, user_id, work_start_hour, work_end_hour), services(name, price, duration_minutes)')
         .ilike('client_email' as any, val)
         .order('start_time', { ascending: false });
       setCitas((data as any) || []);
@@ -165,10 +164,11 @@ const ClienteMisCitas = () => {
         salon_id:     r.salon_id,
         service_id:   r.service_id,
         salons: r.salon_id ? {
-          salon_name:   r.salon_name,
-          id:           r.salon_id,
-          user_id:      r.salon_user_id,
-          day_schedules: null,
+          salon_name:      r.salon_name,
+          id:              r.salon_id,
+          user_id:         r.salon_user_id,
+          work_start_hour: r.work_start_hour ?? 9,
+          work_end_hour:   r.work_end_hour ?? 19,
         } : null,
         services: r.service_id ? {
           name:               r.service_name,
@@ -234,7 +234,7 @@ const ClienteMisCitas = () => {
     if (!date || !reschedulingId) return;
 
     const cita = citas.find(c => c.id === reschedulingId);
-    if (!cita?.salons?.day_schedules || !cita.services) return;
+    if (!cita?.salons || !cita.services) return;
 
     setLoadingSlots(true);
     const dateStr = date.toISOString().split('T')[0];
@@ -245,7 +245,7 @@ const ClienteMisCitas = () => {
       .from('appointments')
       .select('start_time, end_time')
       .eq('salon_id' as any, cita.salons.id)
-      .neq('id', reschedulingId) // excluir la cita actual
+      .neq('id', reschedulingId)
       .gte('start_time', `${dateStr}T00:00:00`)
       .lt('start_time', nextDay.toISOString().split('T')[0] + 'T00:00:00')
       .not('status', 'in', '("cancelled")');
@@ -254,7 +254,8 @@ const ClienteMisCitas = () => {
       date,
       cita.services.duration_minutes,
       (busy as any) || [],
-      cita.salons.day_schedules,
+      cita.salons.work_start_hour,
+      cita.salons.work_end_hour,
     );
     setReschedSlots(slots);
     setLoadingSlots(false);
@@ -271,15 +272,16 @@ const ClienteMisCitas = () => {
     newStart.setHours(hh, mm, 0, 0);
     const newEnd = new Date(newStart.getTime() + cita.services.duration_minutes * 60000);
 
-    const { error } = await supabase
+    let updateQuery = supabase
       .from('appointments')
       .update({
         start_time: newStart.toISOString(),
         end_time: newEnd.toISOString(),
         status: 'scheduled',
       } as any)
-      .eq('id', reschedulingId)
-      .ilike('client_email' as any, email);
+      .eq('id', reschedulingId);
+    if (!sessionUser && email) updateQuery = (updateQuery as any).ilike('client_email', email);
+    const { error } = await updateQuery;
 
     if (error) {
       toast({ title: 'Error al modificar', description: error.message, variant: 'destructive' });
@@ -618,11 +620,9 @@ const ReschedulePanel = ({
   onSave: () => void;
   onClose: () => void;
 }) => {
-  const daySchedules = cita.salons?.day_schedules || {};
-
   const isDisabled = (d: Date) => {
-    const dow = String(d.getDay());
-    return !daySchedules[dow];
+    // Deshabilitar domingos si el salón trabaja L-S (heurístico por defecto)
+    return d.getDay() === 0;
   };
 
   return (
