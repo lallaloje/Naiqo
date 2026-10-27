@@ -391,13 +391,14 @@ const ClienteMisCitas = () => {
         </Card>
         )}
 
-        {email && !loading && (
+        {(email || sessionUser) && !loading && (
           <>
             {citas.length === 0 ? (
               <div className="text-center py-10">
                 <Calendar className="w-10 h-10 mx-auto text-gray-300 mb-3" />
                 <p className="text-gray-500 font-medium">No encontramos citas</p>
-                <p className="text-gray-400 text-sm mt-1">para {email}</p>
+                {email && <p className="text-gray-400 text-sm mt-1">para {email}</p>}
+                {sessionUser && !email && <p className="text-gray-400 text-sm mt-1">Aún no tienes citas registradas.</p>}
               </div>
             ) : (
               <>
