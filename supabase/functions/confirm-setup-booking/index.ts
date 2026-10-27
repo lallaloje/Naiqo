@@ -61,7 +61,7 @@ serve(async (req) => {
     }
 
     // 4. Guardar tarjeta de la clienta para futuras reservas
-    if (paymentMethodId && customerId && (meta.client_email || meta.client_phone)) {
+    if (paymentMethodId && (meta.client_email || meta.client_phone)) {
       try {
         // Obtener detalles de la tarjeta (brand, last4, exp)
         const pmRes = await fetch(`https://api.stripe.com/v1/payment_methods/${paymentMethodId}`, {
@@ -69,9 +69,26 @@ serve(async (req) => {
         });
         const pm = await pmRes.json();
         const card = pm.card || {};
-        await supabase.from('client_payment_methods').upsert({
-          client_email:             meta.client_email || null,
-          client_phone:             meta.client_phone || null,
+        const clientEmail = meta.client_email || null;
+        const clientPhone = meta.client_phone || null;
+
+        // Buscar registro existente por email o teléfono
+        let existingId: string | null = null;
+        if (clientEmail) {
+          const { data: row } = await supabase
+            .from('client_payment_methods').select('id').eq('client_email', clientEmail).maybeSingle();
+          existingId = row?.id ?? null;
+        }
+        if (!existingId && clientPhone) {
+          const normalized = clientPhone.replace(/[\s\-()]/g, '');
+          const { data: row } = await supabase
+            .from('client_payment_methods').select('id').ilike('client_phone', `%${normalized}%`).maybeSingle();
+          existingId = row?.id ?? null;
+        }
+
+        const record = {
+          client_email:             clientEmail,
+          client_phone:             clientPhone,
           stripe_customer_id:       customerId,
           stripe_payment_method_id: paymentMethodId,
           card_brand:               card.brand || null,
@@ -79,10 +96,13 @@ serve(async (req) => {
           card_exp_month:           card.exp_month || null,
           card_exp_year:            card.exp_year || null,
           updated_at:               new Date().toISOString(),
-        }, {
-          onConflict: 'client_email',
-          ignoreDuplicates: false,
-        });
+        };
+
+        if (existingId) {
+          await supabase.from('client_payment_methods').update(record).eq('id', existingId);
+        } else {
+          await supabase.from('client_payment_methods').insert(record);
+        }
       } catch (cardSaveErr) {
         console.error('Error guardando tarjeta (no fatal):', cardSaveErr);
       }
