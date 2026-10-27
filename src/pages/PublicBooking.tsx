@@ -106,6 +106,28 @@ const PublicBooking = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const phoneSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Pre-rellenar formulario con datos de sesión si la clienta está logueada
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const user = data.session.user;
+      // Verificar que no es un salón
+      const { data: salon } = await supabase.from('salons').select('id').eq('user_id', user.id).maybeSingle();
+      if (salon) return;
+      const name = user.user_metadata?.display_name || '';
+      const email = user.email || '';
+      // Buscar teléfono en client_profiles
+      const { data: profile } = await supabase.from('client_profiles' as any).select('phone').eq('user_id', user.id).maybeSingle();
+      const phone = (profile as any)?.phone || '';
+      setForm(f => ({
+        ...f,
+        client_name: f.client_name || name,
+        client_email: f.client_email || email,
+        client_phone: f.client_phone || phone,
+      }));
+    });
+  }, []);
+
   // ── Sobreescribir manifest PWA con URL real (para que iOS la lea correctamente) ──
   useEffect(() => {
     if (!salonId) return;

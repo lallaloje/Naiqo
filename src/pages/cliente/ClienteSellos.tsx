@@ -36,7 +36,17 @@ const ClienteSellos = () => {
       setSessionUser({ name: user.user_metadata?.display_name || user.email || '' });
       setLoading(true);
       const { data: loyaltyData } = await supabase.rpc('get_my_loyalty_cards' as any);
-      let filtered = ((loyaltyData as any) || []).filter((c: any) => c.salons?.loyalty_enabled !== false);
+      // Normalizar datos del RPC al formato que espera la UI (con objeto salons anidado)
+      const normalized = ((loyaltyData as any) || []).map((c: any) => ({
+        ...c,
+        salons: {
+          salon_name: c.salon_name,
+          loyalty_stamps_required: c.loyalty_stamps_required ?? 10,
+          loyalty_reward: c.loyalty_reward ?? 'Servicio gratis',
+          loyalty_enabled: true,
+        },
+      }));
+      let filtered = normalized;
       if (salonId) filtered = filtered.filter((c: any) => c.salon_id === salonId);
       setCards(filtered);
       setSearched(true);
