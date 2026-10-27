@@ -242,7 +242,8 @@ const ClienteMisCitas = () => {
     if (!cita?.salons || !cita.services) return;
 
     setLoadingSlots(true);
-    const dateStr = date.toISOString().split('T')[0];
+    // Usar fecha local (no UTC) para evitar desfase de zona horaria
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 
     // get_busy_slots incluye citas, bloques puntuales y descanso recurrente
     const { data: busyRaw } = await supabase.rpc('get_busy_slots', {
