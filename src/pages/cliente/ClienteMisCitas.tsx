@@ -74,6 +74,7 @@ function generateSlots(
 const ClienteMisCitas = () => {
   const [email, setEmail] = useState('');
   const [inputEmail, setInputEmail] = useState('');
+  const [searchType, setSearchType] = useState<'email' | 'phone'>('phone');
   const [citas, setCitas] = useState<Cita[]>([]);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -93,13 +94,44 @@ const ClienteMisCitas = () => {
     e.preventDefault();
     if (!inputEmail.trim()) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('appointments')
-      .select('*, salons(salon_name, id, user_id, day_schedules), services(name, price, duration_minutes)')
-      .ilike('client_email' as any, inputEmail.trim())
-      .order('start_time', { ascending: false });
-    setCitas((data as any) || []);
-    setEmail(inputEmail.trim().toLowerCase());
+    const val = inputEmail.trim();
+
+    if (searchType === 'email') {
+      const { data } = await supabase
+        .from('appointments')
+        .select('*, salons(salon_name, id, user_id, day_schedules), services(name, price, duration_minutes)')
+        .ilike('client_email' as any, val)
+        .order('start_time', { ascending: false });
+      setCitas((data as any) || []);
+    } else {
+      // Usar RPC con SECURITY DEFINER para saltarse la RLS en búsqueda por teléfono
+      const { data } = await supabase.rpc('get_appointments_by_phone', { p_phone: val });
+      const mapped = (data || []).map((r: any) => ({
+        id:           r.id,
+        client_name:  r.client_name,
+        client_email: r.client_email,
+        client_phone: r.client_phone,
+        start_time:   r.start_time,
+        end_time:     r.end_time,
+        status:       r.status,
+        salon_id:     r.salon_id,
+        service_id:   r.service_id,
+        salons: r.salon_id ? {
+          salon_name:   r.salon_name,
+          id:           r.salon_id,
+          user_id:      r.salon_user_id,
+          day_schedules: r.salon_day_schedules,
+        } : null,
+        services: r.service_id ? {
+          name:               r.service_name,
+          price:              r.service_price,
+          duration_minutes:   r.service_duration_minutes,
+        } : null,
+      }));
+      setCitas(mapped);
+    }
+
+    setEmail(val.toLowerCase());
     setLoading(false);
   };
 
@@ -107,12 +139,24 @@ const ClienteMisCitas = () => {
     if (!window.confirm('¿Seguro que quieres cancelar esta cita?')) return;
     setCancelling(citaId);
     try {
-      const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
-        p_appointment_id: citaId,
-        p_client_email: email,
-      });
-      if (error) throw error;
-      if (!data) throw new Error('No se pudo cancelar. La cita puede que ya haya pasado o esté completada.');
+      let cancelled = false;
+      if (searchType === 'email') {
+        const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
+          p_appointment_id: citaId,
+          p_client_email: email,
+        });
+        if (error) throw error;
+        cancelled = !!data;
+      } else {
+        // Para búsquedas por teléfono usamos cancelación directa por id y phone
+        const { data, error } = await supabase.rpc('cancel_appointment_by_phone', {
+          p_appointment_id: citaId,
+          p_client_phone: email,
+        });
+        if (error) throw error;
+        cancelled = !!data;
+      }
+      if (!cancelled) throw new Error('No se pudo cancelar. La cita puede que ya haya pasado o esté completada.');
       setCitas(prev => prev.map(c => c.id === citaId ? { ...c, status: 'cancelled' } : c));
       toast({ title: '✅ Cita cancelada', description: 'Tu cita ha sido cancelada correctamente.' });
     } catch (err: any) {
@@ -259,11 +303,27 @@ const ClienteMisCitas = () => {
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4">
             <form onSubmit={buscarCitas} className="space-y-3">
-              <Label className="text-sm font-medium">Introduce tu email de reserva</Label>
+              <Label className="text-sm font-medium">Busca tus citas</Label>
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => { setSearchType('phone'); setInputEmail(''); }}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${searchType === 'phone' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}
+                >
+                  📱 Teléfono
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSearchType('email'); setInputEmail(''); }}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${searchType === 'email' ? 'bg-white shadow text-purple-600' : 'text-gray-500'}`}
+                >
+                  ✉️ Email
+                </button>
+              </div>
               <div className="flex gap-2">
                 <Input
-                  type="email"
-                  placeholder="tu@email.com"
+                  type={searchType === 'email' ? 'email' : 'tel'}
+                  placeholder={searchType === 'email' ? 'tu@email.com' : '612 345 678'}
                   value={inputEmail}
                   onChange={e => setInputEmail(e.target.value)}
                   className="flex-1"
