@@ -39,6 +39,7 @@ const ClienteSellos = () => {
       // Normalizar datos del RPC al formato que espera la UI (con objeto salons anidado)
       const normalized = ((loyaltyData as any) || []).map((c: any) => ({
         ...c,
+        service_name: c.service_name || 'General',
         salons: {
           salon_name: c.salon_name,
           loyalty_stamps_required: c.loyalty_stamps_required ?? 10,
@@ -169,7 +170,7 @@ const ClienteSellos = () => {
           return (
             <Card key={i} className="border-0 shadow-md overflow-hidden">
               <div className="bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-3 text-white">
-                <p className="font-semibold">{(card.salons as any)?.salon_name || 'Salón'}</p>
+                <p className="font-semibold">{(card as any).service_name && (card as any).service_name !== 'General' ? (card as any).service_name : ((card.salons as any)?.salon_name || 'Salón')}</p>
                 <p className="text-pink-100 text-xs mt-0.5">Tarjeta de fidelidad de {card.client_name}</p>
               </div>
               <CardContent className="p-4 space-y-4">

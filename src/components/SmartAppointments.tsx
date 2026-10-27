@@ -701,11 +701,13 @@ const SmartAppointments = () => {
     // Añadir sello de fidelidad cuando se completa una cita
     const apt = appointments.find(a => a.id === id) || selectedApt;
     if (apt && status === 'completed' && loyaltyEnabled && (apt.client_email || apt.client_phone)) {
+      const stampServiceName = services.find(s => s.id === apt.service_id)?.name || 'General';
       supabase.rpc('add_loyalty_stamp', {
-        p_salon_id:     apt.salon_id,
-        p_client_email: apt.client_email || null,
-        p_client_name:  apt.client_name,
-        p_client_phone: apt.client_phone || null,
+        p_salon_id:      apt.salon_id,
+        p_client_email:  apt.client_email || null,
+        p_client_name:   apt.client_name,
+        p_client_phone:  apt.client_phone || null,
+        p_service_name:  stampServiceName,
       } as any).then(({ error }) => {
         if (error) console.error('Loyalty stamp error:', error);
       });
