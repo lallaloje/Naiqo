@@ -60,7 +60,35 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 4. Crear la cita — estado "pending" (la profesional la confirma)
+    // 4. Guardar tarjeta de la clienta para futuras reservas
+    if (paymentMethodId && customerId && (meta.client_email || meta.client_phone)) {
+      try {
+        // Obtener detalles de la tarjeta (brand, last4, exp)
+        const pmRes = await fetch(`https://api.stripe.com/v1/payment_methods/${paymentMethodId}`, {
+          headers: { 'Authorization': `Bearer ${stripeKey}` },
+        });
+        const pm = await pmRes.json();
+        const card = pm.card || {};
+        await supabase.from('client_payment_methods').upsert({
+          client_email:             meta.client_email || null,
+          client_phone:             meta.client_phone || null,
+          stripe_customer_id:       customerId,
+          stripe_payment_method_id: paymentMethodId,
+          card_brand:               card.brand || null,
+          card_last4:               card.last4 || null,
+          card_exp_month:           card.exp_month || null,
+          card_exp_year:            card.exp_year || null,
+          updated_at:               new Date().toISOString(),
+        }, {
+          onConflict: 'client_email',
+          ignoreDuplicates: false,
+        });
+      } catch (cardSaveErr) {
+        console.error('Error guardando tarjeta (no fatal):', cardSaveErr);
+      }
+    }
+
+    // 5. Crear la cita — confirmada directamente
     const { data: apt, error: insertError } = await supabase
       .from('appointments')
       .insert({
@@ -73,7 +101,7 @@ serve(async (req) => {
         start_time:               meta.start_time,
         end_time:                 meta.end_time,
         notes:                    meta.notes         || null,
-        status:                   'pending',
+        status:                   'confirmed',
         source:                   'online',
         stripe_session_id:        sessionId,
         stripe_customer_id:       customerId,
@@ -84,7 +112,7 @@ serve(async (req) => {
 
     if (insertError) throw new Error(insertError.message);
 
-    // 5. Push notification al salón — usar hora local pasada desde el cliente (sin conversión Deno)
+    // 6. Push notification al salón — usar hora local pasada desde el cliente (sin conversión Deno)
     const date = meta.local_date || (() => {
       const dt = new Date(meta.start_time);
       const _y = dt.getUTCFullYear();

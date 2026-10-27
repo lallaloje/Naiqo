@@ -233,30 +233,60 @@ const PublicBooking = () => {
       const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const localTime = selectedSlot;
 
-      // Si el servicio tiene precio → guardar tarjeta via Stripe (sin cobro)
+      // Si el servicio tiene precio → comprobar tarjeta guardada o ir a Stripe
       if (selectedService.price && selectedService.price > 0) {
-        const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
-          body: {
-            salonId,
-            userId:       salon.user_id,
-            serviceId:    selectedService.id,
-            serviceName:  selectedService.name,
-            servicePrice: selectedService.price,
-            clientName:   form.client_name,
-            clientEmail:  form.client_email,
-            clientPhone:  form.client_phone,
-            startTime:    start.toISOString(),
-            endTime:      end.toISOString(),
-            notes:        form.notes,
-            origin:       window.location.origin,
-            localDate,
-            localTime,
-          }
+        // Comprobar si ya tiene tarjeta guardada
+        const { data: cardCheck } = await supabase.functions.invoke('check-saved-card', {
+          body: { clientEmail: form.client_email || null, clientPhone: form.client_phone || null },
         });
-        if (error || !data?.url) throw new Error(data?.error || 'Error al procesar la reserva');
-        // Redirigir a Stripe para guardar la tarjeta
-        window.location.href = data.url;
-        return;
+
+        if (cardCheck?.saved) {
+          // Usar tarjeta guardada — crear cita directamente
+          const { data: bookingData, error: bookingError } = await supabase.functions.invoke('create-booking-with-saved-card', {
+            body: {
+              salonId,
+              userId:                  salon.user_id,
+              serviceId:               selectedService.id,
+              serviceName:             selectedService.name,
+              servicePrice:            selectedService.price,
+              clientName:              form.client_name,
+              clientEmail:             form.client_email,
+              clientPhone:             form.client_phone,
+              startTime:               start.toISOString(),
+              endTime:                 end.toISOString(),
+              notes:                   form.notes,
+              stripeCustomerId:        cardCheck.stripe_customer_id,
+              stripePaymentMethodId:   cardCheck.stripe_payment_method_id,
+              localDate,
+              localTime,
+            },
+          });
+          if (bookingError || !bookingData?.success) throw new Error(bookingData?.error || 'Error al crear la reserva');
+          // Continuar con confirmaciones (email, WhatsApp, etc.) — igual que el flujo sin precio
+        } else {
+          // Sin tarjeta guardada → ir a Stripe
+          const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
+            body: {
+              salonId,
+              userId:       salon.user_id,
+              serviceId:    selectedService.id,
+              serviceName:  selectedService.name,
+              servicePrice: selectedService.price,
+              clientName:   form.client_name,
+              clientEmail:  form.client_email,
+              clientPhone:  form.client_phone,
+              startTime:    start.toISOString(),
+              endTime:      end.toISOString(),
+              notes:        form.notes,
+              origin:       window.location.origin,
+              localDate,
+              localTime,
+            }
+          });
+          if (error || !data?.url) throw new Error(data?.error || 'Error al procesar la reserva');
+          window.location.href = data.url;
+          return;
+        }
       }
 
       // Si no tiene precio → crear cita directamente (sin pago)
