@@ -188,14 +188,14 @@ const ClienteMisCitas = () => {
     setCancelling(citaId);
     try {
       let cancelled = false;
-      // Si hay sesión, cancelar directamente por ID (el usuario está autenticado)
       if (sessionUser) {
-        const { error } = await supabase
-          .from('appointments')
-          .update({ status: 'cancelled' })
-          .eq('id', citaId);
+        // Usar RPC SECURITY DEFINER — update directo falla por RLS
+        const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
+          p_appointment_id: citaId,
+          p_client_email: sessionUser.email,
+        });
         if (error) throw error;
-        cancelled = true;
+        cancelled = !!data;
       } else if (searchType === 'email') {
         const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
           p_appointment_id: citaId,
@@ -276,19 +276,17 @@ const ClienteMisCitas = () => {
     newStart.setHours(hh, mm, 0, 0);
     const newEnd = new Date(newStart.getTime() + cita.services.duration_minutes * 60000);
 
-    let updateQuery = supabase
-      .from('appointments')
-      .update({
-        start_time: newStart.toISOString(),
-        end_time: newEnd.toISOString(),
-        status: 'scheduled',
-      } as any)
-      .eq('id', reschedulingId);
-    if (!sessionUser && email) updateQuery = (updateQuery as any).ilike('client_email', email);
-    const { error } = await updateQuery;
+    // Usar RPC SECURITY DEFINER — update directo falla por RLS
+    const clientEmail = sessionUser?.email || email;
+    const { data: rescheduled, error } = await supabase.rpc('reschedule_appointment_by_client', {
+      p_appointment_id: reschedulingId,
+      p_client_email:   clientEmail,
+      p_start_time:     newStart.toISOString(),
+      p_end_time:       newEnd.toISOString(),
+    } as any);
 
-    if (error) {
-      toast({ title: 'Error al modificar', description: error.message, variant: 'destructive' });
+    if (error || !rescheduled) {
+      toast({ title: 'Error al modificar', description: error?.message || 'No se pudo modificar la cita.', variant: 'destructive' });
     } else {
       setCitas(prev => prev.map(c =>
         c.id === reschedulingId
