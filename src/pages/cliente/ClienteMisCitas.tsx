@@ -120,7 +120,7 @@ const ClienteMisCitas = () => {
           salon_name:   r.salon_name,
           id:           r.salon_id,
           user_id:      r.salon_user_id,
-          day_schedules: r.salon_day_schedules,
+          day_schedules: null,
         } : null,
         services: r.service_id ? {
           name:               r.service_name,

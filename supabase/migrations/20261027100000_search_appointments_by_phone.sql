@@ -12,7 +12,6 @@ RETURNS TABLE (
   service_id               uuid,
   salon_name               text,
   salon_user_id            uuid,
-  salon_day_schedules      jsonb,
   service_name             text,
   service_price            numeric,
   service_duration_minutes int
@@ -32,10 +31,9 @@ AS $$
     a.salon_id,
     a.service_id,
     s.salon_name,
-    s.user_id          AS salon_user_id,
-    s.day_schedules    AS salon_day_schedules,
-    sv.name            AS service_name,
-    sv.price           AS service_price,
+    s.user_id           AS salon_user_id,
+    sv.name             AS service_name,
+    sv.price            AS service_price,
     sv.duration_minutes AS service_duration_minutes
   FROM appointments a
   LEFT JOIN salons   s  ON s.id  = a.salon_id
