@@ -49,7 +49,7 @@ function generateSlots(
   if (!sched) return [];
 
   for (let h = sched.start; h < sched.end; h++) {
-    for (let m = 0; m < 60; m += 30) {
+    for (let m = 0; m < 60; m += 5) {
       const slotStart = new Date(date);
       slotStart.setHours(h, m, 0, 0);
       const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);

@@ -47,7 +47,7 @@ function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[], day
 
   for (const [rangeStart, rangeEnd] of ranges) {
     for (let h = rangeStart; h < rangeEnd; h++) {
-      for (let m = 0; m < 60; m += 30) {
+      for (let m = 0; m < 60; m += 5) {
         const slotStart = new Date(date);
         slotStart.setHours(h, m, 0, 0);
         const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
