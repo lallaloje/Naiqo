@@ -269,7 +269,7 @@ const PublicBooking = () => {
         client_phone: form.client_phone || null,
         start_time:   start.toISOString(),
         end_time:     end.toISOString(),
-        status:       'pending',
+        status:       'confirmed',
         source:       'online',
         notes:        form.notes || null,
       } as any);
@@ -304,11 +304,11 @@ const PublicBooking = () => {
         },
       }).catch(console.error);
 
-      // WhatsApp a la clienta: cita pendiente de confirmación
+      // WhatsApp a la clienta: cita confirmada directamente
       if (form.client_phone) {
         supabase.functions.invoke('send-whatsapp', {
           body: {
-            type:        'cita_pendiente',
+            type:        'cita_confirmada',
             to:          form.client_phone,
             clientName:  form.client_name,
             serviceName: selectedService.name,
