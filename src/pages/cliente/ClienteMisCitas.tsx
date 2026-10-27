@@ -83,10 +83,12 @@ const ClienteMisCitas = () => {
   // Auto-cargar citas si hay sesión de clienta
   useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || cancelled) return;
+        const user = session.user;
         const { data: salon } = await supabase
           .from('salons').select('id').eq('user_id', user.id).maybeSingle();
         if (salon || cancelled) return;
@@ -112,8 +114,17 @@ const ClienteMisCitas = () => {
         if (!cancelled) setLoading(false);
       }
     };
+
     load();
-    return () => { cancelled = true; };
+
+    // Recargar cuando el usuario vuelve a la pestaña (ej: después de Stripe)
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Estado para modificar cita
