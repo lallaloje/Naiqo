@@ -82,29 +82,38 @@ const ClienteMisCitas = () => {
 
   // Auto-cargar citas si hay sesión de clienta
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
-      // Verificar que no es un salón
-      const { data: salon } = await supabase
-        .from('salons').select('id').eq('user_id', data.session.user.id).maybeSingle();
-      if (salon) return;
-      const user = data.session.user;
-      setSessionUser({
-        email: user.email || '',
-        name: user.user_metadata?.display_name || user.email || '',
-      });
-      setLoading(true);
-      const { data: appts } = await supabase.rpc('get_my_appointments' as any);
-      const mapped = (appts || []).map((r: any) => ({
-        id: r.id, client_name: r.client_name, client_email: r.client_email,
-        client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
-        status: r.status, salon_id: r.salon_id, service_id: r.service_id,
-        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, day_schedules: null } : null,
-        services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
-      }));
-      setCitas(mapped);
-      setLoading(false);
-    });
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const { data: salon } = await supabase
+          .from('salons').select('id').eq('user_id', user.id).maybeSingle();
+        if (salon || cancelled) return;
+        setSessionUser({
+          email: user.email || '',
+          name: user.user_metadata?.display_name || user.email || '',
+        });
+        setLoading(true);
+        const { data: appts, error } = await supabase.rpc('get_my_appointments' as any);
+        if (cancelled) return;
+        if (error) { console.error('get_my_appointments error:', error); setLoading(false); return; }
+        const mapped = (appts || []).map((r: any) => ({
+          id: r.id, client_name: r.client_name, client_email: r.client_email,
+          client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
+          status: r.status, salon_id: r.salon_id, service_id: r.service_id,
+          salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, day_schedules: null } : null,
+          services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
+        }));
+        setCitas(mapped);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error cargando citas:', err);
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Estado para modificar cita

@@ -27,15 +27,19 @@ const ClienteSellos = () => {
 
   // Auto-cargar sellos si hay sesión de clienta
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) return;
+    let cancelled = false;
+    const load = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
       const { data: salon } = await supabase
-        .from('salons').select('id').eq('user_id', data.session.user.id).maybeSingle();
-      if (salon) return;
-      const user = data.session.user;
+        .from('salons').select('id').eq('user_id', user.id).maybeSingle();
+      if (salon || cancelled) return;
       setSessionUser({ name: user.user_metadata?.display_name || user.email || '' });
       setLoading(true);
-      const { data: loyaltyData } = await supabase.rpc('get_my_loyalty_cards' as any);
+      const { data: loyaltyData, error } = await supabase.rpc('get_my_loyalty_cards' as any);
+      if (cancelled) return;
+      if (error) { console.error('get_my_loyalty_cards error:', error); setLoading(false); return; }
       // Normalizar datos del RPC al formato que espera la UI (con objeto salons anidado)
       const normalized = ((loyaltyData as any) || []).map((c: any) => ({
         ...c,
@@ -52,7 +56,13 @@ const ClienteSellos = () => {
       setCards(filtered);
       setSearched(true);
       setLoading(false);
-    });
+    } catch (err) {
+      console.error('Error cargando sellos:', err);
+      if (!cancelled) setLoading(false);
+    }
+    };
+    load();
+    return () => { cancelled = true; };
   }, [salonId]);
 
   const buscar = async (e: React.FormEvent) => {
