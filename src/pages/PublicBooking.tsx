@@ -407,33 +407,66 @@ const PublicBooking = () => {
   );
 
   // ── Pantalla: reserva completada ────────────────────────────────
-  if (done) return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-pink-50 to-purple-50">
-      <Card className="max-w-md w-full">
-        <CardContent className="pt-8 pb-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="w-10 h-10 text-green-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold mb-1">¡Cita solicitada! 🎉</h2>
-            <p className="text-muted-foreground text-sm">
-              {salon.salon_name} confirmará tu cita en breve.
+  if (done) {
+    const gcalUrl = (() => {
+      if (!selectedService || !selectedSlot) return null;
+      const [hh, mm] = selectedSlot.split(':').map(Number);
+      const start = new Date(selectedDate);
+      start.setHours(hh, mm, 0, 0);
+      const end = new Date(start.getTime() + selectedService.duration_minutes * 60000);
+      const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: `${selectedService.name} — ${salon.salon_name}`,
+        dates: `${fmt(start)}/${fmt(end)}`,
+        details: `Cita en ${salon.salon_name}`,
+      });
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    })();
+
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-pink-50 to-purple-50">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-8 pb-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold mb-1">¡Cita solicitada! 🎉</h2>
+              <p className="text-muted-foreground text-sm">
+                {salon.salon_name} confirmará tu cita en breve.
+              </p>
+            </div>
+            <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">
+              <p><strong>Salón:</strong> {salon.salon_name}</p>
+              <p><strong>Servicio:</strong> {selectedService?.name}</p>
+              <p><strong>Fecha:</strong> {selectedDate.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
+              <p><strong>Hora:</strong> {selectedSlot}</p>
+              <p><strong>Nombre:</strong> {form.client_name}</p>
+            </div>
+            {gcalUrl && (
+              <a
+                href={gcalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-white border border-gray-200 rounded-lg py-2.5 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
+                  <rect x="3" y="4" width="18" height="18" rx="2" stroke="#4285F4" strokeWidth="1.8"/>
+                  <path d="M16 2v4M8 2v4M3 10h18" stroke="#4285F4" strokeWidth="1.8" strokeLinecap="round"/>
+                  <text x="12" y="19" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#4285F4">G</text>
+                </svg>
+                Añadir a Google Calendar
+              </a>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Puedes modificar o cancelar tu cita desde la sección <strong>Mis citas</strong> de la app.
             </p>
-          </div>
-          <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">
-            <p><strong>Salón:</strong> {salon.salon_name}</p>
-            <p><strong>Servicio:</strong> {selectedService?.name}</p>
-            <p><strong>Fecha:</strong> {selectedDate.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
-            <p><strong>Hora:</strong> {selectedSlot}</p>
-            <p><strong>Nombre:</strong> {form.client_name}</p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Puedes modificar o cancelar tu cita desde la sección <strong>Mis citas</strong> de la app.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const salonDisplayName = salon.salon_name || 'Tu salón de uñas';
 
