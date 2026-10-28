@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,8 @@ function getSpainOffset(date: Date): string {
 
 const PublicBooking = () => {
   const { centerId: salonId } = useParams<{ centerId: string }>();
+  const [searchParams] = useSearchParams();
+  const preselectedServiceId = searchParams.get('service');
   const [salon, setSalon]             = useState<Salon | null>(null);
   const [services, setServices]       = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -186,7 +188,12 @@ const PublicBooking = () => {
     if (!salon) return;
     const load = async () => {
       const { data } = await supabase.rpc('get_services_for_booking', { p_salon_id: salonId });
-      setServices((data as Service[]) || []);
+      const svcs = (data as Service[]) || [];
+      setServices(svcs);
+      if (preselectedServiceId) {
+        const match = svcs.find(s => s.id === preselectedServiceId);
+        if (match) { setSelectedService(match); setStep(2); }
+      }
     };
     load();
   }, [salon]);

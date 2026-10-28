@@ -436,7 +436,7 @@ const ClienteMisCitas = () => {
                         <div key={cita.id}>
                           <CitaCard
                             cita={cita}
-                            onReservar={() => navigate(`/reservar/${cita.salons?.id || ''}`)}
+                            onReservar={() => navigate(`/reservar/${cita.salons?.id || ''}${cita.services ? `?service=${(cita as any).service_id}` : ''}`)}
                             onCancel={() => handleCancel(cita.id)}
                             onModificar={() => reschedulingId === cita.id ? setReschedulingId(null) : openReschedule(cita.id)}
                             cancelling={cancelling === cita.id}
@@ -468,7 +468,13 @@ const ClienteMisCitas = () => {
                       Historial · {pasadas.length}
                     </p>
                     <div className="space-y-3 opacity-70">
-                      {pasadas.map(cita => <CitaCard key={cita.id} cita={cita} />)}
+                      {pasadas.map(cita => (
+                        <CitaCard
+                          key={cita.id}
+                          cita={cita}
+                          onReservar={cita.salons?.id ? () => navigate(`/reservar/${cita.salons!.id}${(cita as any).service_id ? `?service=${(cita as any).service_id}` : ''}`) : undefined}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}

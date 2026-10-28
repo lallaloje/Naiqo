@@ -4,12 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Calendar, ChevronRight, Scissors, Gift, User, LogOut } from 'lucide-react';
+import { Search, Calendar, ChevronRight, Scissors, Gift, User, LogOut, RefreshCw } from 'lucide-react';
 
 interface Salon {
   id: string;
   salon_name: string;
   phone: string | null;
+}
+
+interface ServicioFrecuente {
+  salon_id: string;
+  salon_name: string;
+  service_id: string;
+  service_name: string;
 }
 
 const ClienteHome = () => {
@@ -18,6 +25,7 @@ const ClienteHome = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [clientUser, setClientUser] = useState<{ email: string; name: string } | null>(null);
+  const [serviciosFrecuentes, setServiciosFrecuentes] = useState<ServicioFrecuente[]>([]);
   const navigate = useNavigate();
 
   // Detectar sesión: si es salón → dashboard; si es clienta → mostrar su perfil
@@ -37,6 +45,22 @@ const ClienteHome = () => {
           email: data.session.user.email || '',
           name: data.session.user.user_metadata?.display_name || data.session.user.email || '',
         });
+        // Cargar servicios frecuentes
+        const { data: appts } = await supabase.rpc('get_my_appointments' as any);
+        if (appts) {
+          const seen = new Set<string>();
+          const frecuentes: ServicioFrecuente[] = [];
+          for (const r of (appts as any[])) {
+            if (!r.salon_id || !r.service_id) continue;
+            const key = `${r.salon_id}:${r.service_id}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              frecuentes.push({ salon_id: r.salon_id, salon_name: r.salon_name, service_id: r.service_id, service_name: r.service_name });
+            }
+            if (frecuentes.length >= 4) break;
+          }
+          setServiciosFrecuentes(frecuentes);
+        }
       }
     });
   }, [navigate]);
@@ -115,6 +139,31 @@ const ClienteHome = () => {
           />
         </div>
       </div>
+
+      {/* Servicios frecuentes */}
+      {clientUser && serviciosFrecuentes.length > 0 && (
+        <div className="px-4 pt-5 max-w-lg mx-auto">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" />
+            Volver a reservar
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {serviciosFrecuentes.map(sf => (
+              <button
+                key={`${sf.salon_id}:${sf.service_id}`}
+                onClick={() => navigate(`/reservar/${sf.salon_id}?service=${sf.service_id}`)}
+                className="text-left bg-white rounded-xl border border-gray-100 shadow-sm p-3 hover:shadow-md hover:border-pink-200 transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-2">
+                  <Scissors className="w-4 h-4 text-white" />
+                </div>
+                <p className="text-xs font-semibold text-gray-800 truncate">{sf.service_name}</p>
+                <p className="text-xs text-gray-400 truncate">{sf.salon_name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Salones list */}
       <div className="px-4 py-5 space-y-3 max-w-lg mx-auto">
