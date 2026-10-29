@@ -1768,7 +1768,7 @@ const SmartAppointments = () => {
                             ) : (
                               <Select value={form.service_id} onValueChange={v => setForm({...form, service_id: v})}>
                                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent position="popper">
                                   {services.map(s => (
                                     <SelectItem key={s.id} value={s.id}>
                                       {s.name} · {s.duration_minutes}min{s.price ? ` · €${s.price}` : ''}
@@ -1783,7 +1783,7 @@ const SmartAppointments = () => {
                               <Label className="text-xs">Técnica</Label>
                               <Select value={form.employee_id || 'none'} onValueChange={v => setForm({...form, employee_id: v === 'none' ? '' : v})}>
                                 <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent position="popper">
                                   <SelectItem value="none">Sin asignar</SelectItem>
                                   {employees.map(e => (
                                     <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
@@ -1834,7 +1834,7 @@ const SmartAppointments = () => {
                             <Label className="text-xs">Servicio</Label>
                             <Select value={editAptForm.service_id} onValueChange={v => setEditAptForm({...editAptForm, service_id: v})}>
                               <SelectTrigger><SelectValue placeholder="Sin servicio" /></SelectTrigger>
-                              <SelectContent>
+                              <SelectContent position="popper">
                                 {services.map(s => (
                                   <SelectItem key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min</SelectItem>
                                 ))}
@@ -1846,7 +1846,7 @@ const SmartAppointments = () => {
                               <Label className="text-xs">Técnica</Label>
                               <Select value={editAptForm.employee_id || 'none'} onValueChange={v => setEditAptForm({...editAptForm, employee_id: v === 'none' ? '' : v})}>
                                 <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent position="popper">
                                   <SelectItem value="none">Sin asignar</SelectItem>
                                   {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
                                 </SelectContent>
@@ -2247,7 +2247,7 @@ const SmartAppointments = () => {
                           <Label className="text-xs">Categoría</Label>
                           <Select value={svcForm.category} onValueChange={v => setSvcForm({...svcForm, category: v})}>
                             <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
-                            <SelectContent>
+                            <SelectContent position="popper">
                               {SERVICE_CATEGORIES.map(cat => (
                                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                               ))}
@@ -2306,7 +2306,7 @@ const SmartAppointments = () => {
                               <Label className="text-xs">Categoría</Label>
                               <Select value={editForm.category} onValueChange={v => setEditForm({...editForm, category: v})}>
                                 <SelectTrigger><SelectValue placeholder="Sin categoría" /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent position="popper">
                                   {SERVICE_CATEGORIES.map(cat => (
                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                   ))}
@@ -2387,7 +2387,7 @@ const SmartAppointments = () => {
                   <Label className="text-xs">Apertura</Label>
                   <Select value={String(workStart)} onValueChange={v => setWorkStart(Number(v))}>
                     <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       {Array.from({length: 17}, (_, i) => i + 6).map(h => (
                         <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
                       ))}
@@ -2398,7 +2398,7 @@ const SmartAppointments = () => {
                   <Label className="text-xs">Cierre</Label>
                   <Select value={String(workEnd)} onValueChange={v => setWorkEnd(Number(v))}>
                     <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       {Array.from({length: 17}, (_, i) => i + 6).map(h => (
                         <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
                       ))}
