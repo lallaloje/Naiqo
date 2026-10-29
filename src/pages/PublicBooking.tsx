@@ -245,6 +245,49 @@ const PublicBooking = () => {
     setShowSuggestions(false);
   };
 
+  // ── Enviar confirmaciones (email, push, WhatsApp) ─────────────
+  const sendConfirmations = async (start: Date, localDate: string, localTime: string) => {
+    if (!selectedService || !salon) return;
+    const date = localDate;
+    const time = localTime;
+    if (form.client_email) {
+      supabase.functions.invoke('send-booking-confirmation', {
+        body: {
+          clientName:      form.client_name,
+          clientEmail:     form.client_email,
+          salonName:       salon.salon_name || salonDisplayName,
+          salonPhone:      salon.phone || null,
+          serviceName:     selectedService.name,
+          startTime:       start.toISOString(),
+          localDate,
+          localTime,
+          durationMinutes: selectedService.duration_minutes,
+        },
+      }).catch(console.error);
+    }
+    supabase.functions.invoke('send-push', {
+      body: {
+        user_id: salon.user_id,
+        title:   '💅 Nueva reserva online',
+        body:    `${form.client_name} · ${selectedService.name} · ${date} a las ${time}`,
+        url:     '/gestion-citas',
+      },
+    }).catch(console.error);
+    if (form.client_phone) {
+      supabase.functions.invoke('send-whatsapp', {
+        body: {
+          type:        'cita_confirmada',
+          to:          form.client_phone,
+          clientName:  form.client_name,
+          serviceName: selectedService.name,
+          salonName:   salon.salon_name || salonDisplayName,
+          date,
+          time,
+        },
+      }).catch(console.error);
+    }
+  };
+
   // ── Confirmar reserva con pago Stripe ──────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +334,9 @@ const PublicBooking = () => {
             },
           });
           if (bookingError || !bookingData?.success) throw new Error(bookingData?.error || 'Error al crear la reserva');
-          // Continuar con confirmaciones (email, WhatsApp, etc.) — igual que el flujo sin precio
+          await sendConfirmations(start, localDate, localTime);
+          setDone(true);
+          return;
         } else {
           // Sin tarjeta guardada → ir a Stripe
           const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
@@ -334,50 +379,7 @@ const PublicBooking = () => {
       } as any);
       if (error) throw error;
 
-      // Send confirmation email (non-blocking)
-      if (form.client_email) {
-        supabase.functions.invoke('send-booking-confirmation', {
-          body: {
-            clientName:      form.client_name,
-            clientEmail:     form.client_email,
-            salonName:       salon.salon_name || salonDisplayName,
-            salonPhone:      salon.phone || null,
-            serviceName:     selectedService.name,
-            startTime:       start.toISOString(),
-            localDate,
-            localTime,
-            durationMinutes: selectedService.duration_minutes,
-          },
-        }).catch(console.error);
-      }
-
-      // Send push notification to salon owner (non-blocking)
-      const date = localDate;
-      const time = localTime;
-      supabase.functions.invoke('send-push', {
-        body: {
-          user_id: salon.user_id,
-          title:   '💅 Nueva reserva online',
-          body:    `${form.client_name} · ${selectedService.name} · ${date} a las ${time}`,
-          url:     '/gestion-citas',
-        },
-      }).catch(console.error);
-
-      // WhatsApp a la clienta: cita confirmada directamente
-      if (form.client_phone) {
-        supabase.functions.invoke('send-whatsapp', {
-          body: {
-            type:        'cita_confirmada',
-            to:          form.client_phone,
-            clientName:  form.client_name,
-            serviceName: selectedService.name,
-            salonName:   salon.salon_name || salonDisplayName,
-            date,
-            time,
-          },
-        }).catch(console.error);
-      }
-
+      await sendConfirmations(start, localDate, localTime);
       setDone(true);
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'No se pudo crear la cita.', variant: 'destructive' });
