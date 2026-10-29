@@ -50,8 +50,8 @@ interface AnalysisResult {
   timestamp: string;
 }
 
-const TIMEOUT_WARNING_MS = 10000;
-const TIMEOUT_ERROR_MS = 30000;
+const TIMEOUT_WARNING_MS = 55000;
+const TIMEOUT_ERROR_MS = 60000;
 
 const NailHealthAnalyzer = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
