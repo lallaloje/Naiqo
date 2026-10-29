@@ -80,47 +80,58 @@ const ClienteMisCitas = () => {
 
   // Auto-cargar citas si hay sesión de clienta
   useEffect(() => {
-    let cancelled = false;
+    let unmounted = false;
 
-    const load = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session || cancelled) return;
-        const user = session.user;
-        const { data: salon } = await supabase
-          .from('salons').select('id').eq('user_id', user.id).maybeSingle();
-        if (salon || cancelled) return;
-        setSessionUser({
-          email: user.email || '',
-          name: user.user_metadata?.display_name || user.email || '',
-        });
-        setLoading(true);
-        const { data: appts, error } = await supabase.rpc('get_my_appointments' as any);
-        if (cancelled) return;
-        if (error) { console.error('get_my_appointments error:', error); setLoading(false); return; }
-        const mapped = (appts || []).map((r: any) => ({
-          id: r.id, client_name: r.client_name, client_email: r.client_email,
-          client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
-          status: r.status, salon_id: r.salon_id, service_id: r.service_id,
-          salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
-          services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
-        }));
-        setCitas(mapped);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error cargando citas:', err);
-        if (!cancelled) setLoading(false);
-      }
+    const loadForSession = async (userId: string, userEmail: string, displayName: string) => {
+      if (unmounted) return;
+      // Verificar que no es dueña de salón
+      const { data: salon } = await supabase
+        .from('salons').select('id').eq('user_id', userId).maybeSingle();
+      if (salon || unmounted) return;
+      setSessionUser({ email: userEmail, name: displayName || userEmail });
+      setLoading(true);
+      const { data: appts, error } = await supabase.rpc('get_my_appointments' as any);
+      if (unmounted) return;
+      if (error) { console.error('get_my_appointments error:', error); setLoading(false); return; }
+      const mapped = (appts || []).map((r: any) => ({
+        id: r.id, client_name: r.client_name, client_email: r.client_email,
+        client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
+        status: r.status, salon_id: r.salon_id, service_id: r.service_id,
+        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
+        services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
+      }));
+      setCitas(mapped);
+      setLoading(false);
     };
 
-    load();
+    // onAuthStateChange captura sesión inicial + refresco de token (más fiable en móvil)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !unmounted) {
+        loadForSession(
+          session.user.id,
+          session.user.email || '',
+          session.user.user_metadata?.display_name || session.user.email || '',
+        );
+      }
+    });
 
     // Recargar cuando el usuario vuelve a la pestaña (ej: después de Stripe)
-    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && !unmounted) {
+        loadForSession(
+          session.user.id,
+          session.user.email || '',
+          session.user.user_metadata?.display_name || session.user.email || '',
+        );
+      }
+    };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      cancelled = true;
+      unmounted = true;
+      subscription.unsubscribe();
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
@@ -144,12 +155,16 @@ const ClienteMisCitas = () => {
     const val = inputEmail.trim();
 
     if (searchType === 'email') {
-      const { data } = await supabase
-        .from('appointments')
-        .select('*, salons(salon_name, id, user_id, work_start_hour, work_end_hour), services(name, price, duration_minutes)')
-        .ilike('client_email' as any, val)
-        .order('start_time', { ascending: false });
-      setCitas((data as any) || []);
+      // RPC SECURITY DEFINER para evitar bloqueo por RLS
+      const { data } = await supabase.rpc('get_appointments_by_email', { p_email: val } as any);
+      const mapped = (data || []).map((r: any) => ({
+        id: r.id, client_name: r.client_name, client_email: r.client_email,
+        client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
+        status: r.status, salon_id: r.salon_id, service_id: r.service_id,
+        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
+        services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
+      }));
+      setCitas(mapped);
     } else {
       // Usar RPC con SECURITY DEFINER para saltarse la RLS en búsqueda por teléfono
       const { data } = await supabase.rpc('get_appointments_by_phone', { p_phone: val });
@@ -189,11 +204,10 @@ const ClienteMisCitas = () => {
     try {
       let cancelled = false;
       if (sessionUser) {
-        // Usar RPC SECURITY DEFINER — update directo falla por RLS
-        const { data, error } = await supabase.rpc('cancel_appointment_by_client', {
+        // RPC que usa auth.uid() — soporta citas por email o teléfono
+        const { data, error } = await supabase.rpc('cancel_my_appointment', {
           p_appointment_id: citaId,
-          p_client_email: sessionUser.email,
-        });
+        } as any);
         if (error) throw error;
         cancelled = !!data;
       } else if (searchType === 'email') {
@@ -276,14 +290,28 @@ const ClienteMisCitas = () => {
     newStart.setHours(hh, mm, 0, 0);
     const newEnd = new Date(newStart.getTime() + cita.services.duration_minutes * 60000);
 
-    // Usar RPC SECURITY DEFINER — update directo falla por RLS
-    const clientEmail = sessionUser?.email || email;
-    const { data: rescheduled, error } = await supabase.rpc('reschedule_appointment_by_client', {
-      p_appointment_id: reschedulingId,
-      p_client_email:   clientEmail,
-      p_start_time:     newStart.toISOString(),
-      p_end_time:       newEnd.toISOString(),
-    } as any);
+    // Si hay sesión: usar RPC con auth.uid() (soporta email y teléfono)
+    // Si no: usar RPC con email (búsqueda manual)
+    let rescheduled: boolean | null = null;
+    let error: any = null;
+    if (sessionUser) {
+      const res = await supabase.rpc('reschedule_my_appointment', {
+        p_appointment_id: reschedulingId,
+        p_start_time:     newStart.toISOString(),
+        p_end_time:       newEnd.toISOString(),
+      } as any);
+      rescheduled = res.data as boolean;
+      error = res.error;
+    } else {
+      const res = await supabase.rpc('reschedule_appointment_by_client', {
+        p_appointment_id: reschedulingId,
+        p_client_email:   email,
+        p_start_time:     newStart.toISOString(),
+        p_end_time:       newEnd.toISOString(),
+      } as any);
+      rescheduled = res.data as boolean;
+      error = res.error;
+    }
 
     if (error || !rescheduled) {
       toast({ title: 'Error al modificar', description: error?.message || 'No se pudo modificar la cita.', variant: 'destructive' });
