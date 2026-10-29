@@ -1765,6 +1765,14 @@ const SmartAppointments = () => {
                               <p className="text-xs text-muted-foreground mt-1 flex gap-1 items-center">
                                 <AlertCircle className="w-3.5 h-3.5" /> Añade servicios primero
                               </p>
+                            ) : isMobile ? (
+                              <select value={form.service_id} onChange={e => setForm({...form, service_id: e.target.value})}
+                                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+                                <option value="">Seleccionar...</option>
+                                {services.map(s => (
+                                  <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min{s.price ? ` · €${s.price}` : ''}</option>
+                                ))}
+                              </select>
                             ) : (
                               <Select value={form.service_id} onValueChange={v => setForm({...form, service_id: v})}>
                                 <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
@@ -1781,15 +1789,23 @@ const SmartAppointments = () => {
                           {employees.length > 0 && (
                             <div>
                               <Label className="text-xs">Técnica</Label>
-                              <Select value={form.employee_id || 'none'} onValueChange={v => setForm({...form, employee_id: v === 'none' ? '' : v})}>
-                                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                                <SelectContent position="popper">
-                                  <SelectItem value="none">Sin asignar</SelectItem>
-                                  {employees.map(e => (
-                                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {isMobile ? (
+                                <select value={form.employee_id || 'none'} onChange={e => setForm({...form, employee_id: e.target.value === 'none' ? '' : e.target.value})}
+                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+                                  <option value="none">Sin asignar</option>
+                                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                </select>
+                              ) : (
+                                <Select value={form.employee_id || 'none'} onValueChange={v => setForm({...form, employee_id: v === 'none' ? '' : v})}>
+                                  <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                                  <SelectContent position="popper">
+                                    <SelectItem value="none">Sin asignar</SelectItem>
+                                    {employees.map(e => (
+                                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
                           )}
                           <div>
@@ -1832,25 +1848,41 @@ const SmartAppointments = () => {
                           </div>
                           <div>
                             <Label className="text-xs">Servicio</Label>
-                            <Select value={editAptForm.service_id} onValueChange={v => setEditAptForm({...editAptForm, service_id: v})}>
-                              <SelectTrigger><SelectValue placeholder="Sin servicio" /></SelectTrigger>
-                              <SelectContent position="popper">
-                                {services.map(s => (
-                                  <SelectItem key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {isMobile ? (
+                              <select value={editAptForm.service_id} onChange={e => setEditAptForm({...editAptForm, service_id: e.target.value})}
+                                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+                                <option value="">Sin servicio</option>
+                                {services.map(s => <option key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min</option>)}
+                              </select>
+                            ) : (
+                              <Select value={editAptForm.service_id} onValueChange={v => setEditAptForm({...editAptForm, service_id: v})}>
+                                <SelectTrigger><SelectValue placeholder="Sin servicio" /></SelectTrigger>
+                                <SelectContent position="popper">
+                                  {services.map(s => (
+                                    <SelectItem key={s.id} value={s.id}>{s.name} · {s.duration_minutes}min</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                           {employees.length > 0 && (
                             <div>
                               <Label className="text-xs">Técnica</Label>
-                              <Select value={editAptForm.employee_id || 'none'} onValueChange={v => setEditAptForm({...editAptForm, employee_id: v === 'none' ? '' : v})}>
-                                <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                                <SelectContent position="popper">
-                                  <SelectItem value="none">Sin asignar</SelectItem>
-                                  {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
+                              {isMobile ? (
+                                <select value={editAptForm.employee_id || 'none'} onChange={e => setEditAptForm({...editAptForm, employee_id: e.target.value === 'none' ? '' : e.target.value})}
+                                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm">
+                                  <option value="none">Sin asignar</option>
+                                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                </select>
+                              ) : (
+                                <Select value={editAptForm.employee_id || 'none'} onValueChange={v => setEditAptForm({...editAptForm, employee_id: v === 'none' ? '' : v})}>
+                                  <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                                  <SelectContent position="popper">
+                                    <SelectItem value="none">Sin asignar</SelectItem>
+                                    {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
                           )}
                           <div>
