@@ -368,11 +368,13 @@ const ClienteMisCitas = () => {
     setSaving(false);
   };
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const proximas = citas.filter(c =>
-    new Date(c.start_time) >= new Date() && c.status !== 'cancelled'
+    new Date(c.start_time) >= startOfToday && c.status !== 'cancelled'
   );
   const pasadas = citas.filter(c =>
-    new Date(c.start_time) < new Date() || c.status === 'cancelled'
+    new Date(c.start_time) < startOfToday || c.status === 'cancelled'
   );
 
   return (
