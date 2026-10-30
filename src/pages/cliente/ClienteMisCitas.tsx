@@ -370,12 +370,12 @@ const ClienteMisCitas = () => {
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  const proximas = citas.filter(c =>
-    new Date(c.start_time) >= startOfToday && c.status !== 'cancelled'
-  );
-  const pasadas = citas.filter(c =>
-    new Date(c.start_time) < startOfToday || c.status === 'cancelled'
-  );
+  const proximas = citas
+    .filter(c => new Date(c.start_time) >= startOfToday && c.status !== 'cancelled')
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  const pasadas = citas
+    .filter(c => new Date(c.start_time) < startOfToday || c.status === 'cancelled')
+    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 to-white">
@@ -456,11 +456,13 @@ const ClienteMisCitas = () => {
               </div>
             ) : (
               <>
-                {proximas.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Próximas · {proximas.length}
-                    </p>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Próximas · {proximas.length}
+                  </p>
+                  {proximas.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-3">No tienes citas próximas</p>
+                  ) : (
                     <div className="space-y-3">
                       {proximas.map(cita => (
                         <div key={cita.id}>
@@ -490,13 +492,15 @@ const ClienteMisCitas = () => {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-                {pasadas.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 mt-4">
-                      Historial · {pasadas.length}
-                    </p>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    Historial · {pasadas.length}
+                  </p>
+                  {pasadas.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-3">Sin citas anteriores</p>
+                  ) : (
                     <div className="space-y-3 opacity-70">
                       {pasadas.map(cita => (
                         <CitaCard
@@ -506,8 +510,8 @@ const ClienteMisCitas = () => {
                         />
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </>
             )}
           </>
