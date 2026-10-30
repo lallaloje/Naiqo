@@ -2059,6 +2059,26 @@ const SmartAppointments = () => {
                                 Volver a programar
                               </Button>
                             )}
+                            {apt.status === 'completed' && loyaltyEnabled && (apt.client_email || apt.client_phone) && (
+                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                                onClick={async () => {
+                                  const stampServiceName = services.find(s => s.id === apt.service_id)?.name || 'General';
+                                  const { error } = await supabase.rpc('add_loyalty_stamp', {
+                                    p_salon_id:      salonId,
+                                    p_client_email:  apt.client_email || null,
+                                    p_client_phone:  apt.client_phone || null,
+                                    p_client_name:   apt.client_name,
+                                    p_service_name:  stampServiceName,
+                                  } as any);
+                                  if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+                                  else {
+                                    toast({ title: '💅 Sello añadido', description: `Sello de fidelidad añadido a ${apt.client_name}` });
+                                    loadLoyaltyCard(apt);
+                                  }
+                                }}>
+                                💅 Añadir sello
+                              </Button>
+                            )}
 
                             {/* Cobrar penalización cancelación/no-show */}
                             {apt.stripe_payment_method_id &&
