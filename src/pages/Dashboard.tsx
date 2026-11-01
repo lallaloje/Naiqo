@@ -100,7 +100,7 @@ export default function Dashboard() {
 
       const apts = (monthData as any[]) || [];
       const revenue = apts
-        .filter(a => a.status === 'completed' || a.status === 'confirmed')
+        .filter(a => a.status === 'completed')
         .reduce((sum: number, a: any) => sum + (a.services?.price || 0), 0);
       const uniqueClients = new Set(
         apts.map((a: any) => a.client_phone || a.client_name)
