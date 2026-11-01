@@ -1,3 +1,4 @@
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -5,6 +6,8 @@ import { ArrowRight, Play, Check, Sparkles } from "lucide-react";
 
 export const HeroSection = () => {
   const navigate = useNavigate();
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   return (
     <section className="relative min-h-screen flex items-center bg-gradient-to-br from-background via-primary/5 to-secondary/10 overflow-hidden">
@@ -103,10 +106,30 @@ export const HeroSection = () => {
           {/* Right content - Video */}
           <div className="relative lg:pl-12 flex justify-center">
             <div className="relative mx-auto max-w-xs w-full">
-              <div className="relative aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl bg-black">
+              <div className="relative aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl">
+                {/* Placeholder con botón play */}
+                {!playing && (
+                  <div
+                    className="absolute inset-0 z-10 flex items-center justify-center cursor-pointer bg-gradient-to-br from-primary/20 to-secondary/20"
+                    onClick={() => { setPlaying(true); setTimeout(() => videoRef.current?.play(), 50); }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-secondary/30" />
+                    <div className="relative text-center">
+                      <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:scale-110 transition-transform">
+                        <Play className="w-8 h-8 text-primary ml-1" />
+                      </div>
+                      <p className="text-white font-medium drop-shadow">Ver demo</p>
+                    </div>
+                    <div className="absolute top-4 left-4 flex items-center gap-2 bg-white/90 rounded-full px-3 py-1.5 shadow">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs font-medium">Demo en vivo</span>
+                    </div>
+                  </div>
+                )}
                 <video
-                  className="w-full h-full object-cover"
-                  controls
+                  ref={videoRef}
+                  className="w-full h-full object-cover bg-black"
+                  controls={playing}
                   playsInline
                   preload="metadata"
                 >

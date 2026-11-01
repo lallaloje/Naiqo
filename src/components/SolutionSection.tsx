@@ -1,4 +1,5 @@
-import { Camera, Sparkles, MessageCircle, Heart, ArrowRight } from "lucide-react";
+import { useState, useRef } from "react";
+import { Camera, Sparkles, MessageCircle, Heart, ArrowRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const steps = [
@@ -29,6 +30,9 @@ const steps = [
 ];
 
 export const SolutionSection = () => {
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   return (
     <section id="demo-video" className="py-20 bg-white">
       <div className="container mx-auto px-4">
@@ -62,10 +66,29 @@ export const SolutionSection = () => {
 
         {/* Video section */}
         <div className="max-w-sm mx-auto">
-          <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black">
+          <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl">
+            {!playing && (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center cursor-pointer"
+                onClick={() => { setPlaying(true); setTimeout(() => videoRef.current?.play(), 50); }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20" />
+                <div className="relative text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:scale-110 transition-transform">
+                    <Play className="w-8 h-8 text-primary ml-1" />
+                  </div>
+                  <p className="text-white font-medium drop-shadow">Ver demo (45 seg)</p>
+                </div>
+                <div className="absolute top-4 left-4 flex items-center gap-2 bg-white/90 rounded-full px-3 py-1.5 shadow">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-medium">Demo en vivo</span>
+                </div>
+              </div>
+            )}
             <video
-              className="w-full h-full object-cover"
-              controls
+              ref={videoRef}
+              className="w-full h-full object-cover bg-black"
+              controls={playing}
               playsInline
               preload="metadata"
             >
