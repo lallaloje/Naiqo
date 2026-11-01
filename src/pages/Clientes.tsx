@@ -26,6 +26,10 @@ import { es } from 'date-fns/locale';
 
 // ── Types ─────────────────────────────────────────────────────────────
 interface RawApt {
+  work_type?: string | null;
+  work_base?: string | null;
+  work_color?: string | null;
+  work_design?: string | null;
   id: string;
   client_name: string;
   client_phone: string | null;
@@ -524,6 +528,12 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
                 {(apt.services as any)?.price && (
                   <p className="text-xs text-muted-foreground">€{(apt.services as any).price}</p>
                 )}
+                {(apt.work_type || apt.work_base || apt.work_color || apt.work_design) && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                    {[apt.work_type, apt.work_base, apt.work_color, apt.work_design]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
               <Badge className={`text-[10px] shrink-0 ${STATUS_COLOR[apt.status] || ''}`}>
                 {STATUS_LABEL[apt.status] || apt.status}
@@ -598,7 +608,7 @@ export default function Clientes() {
       const [aptsResult, importedResult] = await Promise.all([
         supabase
           .from('appointments')
-          .select('id, client_name, client_phone, client_email, start_time, status, services(name, price)')
+          .select('id, client_name, client_phone, client_email, start_time, status, work_type, work_base, work_color, work_design, services(name, price)')
           .eq('user_id', user.id)
           .order('start_time', { ascending: false }),
         (supabase as any)
