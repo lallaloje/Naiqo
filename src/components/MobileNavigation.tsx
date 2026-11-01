@@ -22,6 +22,7 @@ const navItems = [
 
 const moreItems = [
   { path: '/servicios',                  label: 'Servicios'    },
+  { path: '/lista-espera',              label: 'Lista de espera' },
   { path: '/equipo',                    label: 'Equipo'       },
   { path: '/fichaje',                   label: 'Fichaje'      },
   { path: '/analisis-ungueal',          label: 'Análisis'     },

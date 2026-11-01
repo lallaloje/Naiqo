@@ -43,6 +43,7 @@ import AdminPage from "./pages/AdminPage";
 import Clientes from "./pages/Clientes";
 import ServiciosPage from "./pages/ServiciosPage";
 import FichajePage from "./pages/FichajePage";
+import WaitlistPage from "./pages/Waitlist";
 
 const queryClient = new QueryClient();
 
@@ -124,6 +125,9 @@ const App = () => (
             } />
             <Route path="/fichaje" element={
               <ProtectedRoute><FichajePage /></ProtectedRoute>
+            } />
+            <Route path="/lista-espera" element={
+              <ProtectedRoute><WaitlistPage /></ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute><AdminPage /></ProtectedRoute>

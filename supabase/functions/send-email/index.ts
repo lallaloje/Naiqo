@@ -55,6 +55,34 @@ serve(async (req) => {
           <p style="font-size:14px;color:#666">Si necesitas cancelar, hazlo con al menos 24h de antelación.</p>
         </div>
       `;
+    } else if (type === 'reminder') {
+      subject = `⏰ Recordatorio: tu cita ${data.hoursText}`;
+      html = `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 16px;color:#1a1a1a">
+          <h1 style="color:#d946ef">Recuerda tu cita 💅</h1>
+          <p style="font-size:16px">Hola <strong>${data.clientName}</strong>, te recordamos que tienes una cita <strong>${data.hoursText}</strong>:</p>
+          <div style="background:#f9fafb;border-radius:12px;padding:20px;margin:20px 0">
+            <p style="margin:0 0 8px"><strong>Servicio:</strong> ${data.serviceName}</p>
+            <p style="margin:0 0 8px"><strong>Fecha:</strong> ${data.date}</p>
+            <p style="margin:0 0 8px"><strong>Hora:</strong> ${data.time}</p>
+            <p style="margin:0"><strong>Salón:</strong> ${data.salonName}</p>
+          </div>
+          <p style="font-size:14px;color:#666">Si necesitas cancelar, avisa con antelación. ¡Hasta pronto! 💅</p>
+          <p style="font-size:13px;color:#999">NAIQO · El asistente IA para salones de uñas</p>
+        </div>
+      `;
+    } else if (type === 'waitlist_notify') {
+      subject = `💅 Se ha liberado un hueco para ti`;
+      html = `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 16px;color:#1a1a1a">
+          <h1 style="color:#d946ef">¡Tenemos un hueco para ti! 💅</h1>
+          <p style="font-size:16px">Hola <strong>${data.clientName}</strong>,</p>
+          <p style="font-size:15px;line-height:1.6">Te escribimos porque se ha liberado disponibilidad${data.serviceName ? ` para <strong>${data.serviceName}</strong>` : ''} en nuestro salón.</p>
+          <p style="font-size:15px;line-height:1.6">Escríbenos o llámanos para reservar tu cita antes de que se ocupe. ¡Los huecos vuelan! 🕐</p>
+          <p style="margin-top:32px;font-size:13px;color:#666">Si ya no necesitas la cita, ignora este mensaje.</p>
+          <p style="font-size:13px;color:#999">NAIQO · El asistente IA para salones de uñas</p>
+        </div>
+      `;
     } else {
       throw new Error(`Tipo de email desconocido: ${type}`);
     }
