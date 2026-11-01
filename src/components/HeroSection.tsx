@@ -2,7 +2,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Play, Check, Sparkles } from "lucide-react";
-import naiqoLogo from "@/assets/naiqo-logo.png";
 
 export const HeroSection = () => {
   const navigate = useNavigate();
@@ -82,16 +81,16 @@ export const HeroSection = () => {
                 Empezar prueba gratuita
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="outline"
                 className="text-lg px-8 py-6 group"
                 onClick={() => {
-                  document.getElementById("demo-video")?.scrollIntoView({ behavior: "smooth" });
+                  document.getElementById("demo")?.scrollIntoView({ behavior: "smooth" });
                 }}
               >
                 <Play className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                Ver demo en video
+                Probar demo gratis
               </Button>
             </div>
 
@@ -101,87 +100,18 @@ export const HeroSection = () => {
             </p>
           </div>
 
-          {/* Right content - Mockup */}
-          <div className="relative lg:pl-12">
-            <div className="relative mx-auto max-w-sm">
-              {/* Phone mockup frame */}
-              <div className="relative bg-foreground rounded-[3rem] p-3 shadow-2xl">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-7 bg-foreground rounded-b-2xl z-10" />
-                <div className="bg-background rounded-[2.5rem] overflow-hidden aspect-[9/19]">
-                  {/* App preview content */}
-                  <div className="p-4 h-full flex flex-col">
-                    <div className="flex items-center gap-2 mb-4">
-                      <img src={naiqoLogo} alt="NAIQO" className="w-8 h-8 rounded-lg" />
-                      <span className="font-bold text-lg bg-gradient-primary bg-clip-text text-transparent">NAIQO</span>
-                    </div>
-                    
-                    <div className="flex-1 space-y-3">
-                      <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl p-4">
-                        <p className="text-sm font-medium text-foreground">¡Bienvenida! 👋</p>
-                        <p className="text-xs text-muted-foreground mt-1">Escanea una uña para comenzar</p>
-                      </div>
-                      
-                      <div className="bg-muted/50 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                            📸
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium">Análisis IA</p>
-                            <p className="text-[10px] text-muted-foreground">5 seg</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-600" />
-                          <span className="text-xs font-medium text-green-800">Uñas saludables</span>
-                        </div>
-                        <p className="text-[10px] text-green-600 mt-1">Confianza: 94%</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-foreground">Recomendaciones:</p>
-                        <div className="text-[10px] text-muted-foreground space-y-1">
-                          <p>✓ Aceite de cutícula diario</p>
-                          <p>✓ Hidratación regular</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating badges */}
-              <div className="absolute -left-4 top-1/4 bg-white rounded-xl shadow-lg p-3 animate-bounce" style={{ animationDuration: "3s" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">⚡</span>
-                  <div>
-                    <p className="text-xs font-bold">5 seg</p>
-                    <p className="text-[10px] text-muted-foreground">Análisis</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute -right-4 top-1/2 bg-white rounded-xl shadow-lg p-3 animate-bounce" style={{ animationDuration: "4s", animationDelay: "1s" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">🎯</span>
-                  <div>
-                    <p className="text-xs font-bold">94%</p>
-                    <p className="text-[10px] text-muted-foreground">Precisión</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute -left-8 bottom-1/4 bg-white rounded-xl shadow-lg p-3 animate-bounce" style={{ animationDuration: "3.5s", animationDelay: "0.5s" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">💅</span>
-                  <div>
-                    <p className="text-xs font-bold">50+</p>
-                    <p className="text-[10px] text-muted-foreground">Salones</p>
-                  </div>
-                </div>
+          {/* Right content - Video */}
+          <div className="relative lg:pl-12 flex justify-center">
+            <div className="relative mx-auto max-w-xs w-full">
+              <div className="relative aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl bg-black">
+                <video
+                  className="w-full h-full object-cover"
+                  controls
+                  playsInline
+                  preload="metadata"
+                >
+                  <source src="https://tpwdbapkfmewxtatoytr.supabase.co/storage/v1/object/public/assets/demo-naiqo.mp4" type="video/mp4" />
+                </video>
               </div>
             </div>
           </div>
