@@ -674,7 +674,7 @@ export default function Clientes() {
         }
         const s = aptStatsMap.get(key)!;
         s.totalApts++;
-        if (['completed', 'confirmed'].includes(apt.status)) { s.completedApts++; s.totalSpent += apt.services?.price || 0; }
+        if (apt.status === 'completed') { s.completedApts++; s.totalSpent += apt.services?.price || 0; }
         if (apt.status === 'cancelled') s.cancelledApts++;
         if (apt.start_time > s.lastVisit) s.lastVisit = apt.start_time;
         if (apt.start_time < s.firstVisit) s.firstVisit = apt.start_time;
