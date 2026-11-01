@@ -230,8 +230,9 @@ const SmartAppointments = () => {
   const [appointments, setAppointments]   = useState<Appointment[]>([]);
   const [weekApts,     setWeekApts]        = useState<Record<string, Appointment[]>>({});
   const [services,     setServices]        = useState<Service[]>([]);
-  const [salonId,      setSalonId]         = useState<string | null>(null);
-  const [salonName,    setSalonName]       = useState('Mi salón');
+  const [salonId,          setSalonId]          = useState<string | null>(null);
+  const [salonName,        setSalonName]        = useState('Mi salón');
+  const [salonDaySchedules, setSalonDaySchedules] = useState<Record<string, any> | null>(null);
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [loyaltyStampsRequired, setLoyaltyStampsRequired] = useState(10);
   const isMobile = useIsMobile();
@@ -306,17 +307,36 @@ const SmartAppointments = () => {
     }
   }, [salonId, selectedDate]);
 
+  // ─── Sync calendar range from day_schedules when day changes ────
+  useEffect(() => {
+    if (!salonDaySchedules) return;
+    const dow = String(new Date(selectedDate + 'T12:00:00').getDay());
+    const sched = salonDaySchedules[dow];
+    if (sched && sched.start != null && sched.end != null) {
+      setWorkStart(sched.start);
+      setWorkEnd(sched.end);
+    } else {
+      // Día cerrado: mostrar rango mínimo para que el calendario no quede vacío
+      setWorkStart(9);
+      setWorkEnd(20);
+    }
+  }, [salonDaySchedules, selectedDate]);
+
   const loadSalon = async () => {
     setPageLoading(true);
     try {
       const { data } = await supabase.from('salons')
-        .select('id, salon_name, work_start_hour, work_end_hour, loyalty_enabled')
+        .select('id, salon_name, work_start_hour, work_end_hour, loyalty_enabled, loyalty_stamps_required, day_schedules')
         .eq('user_id', user!.id).single();
       if (data) {
         setSalonId(data.id);
         setSalonName(data.salon_name || 'Mi salón');
-        if ((data as any).work_start_hour != null) setWorkStart((data as any).work_start_hour);
-        if ((data as any).work_end_hour   != null) setWorkEnd((data as any).work_end_hour);
+        setSalonDaySchedules((data as any).day_schedules || null);
+        // Fallback to legacy fields if no day_schedules yet
+        if (!(data as any).day_schedules) {
+          if ((data as any).work_start_hour != null) setWorkStart((data as any).work_start_hour);
+          if ((data as any).work_end_hour   != null) setWorkEnd((data as any).work_end_hour);
+        }
         setLoyaltyEnabled((data as any).loyalty_enabled ?? false);
         setLoyaltyStampsRequired((data as any).loyalty_stamps_required ?? 10);
       }
@@ -520,14 +540,6 @@ const SmartAppointments = () => {
     setRedeemingLoyalty(false);
   };
 
-  const saveWorkHours = async () => {
-    if (!salonId) return;
-    await supabase.from('salons').update({
-      work_start_hour: workStart,
-      work_end_hour: workEnd,
-    } as any).eq('id', salonId);
-    toast({ title: '✅ Horario guardado', description: `${workStart}:00 – ${workEnd}:00` });
-  };
 
   const loadServices = async () => {
     const { data } = await supabase.from('services').select('*')
@@ -705,11 +717,13 @@ const SmartAppointments = () => {
         client_phone: editAptForm.client_phone || null,
         client_email: editAptForm.client_email || null,
         service_id:   editAptForm.service_id || null,
-        start_time:   start.toISOString(),
-        end_time:     end.toISOString(),
-        notes:        editAptForm.notes || null,
-        employee_id:  editAptForm.employee_id || null,
-        updated_at:   new Date().toISOString(),
+        start_time:          start.toISOString(),
+        end_time:            end.toISOString(),
+        notes:               editAptForm.notes || null,
+        employee_id:         editAptForm.employee_id || null,
+        updated_at:          new Date().toISOString(),
+        reminder_24h_sent:   false,
+        reminder_2h_sent:    false,
       } as any).eq('id', editingApt.id);
       if (error) throw error;
       setEditingApt(null);
@@ -2517,47 +2531,10 @@ const SmartAppointments = () => {
               )}
             </CardContent>
           </Card>
-          {/* ── Working hours settings ── */}
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Clock className="w-4 h-4" /> Horario laboral
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">El calendario solo mostrará este rango de horas</p>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-end gap-4">
-                <div>
-                  <Label className="text-xs">Apertura</Label>
-                  <Select value={String(workStart)} onValueChange={v => setWorkStart(Number(v))}>
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper">
-                      {Array.from({length: 17}, (_, i) => i + 6).map(h => (
-                        <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs">Cierre</Label>
-                  <Select value={String(workEnd)} onValueChange={v => setWorkEnd(Number(v))}>
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper">
-                      {Array.from({length: 17}, (_, i) => i + 6).map(h => (
-                        <SelectItem key={h} value={String(h)}>{String(h).padStart(2,'0')}:00</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={saveWorkHours} className="bg-gradient-primary text-white">
-                  Guardar horario
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Horario actual: <strong>{String(workStart).padStart(2,'0')}:00 – {String(workEnd).padStart(2,'0')}:00</strong>
-              </p>
-            </CardContent>
-          </Card>
+          {/* Horario se configura en Mi Cuenta */}
+          <p className="text-xs text-muted-foreground mt-4 text-center">
+            El horario del calendario se configura en <a href="/account" className="text-primary underline">Mi Cuenta → Horario por día</a>.
+          </p>
         </TabsContent>
       </Tabs>
 
