@@ -71,21 +71,25 @@ const ClienteSellos = () => {
     setLoading(true);
     const val = inputEmail.trim();
 
-    let query = supabase
-      .from('loyalty_cards')
-      .select('stamps, stamps_used, client_name, salons(salon_name, loyalty_stamps_required, loyalty_reward, loyalty_enabled)');
+    const rpcName = searchType === 'email' ? 'get_loyalty_by_email' : 'get_loyalty_by_phone';
+    const rpcParam = searchType === 'email' ? { p_email: val } : { p_phone: val };
+    const { data, error } = await supabase.rpc(rpcName as any, rpcParam as any);
+    if (error) console.error('loyalty rpc error:', error);
 
-    if (searchType === 'email') {
-      query = query.ilike('client_email' as any, val);
-    } else {
-      const normalized = val.replace(/[\s\-()]/g, '');
-      query = (query as any).or(`client_phone.ilike.%${normalized}%,client_phone.ilike.%${val}%`);
-    }
-
-    if (salonId) query = (query as any).eq('salon_id', salonId);
-
-    const { data } = await query;
-    const filtered = ((data as any) || []).filter((c: any) => c.salons?.loyalty_enabled !== false);
+    const normalized = ((data as any) || []).map((c: any) => ({
+      stamps: c.stamps,
+      stamps_used: c.stamps_used,
+      client_name: c.client_name,
+      salon_id: c.salon_id,
+      service_name: 'General',
+      salons: {
+        salon_name: c.salon_name,
+        loyalty_stamps_required: c.loyalty_stamps_required ?? 10,
+        loyalty_reward: c.loyalty_reward ?? 'Servicio gratis',
+        loyalty_enabled: c.loyalty_enabled,
+      },
+    }));
+    const filtered = salonId ? normalized.filter((c: any) => c.salon_id === salonId) : normalized;
     setCards(filtered);
     setSearched(true);
     setLoading(false);
