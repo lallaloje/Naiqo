@@ -992,7 +992,10 @@ export default function Clientes() {
 
           {/* Alpha sidebar */}
           {!search && (
-            <div className="sticky top-4 self-start z-20 flex flex-col items-center gap-0.5 select-none max-h-[80vh] overflow-y-auto scrollbar-none">
+            <div
+              className="sticky top-0 self-start z-20 flex flex-col items-center select-none py-2"
+              style={{ maxHeight: '100dvh', overflowY: 'auto', touchAction: 'pan-y' }}
+            >
               {allLetters.map(letter => {
                 const hasClients = availableLetters.includes(letter);
                 return (
@@ -1000,7 +1003,8 @@ export default function Clientes() {
                     key={letter}
                     onPointerDown={() => hasClients && scrollToLetter(letter)}
                     disabled={!hasClients}
-                    className={`w-5 h-5 text-[10px] font-bold rounded-full flex items-center justify-center transition-colors leading-none
+                    style={{ lineHeight: 1 }}
+                    className={`w-5 text-[9px] font-bold flex items-center justify-center py-px transition-colors rounded-full
                       ${activeLetter === letter ? 'bg-primary text-white' :
                         hasClients ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground/30 cursor-default'}`}
                   >
