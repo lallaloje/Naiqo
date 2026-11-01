@@ -55,6 +55,7 @@ export default function Dashboard() {
   const [todayApts,  setTodayApts]      = useState<Appointment[]>([]);
   const [stats,      setStats]          = useState<Stats | null>(null);
   const [chartData,  setChartData]      = useState<{ day: string; citas: number }[]>([]);
+  const [employeeStats, setEmployeeStats] = useState<{ name: string; color: string; citas: number; revenue: number; cancelled: number }[]>([]);
   const [loading,    setLoading]        = useState(true);
 
   useEffect(() => {
@@ -135,6 +136,40 @@ export default function Dashboard() {
         return { day: format(day, 'EEE', { locale: es }), citas: count };
       });
       setChartData(chart);
+
+      // ── Employee stats (month) ────────────────────────────────────
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('id, name, color')
+        .eq('user_id', user.id)
+        .eq('active' as any, true);
+
+      if (empData && empData.length > 0) {
+        const { data: empApts } = await supabase
+          .from('appointments')
+          .select('employee_id, status, services(price)')
+          .eq('user_id', user.id)
+          .gte('start_time', monthStart)
+          .not('employee_id', 'is', null);
+
+        const aptsByEmp = (empApts as any[]) || [];
+        const empStats = (empData as any[]).map(emp => {
+          const mine = aptsByEmp.filter((a: any) => a.employee_id === emp.id);
+          const revenue = mine
+            .filter((a: any) => a.status === 'completed' || a.status === 'confirmed')
+            .reduce((sum: number, a: any) => sum + (a.services?.price || 0), 0);
+          return {
+            name: emp.name,
+            color: emp.color || '#d946ef',
+            citas: mine.filter((a: any) => a.status !== 'cancelled').length,
+            revenue,
+            cancelled: mine.filter((a: any) => a.status === 'cancelled').length,
+          };
+        }).filter(e => e.citas > 0 || e.cancelled > 0)
+          .sort((a, b) => b.citas - a.citas);
+
+        setEmployeeStats(empStats);
+      }
 
     } catch (err) {
       console.error('Dashboard error:', err);
@@ -413,6 +448,56 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Employee stats */}
+      {employeeStats.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Scissors className="w-4 h-4 text-primary" />
+              Rendimiento del equipo — {format(new Date(), 'MMMM', { locale: es })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {employeeStats.map(emp => {
+              const max = employeeStats[0].citas || 1;
+              const pct = Math.round((emp.citas / max) * 100);
+              return (
+                <div key={emp.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: emp.color }}
+                      />
+                      <span className="font-medium">{emp.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />{emp.citas} citas
+                      </span>
+                      <span className="flex items-center gap-1 text-green-600 font-medium">
+                        <Euro className="w-3 h-3" />{emp.revenue}
+                      </span>
+                      {emp.cancelled > 0 && (
+                        <span className="flex items-center gap-1 text-red-400">
+                          <XCircle className="w-3 h-3" />{emp.cancelled}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: emp.color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
     {/* Herramientas IA — solo escritorio */}
     {!isMobile && (
