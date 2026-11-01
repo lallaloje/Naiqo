@@ -5,18 +5,20 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Camera, 
-  Upload, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  Camera,
+  Upload,
+  CheckCircle,
+  AlertTriangle,
   Info,
   Eye,
   Clock,
   TrendingUp,
   Shield,
   WifiOff,
-  Zap
+  Zap,
+  Palette,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +39,17 @@ import {
 import { AnalysisProgress, AnalysisStage } from '@/components/AnalysisProgress';
 import { PhotoTips } from '@/components/PhotoTips';
 
+interface Colorimetria {
+  tono_piel: string;
+  subtono: string;
+  forma_uña: string;
+  colores_recomendados: string[];
+  colores_evitar: string[];
+  acabados_recomendados: string[];
+  estilos_uña_recomendados: string[];
+  consejo_profesional: string;
+}
+
 interface AnalysisResult {
   analysisId: string;
   detected_issues: string[];
@@ -48,6 +61,7 @@ interface AnalysisResult {
   summary: string;
   imageUrl: string;
   timestamp: string;
+  colorimetria?: Colorimetria;
 }
 
 const TIMEOUT_WARNING_MS = 55000;
@@ -648,6 +662,102 @@ const NailHealthAnalyzer = () => {
                     </li>
                   ))}
                 </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Colorimetría */}
+          {analysisResult.colorimetria && (
+            <Card className="border-pink-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-pink-700">
+                  <Palette className="h-5 w-5" />
+                  Análisis de Colorimetría Personal
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {/* Tono y forma */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-pink-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-pink-600 uppercase mb-1">Tono de piel</p>
+                    <p className="text-sm text-foreground">{analysisResult.colorimetria.tono_piel}</p>
+                    <Badge variant="outline" className="mt-2 text-xs border-pink-300 text-pink-700">
+                      Subtono {analysisResult.colorimetria.subtono}
+                    </Badge>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-purple-600 uppercase mb-1">Forma de uña</p>
+                    <p className="text-sm text-foreground">{analysisResult.colorimetria.forma_uña}</p>
+                  </div>
+                </div>
+
+                {/* Colores recomendados */}
+                {analysisResult.colorimetria.colores_recomendados?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2 flex items-center gap-1">
+                      <Sparkles className="h-4 w-4 text-pink-500" />
+                      Colores que más te favorecen
+                    </p>
+                    <ul className="space-y-1">
+                      {analysisResult.colorimetria.colores_recomendados.map((color, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <CheckCircle className="h-4 w-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                          <span>{color}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Colores a evitar */}
+                {analysisResult.colorimetria.colores_evitar?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2 flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4 text-orange-400" />
+                      Colores a evitar
+                    </p>
+                    <ul className="space-y-1">
+                      {analysisResult.colorimetria.colores_evitar.map((color, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="text-orange-400 mt-0.5">✕</span>
+                          <span>{color}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Acabados y estilos */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {analysisResult.colorimetria.acabados_recomendados?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Acabados recomendados</p>
+                      <div className="flex flex-wrap gap-1">
+                        {analysisResult.colorimetria.acabados_recomendados.map((a, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{a}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {analysisResult.colorimetria.estilos_uña_recomendados?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Estilos recomendados</p>
+                      <div className="flex flex-wrap gap-1">
+                        {analysisResult.colorimetria.estilos_uña_recomendados.map((e, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{e}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Consejo profesional */}
+                {analysisResult.colorimetria.consejo_profesional && (
+                  <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4 border border-pink-100">
+                    <p className="text-xs font-semibold text-pink-600 uppercase mb-1">Consejo de la especialista</p>
+                    <p className="text-sm italic text-foreground">"{analysisResult.colorimetria.consejo_profesional}"</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
