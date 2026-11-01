@@ -159,6 +159,12 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       if (client.importedId) {
         (supabase as any).from('salon_clients').select('notes').eq('id', client.importedId).single()
           .then(({ data }: any) => setNotes(data?.notes || ''));
+      } else if (client.name) {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) return;
+          (supabase as any).from('salon_clients').select('notes').eq('user_id', user.id).eq('name', client.name).maybeSingle()
+            .then(({ data }: any) => setNotes(data?.notes || ''));
+        });
       }
 
       // Load loyalty stamps
@@ -277,11 +283,24 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   };
 
   const handleSaveNotes = async () => {
-    if (!client?.importedId) return;
+    if (!client) return;
     setSavingNotes(true);
     try {
-      const { error } = await (supabase as any).from('salon_clients').update({ notes: notes.trim() || null }).eq('id', client.importedId);
-      if (error) throw error;
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      if (client.importedId) {
+        const { error } = await (supabase as any).from('salon_clients').update({ notes: notes.trim() || null }).eq('id', client.importedId);
+        if (error) throw error;
+      } else {
+        // Clienta que vino solo por citas: crear entrada en salon_clients
+        const { error } = await (supabase as any).from('salon_clients').upsert({
+          user_id: userId,
+          name: client.name,
+          phone: client.phone || null,
+          email: client.email || null,
+          notes: notes.trim() || null,
+        }, { onConflict: 'user_id,name' });
+        if (error) throw error;
+      }
       toast({ title: '📝 Notas guardadas' });
       setEditingNotes(false);
     } catch (e: any) {
