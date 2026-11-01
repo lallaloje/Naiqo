@@ -454,6 +454,9 @@ const PublicBooking = () => {
             </div>
             <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">
               <p><strong>Salón:</strong> {salon.salon_name}</p>
+              {(salon.address || salon.city) && (
+                <p>📍 {[salon.address, salon.city].filter(Boolean).join(', ')}</p>
+              )}
               <p><strong>Servicio:</strong> {selectedService?.name}</p>
               <p><strong>Fecha:</strong> {selectedDate.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
               <p><strong>Hora:</strong> {selectedSlot}</p>

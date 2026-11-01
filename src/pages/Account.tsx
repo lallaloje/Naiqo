@@ -270,6 +270,19 @@ const Account = () => {
   const handleSave = async () => {
     if (!user) return;
 
+    // Validar que en días abiertos la hora de fin sea mayor que la de inicio
+    for (const [dow, s] of Object.entries(weekSchedule)) {
+      if (!s.open) continue;
+      if (s.end <= s.start) {
+        toast({ title: 'Horario inválido', description: `El día ${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][Number(dow)]} tiene la hora de cierre antes o igual que la de apertura.`, variant: 'destructive' });
+        return;
+      }
+      if (s.break_start != null && s.break_end != null && s.break_end <= s.break_start) {
+        toast({ title: 'Pausa inválida', description: `El día ${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][Number(dow)]} tiene la pausa mal configurada.`, variant: 'destructive' });
+        return;
+      }
+    }
+
     setSaving(true);
     const { error } = await supabase
       .from('salons')

@@ -105,7 +105,7 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-sonnet-5-5',
         max_tokens: 2048,
         messages: [
           {

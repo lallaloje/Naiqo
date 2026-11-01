@@ -1306,13 +1306,17 @@ const SmartAppointments = () => {
 
                     const isSelected = day === selectedDate;
                     const isTodayDay = day === today;
+                    const dow = String(new Date(day + 'T12:00:00').getDay());
+                    const isClosed = salonDaySchedules && !salonDaySchedules[dow];
                     return (
                       <button
                         key={day}
                         onClick={() => { setSelectedDate(day); setView('day'); }}
                         className={`rounded-xl p-2 text-center transition-all cursor-pointer border ${
                           isSelected ? 'bg-primary text-white border-primary' :
-                          isTodayDay ? 'border-primary/50 bg-primary/5' : 'border-transparent hover:bg-muted'
+                          isTodayDay ? 'border-primary/50 bg-primary/5' :
+                          isClosed ? 'border-transparent opacity-40' :
+                          'border-transparent hover:bg-muted'
                         }`}
                       >
                         <p className="text-xs font-medium">{DAY_NAMES[i]}</p>
@@ -1320,22 +1324,28 @@ const SmartAppointments = () => {
                           {new Date(day+'T12:00:00').getDate()}
                         </p>
 
-                        {/* Barra de disponibilidad */}
-                        <div className="mt-1.5 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${isSelected ? 'bg-white/60' : barColor}`}
-                            style={{ width: `${Math.min(100 - freePct, 100)}%` }}
-                          />
-                        </div>
+                        {isClosed ? (
+                          <p className="text-xs mt-1 text-muted-foreground">cerrado</p>
+                        ) : (
+                          <>
+                            {/* Barra de disponibilidad */}
+                            <div className="mt-1.5 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${isSelected ? 'bg-white/60' : barColor}`}
+                                style={{ width: `${Math.min(100 - freePct, 100)}%` }}
+                              />
+                            </div>
 
-                        <div className={`text-xs mt-1 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
-                          {dayApts.length > 0 ? (
-                            <p>{dayApts.length} cita{dayApts.length !== 1 ? 's' : ''}</p>
-                          ) : null}
-                          <p className={`font-medium ${isSelected ? 'text-white/90' : textColor}`}>
-                            {freeLabel} libre{freeLabel !== 'lleno' ? 's' : ''}
-                          </p>
-                        </div>
+                            <div className={`text-xs mt-1 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                              {dayApts.length > 0 ? (
+                                <p>{dayApts.length} cita{dayApts.length !== 1 ? 's' : ''}</p>
+                              ) : null}
+                              <p className={`font-medium ${isSelected ? 'text-white/90' : textColor}`}>
+                                {freeLabel} libre{freeLabel !== 'lleno' ? 's' : ''}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </button>
                     );
                   })}
