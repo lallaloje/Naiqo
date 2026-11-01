@@ -85,6 +85,19 @@ const planLimits: Record<string, number> = {
   premium: -1,
 };
 
+type DaySchedule = { open: boolean; start: number; end: number; break_start: number | null; break_end: number | null };
+type WeekSchedule = Record<string, DaySchedule>;
+
+const defaultWeekSchedule = (): WeekSchedule => ({
+  '1': { open: false, start: 10, end: 20, break_start: null, break_end: null },
+  '2': { open: true,  start: 10, end: 21, break_start: 14, break_end: 16 },
+  '3': { open: true,  start: 10, end: 21, break_start: 14, break_end: 16 },
+  '4': { open: true,  start: 10, end: 21, break_start: 14, break_end: 16 },
+  '5': { open: true,  start: 10, end: 21, break_start: 14, break_end: 16 },
+  '6': { open: true,  start: 9,  end: 14, break_start: null, break_end: null },
+  '0': { open: false, start: 10, end: 20, break_start: null, break_end: null },
+});
+
 const Account = () => {
   const isMobile = useIsMobile();
   const { user, signOut } = useAuth();
@@ -120,6 +133,8 @@ const Account = () => {
     work_start_hour: 9,
     work_end_hour: 20,
   });
+
+  const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule);
 
   const [loyaltyData, setLoyaltyData] = useState({
     loyalty_enabled: false,
@@ -176,6 +191,25 @@ const Account = () => {
         work_start_hour: data.work_start_hour ?? 9,
         work_end_hour: data.work_end_hour ?? 20,
       });
+      // Cargar horario semanal si existe
+      if ((data as any).day_schedules) {
+        const ds = (data as any).day_schedules as Record<string, any>;
+        const loaded: WeekSchedule = defaultWeekSchedule();
+        for (const dow of ['0','1','2','3','4','5','6']) {
+          if (ds[dow] === null || ds[dow] === undefined) {
+            loaded[dow] = { ...loaded[dow], open: false };
+          } else {
+            loaded[dow] = {
+              open: true,
+              start: ds[dow].start ?? loaded[dow].start,
+              end: ds[dow].end ?? loaded[dow].end,
+              break_start: ds[dow].break_start ?? null,
+              break_end: ds[dow].break_end ?? null,
+            };
+          }
+        }
+        setWeekSchedule(loaded);
+      }
       setSlugInput(data.booking_slug || '');
       setLoyaltyData({
         loyalty_enabled: data.loyalty_enabled ?? false,
@@ -245,6 +279,13 @@ const Account = () => {
         city: formData.city || null,
         work_start_hour: formData.work_start_hour,
         work_end_hour: formData.work_end_hour,
+        day_schedules: Object.fromEntries(
+          Object.entries(weekSchedule).map(([dow, s]) =>
+            s.open
+              ? [dow, { start: s.start, end: s.end, ...(s.break_start != null && s.break_end != null ? { break_start: s.break_start, break_end: s.break_end } : {}) }]
+              : [dow, null]
+          )
+        ),
       })
       .eq('user_id', user.id);
 
@@ -589,36 +630,67 @@ const Account = () => {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm">Horario de apertura</Label>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground mb-1">Abre</p>
-                <select
-                  value={formData.work_start_hour}
-                  onChange={e => setFormData(prev => ({ ...prev, work_start_hour: Number(e.target.value) }))}
-                  className="w-full h-12 border rounded-md px-3 bg-background text-sm"
-                >
-                  {Array.from({ length: 17 }, (_, i) => i + 6).map(h => (
-                    <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>
-                  ))}
-                </select>
-              </div>
-              <span className="text-muted-foreground mt-4">—</span>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground mb-1">Cierra</p>
-                <select
-                  value={formData.work_end_hour}
-                  onChange={e => setFormData(prev => ({ ...prev, work_end_hour: Number(e.target.value) }))}
-                  className="w-full h-12 border rounded-md px-3 bg-background text-sm"
-                >
-                  {Array.from({ length: 17 }, (_, i) => i + 6).map(h => (
-                    <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">Estos horarios determinan los huecos disponibles en la reserva online.</p>
+          <div className="space-y-2">
+            <Label className="text-sm">Horario por día</Label>
+            <p className="text-xs text-muted-foreground">Configura qué días abres y en qué horario. Puedes añadir pausa de mediodía.</p>
+            {(['1','2','3','4','5','6','0'] as const).map(dow => {
+              const DAY_NAMES: Record<string, string> = { '0':'Domingo','1':'Lunes','2':'Martes','3':'Miércoles','4':'Jueves','5':'Viernes','6':'Sábado' };
+              const s = weekSchedule[dow];
+              const hours = Array.from({ length: 17 }, (_, i) => i + 6);
+              const upd = (field: string, val: any) =>
+                setWeekSchedule(prev => ({ ...prev, [dow]: { ...prev[dow], [field]: val } }));
+              return (
+                <div key={dow} className="border rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{DAY_NAMES[dow]}</span>
+                    <button
+                      type="button"
+                      onClick={() => upd('open', !s.open)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${s.open ? 'bg-primary' : 'bg-muted'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${s.open ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  {s.open && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <select value={s.start} onChange={e => upd('start', Number(e.target.value))} className="flex-1 h-9 border rounded-md px-2 bg-background text-sm">
+                          {hours.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
+                        </select>
+                        <span className="text-muted-foreground text-xs">—</span>
+                        <select value={s.end} onChange={e => upd('end', Number(e.target.value))} className="flex-1 h-9 border rounded-md px-2 bg-background text-sm">
+                          {hours.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`break-${dow}`}
+                          checked={s.break_start != null}
+                          onChange={e => {
+                            if (e.target.checked) { upd('break_start', 14); upd('break_end', 16); }
+                            else { upd('break_start', null); upd('break_end', null); }
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <label htmlFor={`break-${dow}`} className="text-xs text-muted-foreground">Pausa de mediodía</label>
+                        {s.break_start != null && (
+                          <>
+                            <select value={s.break_start!} onChange={e => upd('break_start', Number(e.target.value))} className="h-8 border rounded-md px-2 bg-background text-xs">
+                              {hours.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
+                            </select>
+                            <span className="text-xs text-muted-foreground">—</span>
+                            <select value={s.break_end!} onChange={e => upd('break_end', Number(e.target.value))} className="h-8 border rounded-md px-2 bg-background text-xs">
+                              {hours.map(h => <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>)}
+                            </select>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <TouchButton onClick={handleSave} disabled={saving} fullWidth>

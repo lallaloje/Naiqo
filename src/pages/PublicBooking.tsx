@@ -11,7 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays, Bell } from "lucide-react";
 
-type DaySchedules = Record<string, { start: number; end: number }>;
+type DaySchedule = { start: number; end: number; break_start?: number; break_end?: number };
+type DaySchedules = Record<string, DaySchedule>;
 
 interface Salon {
   id: string;
@@ -45,31 +46,35 @@ function generateSlots(date: Date, durationMin: number, busyApts: SlimApt[], day
   const dow = date.getDay(); // 0=Dom … 6=Sáb
   const sched = daySchedules[String(dow)];
   if (!sched) return []; // día no laborable
-  const ranges: Array<[number, number]> = [[sched.start, sched.end]];
+
+  // Divide el día en rangos respetando la pausa si existe
+  const ranges: Array<[number, number]> = sched.break_start && sched.break_end
+    ? [[sched.start, sched.break_start], [sched.break_end, sched.end]]
+    : [[sched.start, sched.end]];
 
   for (const [rangeStart, rangeEnd] of ranges) {
-    for (let h = rangeStart; h < rangeEnd; h++) {
-      for (let m = 0; m < 60; m += 5) {
-        const slotStart = new Date(date);
-        slotStart.setHours(h, m, 0, 0);
-        const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
+    for (let totalMin = rangeStart * 60; totalMin < rangeEnd * 60; totalMin += 5) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      const slotStart = new Date(date);
+      slotStart.setHours(h, m, 0, 0);
+      const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
 
-        // No mostrar horas pasadas hoy
-        if (isToday && slotStart <= now) continue;
-        // La cita completa debe caber dentro del rango
-        const endTotalMin = slotEnd.getHours() * 60 + slotEnd.getMinutes();
-        if (endTotalMin > rangeEnd * 60) continue;
+      // No mostrar horas pasadas hoy
+      if (isToday && slotStart <= now) continue;
+      // La cita completa debe caber dentro del rango
+      const slotEndMin = slotEnd.getHours() * 60 + slotEnd.getMinutes();
+      if (slotEndMin > rangeEnd * 60) continue;
 
-        // Comprobar conflictos con citas existentes
-        const conflict = busyApts.some(apt => {
-          const as_ = new Date(apt.start_time).getTime();
-          const ae  = new Date(apt.end_time).getTime();
-          return slotStart.getTime() < ae && slotEnd.getTime() > as_;
-        });
+      // Comprobar conflictos con citas existentes
+      const conflict = busyApts.some(apt => {
+        const as_ = new Date(apt.start_time).getTime();
+        const ae  = new Date(apt.end_time).getTime();
+        return slotStart.getTime() < ae && slotEnd.getTime() > as_;
+      });
 
-        if (!conflict) {
-          slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-        }
+      if (!conflict) {
+        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
       }
     }
   }
