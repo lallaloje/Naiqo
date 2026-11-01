@@ -36,11 +36,13 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-600 border-red-200',
 };
 
+interface DaySchedule { start: number; end: number; break_start?: number; break_end?: number }
+
 function generateSlots(
   date: Date,
   durationMin: number,
   busyApts: { start_time: string; end_time: string }[],
-  daySchedules: Record<string, { start: number; end: number }>,
+  daySchedules: Record<string, DaySchedule>,
 ): string[] {
   const slots: string[] = [];
   const now = new Date();
@@ -48,14 +50,21 @@ function generateSlots(
   const sched = daySchedules[String(date.getDay())];
   if (!sched) return [];
 
-  for (let h = sched.start; h < sched.end; h++) {
-    for (let m = 0; m < 60; m += 5) {
+  const ranges: Array<[number, number]> =
+    sched.break_start != null && sched.break_end != null
+      ? [[sched.start, sched.break_start], [sched.break_end, sched.end]]
+      : [[sched.start, sched.end]];
+
+  for (const [rangeStart, rangeEnd] of ranges) {
+    for (let totalMin = rangeStart * 60; totalMin < rangeEnd * 60; totalMin += 5) {
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
       const slotStart = new Date(date);
       slotStart.setHours(h, m, 0, 0);
       const slotEnd = new Date(slotStart.getTime() + durationMin * 60000);
       if (isToday && slotStart <= now) continue;
-      const endMin = slotEnd.getHours() * 60 + slotEnd.getMinutes();
-      if (endMin > sched.end * 60) continue;
+      const endTotalMin = slotEnd.getHours() * 60 + slotEnd.getMinutes();
+      if (endTotalMin > rangeEnd * 60) continue;
       const conflict = busyApts.some(apt => {
         const as_ = new Date(apt.start_time).getTime();
         const ae  = new Date(apt.end_time).getTime();
@@ -143,7 +152,7 @@ const ClienteMisCitas = () => {
   const [reschedSlot, setReschedSlot] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [salonDaySchedules, setSalonDaySchedules] = useState<Record<string, { start: number; end: number }>>({});
+  const [salonDaySchedules, setSalonDaySchedules] = useState<Record<string, DaySchedule>>({});
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -179,11 +188,13 @@ const ClienteMisCitas = () => {
         salon_id:     r.salon_id,
         service_id:   r.service_id,
         salons: r.salon_id ? {
-          salon_name:      r.salon_name,
-          id:              r.salon_id,
-          user_id:         r.salon_user_id,
-          work_start_hour: r.work_start_hour ?? 9,
-          work_end_hour:   r.work_end_hour ?? 19,
+          salon_name: r.salon_name,
+          id:         r.salon_id,
+          user_id:    r.salon_user_id,
+          address:    r.salon_address ?? null,
+          city:       r.salon_city ?? null,
+          bio:        r.salon_bio ?? null,
+          phone:      r.salon_phone ?? null,
         } : null,
         services: r.service_id ? {
           name:               r.service_name,
@@ -672,7 +683,7 @@ const ReschedulePanel = ({
   selectedSlot: string | null;
   loadingSlots: boolean;
   saving: boolean;
-  daySchedules: Record<string, { start: number; end: number }>;
+  daySchedules: Record<string, DaySchedule>;
   onDateChange: (d: Date | undefined) => void;
   onSlotSelect: (s: string) => void;
   onSave: () => void;
