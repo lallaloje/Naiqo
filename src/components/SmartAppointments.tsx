@@ -238,6 +238,9 @@ const SmartAppointments = () => {
   const [selectedDate, setSelectedDate]   = useState(toDateStr(new Date()));
   const [view,         setView]            = useState<'day' | 'week'>('day');
   const [selectedApt,  setSelectedApt]    = useState<Appointment | null>(null);
+  const [workForm,     setWorkForm]       = useState({ work_type: '', work_base: '', work_color: '', work_design: '' });
+  const [savingWork,   setSavingWork]     = useState(false);
+  const [workSaved,    setWorkSaved]      = useState(false);
   const [showForm,     setShowForm]        = useState(false);
   const [prefillTime,  setPrefillTime]    = useState('');
   const [isLoading,    setIsLoading]       = useState(false);
@@ -475,6 +478,30 @@ const SmartAppointments = () => {
       .ilike('client_email' as any, apt.client_email)
       .maybeSingle();
     setLoyaltyCard(data as any || null);
+  };
+
+  const loadWorkData = (apt: Appointment) => {
+    setWorkSaved(false);
+    setWorkForm({
+      work_type:   (apt as any).work_type   || '',
+      work_base:   (apt as any).work_base   || '',
+      work_color:  (apt as any).work_color  || '',
+      work_design: (apt as any).work_design || '',
+    });
+  };
+
+  const saveWork = async () => {
+    if (!selectedApt) return;
+    setSavingWork(true);
+    await supabase.from('appointments').update({
+      work_type:   workForm.work_type   || null,
+      work_base:   workForm.work_base   || null,
+      work_color:  workForm.work_color  || null,
+      work_design: workForm.work_design || null,
+    } as any).eq('id', selectedApt.id);
+    setSavingWork(false);
+    setWorkSaved(true);
+    setTimeout(() => setWorkSaved(false), 2000);
   };
 
   const redeemLoyalty = async (apt: Appointment, stampsRequired: number) => {
@@ -1013,7 +1040,7 @@ const SmartAppointments = () => {
                         </div>
                         <div className="flex gap-1.5">
                           <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-white text-xs px-2"
-                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); setSelectedApt(apt); loadClientHistory(apt); loadLoyaltyCard(apt); }}>
+                            onClick={() => { updateStatus(apt.id, 'confirmed'); setSelectedDate(toDateStr(dt)); setSelectedApt(apt); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}>
                             <CheckCircle className="w-3 h-3 mr-1" /> Confirmar
                           </Button>
                           <Button size="sm" variant="outline" className="h-7 text-red-600 border-red-200 hover:bg-red-50 text-xs px-2"
@@ -1667,7 +1694,7 @@ const SmartAppointments = () => {
                                 left:   `calc(${colL} + 2px)`,
                                 width:  `calc(${colW} - 4px)`,
                               }}
-                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); }}
+                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
                             >
                               <p className="font-semibold text-xs leading-tight truncate">
                                 {isPending && '⏳ '}
@@ -2106,6 +2133,71 @@ const SmartAppointments = () => {
                                 <p className="text-xs text-gray-600">✅ Penalización ya cobrada</p>
                               </div>
                             )}
+
+                            {/* ── Registro del trabajo ── */}
+                            <div className="border-t border-muted/40 pt-3">
+                              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                                💅 Registro del trabajo
+                              </p>
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Producto</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {['Gel', 'Semipermanente', 'Acrílico', 'Polygel', 'Natural'].map(t => (
+                                      <button
+                                        key={t}
+                                        onClick={() => setWorkForm(f => ({ ...f, work_type: f.work_type === t ? '' : t }))}
+                                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                                          workForm.work_type === t
+                                            ? 'bg-primary text-white border-primary'
+                                            : 'bg-muted border-transparent hover:border-primary/40'
+                                        }`}
+                                      >
+                                        {t}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Base</p>
+                                  <input
+                                    value={workForm.work_base}
+                                    onChange={e => setWorkForm(f => ({ ...f, work_base: e.target.value }))}
+                                    placeholder="Ej: Base rubber nude, Base francesa..."
+                                    className="w-full text-xs border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Color</p>
+                                  <input
+                                    value={workForm.work_color}
+                                    onChange={e => setWorkForm(f => ({ ...f, work_color: e.target.value }))}
+                                    placeholder="Ej: Rosa palo 247, Rojo cereza CND..."
+                                    className="w-full text-xs border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground mb-0.5">Diseño / Decoración</p>
+                                  <input
+                                    value={workForm.work_design}
+                                    onChange={e => setWorkForm(f => ({ ...f, work_design: e.target.value }))}
+                                    placeholder="Ej: Francesas, Nail art floral, Glitter plateado..."
+                                    className="w-full text-xs border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                  />
+                                </div>
+                                <button
+                                  onClick={saveWork}
+                                  disabled={savingWork}
+                                  className={`w-full text-xs py-1.5 rounded-lg font-medium transition-colors ${
+                                    workSaved
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                  }`}
+                                >
+                                  {workSaved ? '✅ Guardado' : savingWork ? 'Guardando...' : 'Guardar registro'}
+                                </button>
+                              </div>
+                            </div>
 
                             {/* ── Historial de la clienta ── */}
                             <div className="border-t border-muted/40 pt-3">
