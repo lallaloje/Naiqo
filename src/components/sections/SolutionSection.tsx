@@ -64,9 +64,9 @@ export const SolutionSection = () => {
         </div>
 
         {/* Video section */}
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-sm mx-auto">
           {isVideoPlaying ? (
-            <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black">
+            <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black">
               <button 
                 onClick={() => setIsVideoPlaying(false)}
                 className="absolute top-4 right-4 z-10 p-2 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
@@ -75,15 +75,15 @@ export const SolutionSection = () => {
               </button>
               <iframe
                 className="w-full h-full"
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
+                src="https://www.youtube.com/embed/-CktxIJSM1g?autoplay=1&rel=0"
                 title="Demo NAIQO"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
           ) : (
-            <div 
-              className="relative aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10 shadow-2xl cursor-pointer group"
+            <div
+              className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10 shadow-2xl cursor-pointer group"
               onClick={() => setIsVideoPlaying(true)}
             >
               {/* Preview image placeholder */}
