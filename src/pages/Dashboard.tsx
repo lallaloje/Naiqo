@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Calendar, TrendingUp, ArrowRight, Clock,
   Users, Euro, CheckCircle2, XCircle, Scissors,
-  BarChart3, Sparkles, Star, BookOpen
+  BarChart3, Sparkles, Star, BookOpen, Download
 } from 'lucide-react';
 import { format, startOfMonth, startOfDay, endOfDay, eachDayOfInterval, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -165,6 +165,47 @@ export default function Dashboard() {
     confirmed: 'Confirmada', completed: 'Completada', cancelled: 'Cancelada',
   };
 
+  // ── Exportar CSV ─────────────────────────────────────────────────
+  const exportCSV = async () => {
+    if (!user) return;
+    const monthStart = startOfMonth(new Date()).toISOString();
+    const { data } = await supabase
+      .from('appointments')
+      .select('client_name, client_phone, client_email, start_time, end_time, status, services(name, price)')
+      .eq('user_id', user.id)
+      .gte('start_time', monthStart)
+      .order('start_time');
+
+    if (!data || data.length === 0) {
+      toast('No hay citas este mes para exportar.');
+      return;
+    }
+
+    const rows = [
+      ['Fecha', 'Hora inicio', 'Hora fin', 'Cliente', 'Teléfono', 'Email', 'Servicio', 'Precio (€)', 'Estado'],
+      ...(data as any[]).map(a => [
+        format(new Date(a.start_time), 'dd/MM/yyyy'),
+        format(new Date(a.start_time), 'HH:mm'),
+        format(new Date(a.end_time), 'HH:mm'),
+        a.client_name || '',
+        a.client_phone || '',
+        a.client_email || '',
+        a.services?.name || '',
+        a.services?.price ?? '',
+        STATUS_LABEL[a.status] || a.status,
+      ])
+    ];
+
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `citas-${format(new Date(), 'yyyy-MM')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // ── Loading skeleton ──────────────────────────────────────────────
   if (loading) {
     return (
@@ -210,6 +251,12 @@ export default function Dashboard() {
       </Card>
 
       {/* Stats grid */}
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Este mes</p>
+        <TouchButton variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={exportCSV}>
+          <Download className="w-3.5 h-3.5" /> Exportar CSV
+        </TouchButton>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3">
