@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Camera, Sparkles, MessageCircle, Heart, ArrowRight, Play, X } from "lucide-react";
+import { Camera, Sparkles, MessageCircle, Heart, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const steps = [
@@ -30,8 +29,6 @@ const steps = [
 ];
 
 export const SolutionSection = () => {
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-
   return (
     <section id="demo-video" className="py-20 bg-white">
       <div className="container mx-auto px-4">
@@ -65,46 +62,16 @@ export const SolutionSection = () => {
 
         {/* Video section */}
         <div className="max-w-sm mx-auto">
-          {isVideoPlaying ? (
-            <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black">
-              <button 
-                onClick={() => setIsVideoPlaying(false)}
-                className="absolute top-4 right-4 z-10 p-2 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
-              >
-                <X className="w-5 h-5 text-white" />
-              </button>
-              <iframe
-                className="w-full h-full"
-                src="https://www.youtube.com/embed/-CktxIJSM1g?autoplay=1&rel=0"
-                title="Demo NAIQO"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <div
-              className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10 shadow-2xl cursor-pointer group"
-              onClick={() => setIsVideoPlaying(true)}
+          <div className="relative aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl bg-black">
+            <video
+              className="w-full h-full object-cover"
+              controls
+              playsInline
+              preload="metadata"
             >
-              {/* Preview image placeholder */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20" />
-              
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/90 shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Play className="w-8 h-8 text-primary ml-1" />
-                  </div>
-                  <p className="text-muted-foreground font-medium">Ver demo (45 seg)</p>
-                </div>
-              </div>
-              
-              {/* Decorative elements */}
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-white/90 rounded-full px-3 py-1.5 shadow">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs font-medium">Demo en vivo</span>
-              </div>
-            </div>
-          )}
+              <source src="https://tpwdbapkfmewxtatoytr.supabase.co/storage/v1/object/public/assets/demo-naiqo.mp4" type="video/mp4" />
+            </video>
+          </div>
         </div>
 
         {/* CTA below video */}
