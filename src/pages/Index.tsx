@@ -9,7 +9,6 @@ import { PricingSection } from "@/components/PricingSection";
 import { FAQSection } from "@/components/FAQSection";
 import { CTASection } from "@/components/CTASection";
 import { Footer } from "@/components/Footer";
-import ChatSupport from "@/components/ChatSupport";
 
 const Index = () => {
   return (
@@ -27,7 +26,6 @@ const Index = () => {
         <CTASection />
       </main>
       <Footer />
-      <ChatSupport />
     </div>
   );
 };
