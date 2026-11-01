@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays } from "lucide-react";
+import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays, Bell } from "lucide-react";
 
 type DaySchedules = Record<string, { start: number; end: number }>;
 
@@ -104,6 +104,10 @@ const PublicBooking = () => {
   const [form, setForm] = useState({
     client_name: '', client_email: '', client_phone: '', notes: ''
   });
+  const [showWaitlistForm, setShowWaitlistForm] = useState(false);
+  const [waitlistForm, setWaitlistForm] = useState({ name: '', phone: '', email: '' });
+  const [waitlistSent, setWaitlistSent] = useState(false);
+  const [waitlistSaving, setWaitlistSaving] = useState(false);
   const [clientSuggestions, setClientSuggestions] = useState<Array<{name:string;phone:string;email:string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const phoneSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -593,9 +597,88 @@ const PublicBooking = () => {
               <div>
                 <p className="font-medium mb-3 text-sm">Horarios disponibles</p>
                 {slots.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4 bg-muted rounded-lg">
-                    No hay horarios disponibles para este día. Prueba con otro día.
-                  </p>
+                  <div className="bg-muted/50 rounded-xl p-4 text-center space-y-3">
+                    <p className="text-muted-foreground text-sm">
+                      No hay horarios disponibles para este día. Prueba con otro día.
+                    </p>
+                    {waitlistSent ? (
+                      <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        ¡Apuntada! Te avisaremos cuando haya un hueco.
+                      </div>
+                    ) : !showWaitlistForm ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setShowWaitlistForm(true)}
+                      >
+                        <Bell className="w-3.5 h-3.5" />
+                        Apuntarme a la lista de espera
+                      </Button>
+                    ) : (
+                      <div className="text-left space-y-2 mt-2">
+                        <p className="text-xs font-medium text-center text-muted-foreground mb-1">Déjanos tus datos y te avisamos</p>
+                        <Input
+                          placeholder="Tu nombre *"
+                          value={waitlistForm.name}
+                          onChange={e => setWaitlistForm(f => ({ ...f, name: e.target.value }))}
+                          className="h-9 text-sm"
+                        />
+                        <Input
+                          placeholder="Teléfono"
+                          type="tel"
+                          value={waitlistForm.phone}
+                          onChange={e => setWaitlistForm(f => ({ ...f, phone: e.target.value }))}
+                          className="h-9 text-sm"
+                        />
+                        <Input
+                          placeholder="Email"
+                          type="email"
+                          value={waitlistForm.email}
+                          onChange={e => setWaitlistForm(f => ({ ...f, email: e.target.value }))}
+                          className="h-9 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="flex-1 h-8 text-xs gap-1"
+                            disabled={!waitlistForm.name.trim() || waitlistSaving}
+                            onClick={async () => {
+                              if (!salon) return;
+                              setWaitlistSaving(true);
+                              await (supabase as any).from('waitlist').insert({
+                                user_id: salon.user_id,
+                                client_name: waitlistForm.name.trim(),
+                                client_phone: waitlistForm.phone.trim() || null,
+                                client_email: waitlistForm.email.trim() || null,
+                                service_id: selectedService?.id || null,
+                                preferred_date: selectedDate ? selectedDate.toISOString().split('T')[0] : null,
+                                status: 'waiting',
+                              });
+                              setWaitlistSaving(false);
+                              setWaitlistSent(true);
+                              setShowWaitlistForm(false);
+                            }}
+                          >
+                            <Bell className="w-3 h-3" />
+                            {waitlistSaving ? 'Guardando...' : 'Avisar cuando haya hueco'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => setShowWaitlistForm(false)}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
                     {slots.map(slot => (
