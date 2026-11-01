@@ -597,6 +597,10 @@ const PublicBooking = () => {
                 onSelect={date => { if (date) { setSelectedDate(date); setSelectedSlot(''); } }}
                 disabled={(date: Date) => {
                   if (date < new Date(new Date().setHours(0,0,0,0))) return true;
+                  if (salon?.day_schedules) {
+                    const dow = String(date.getDay());
+                    if (!(salon.day_schedules as any)[dow]) return true;
+                  }
                   const pad = (n: number) => String(n).padStart(2, '0');
                   const key = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
                   return disabledDates.has(key);

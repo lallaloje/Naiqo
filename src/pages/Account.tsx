@@ -280,8 +280,6 @@ const Account = () => {
         phone: formData.phone || null,
         address: formData.address || null,
         city: formData.city || null,
-        work_start_hour: formData.work_start_hour,
-        work_end_hour: formData.work_end_hour,
         day_schedules: Object.fromEntries(
           Object.entries(weekSchedule).map(([dow, s]) =>
             s.open

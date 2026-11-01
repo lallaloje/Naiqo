@@ -180,9 +180,12 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   }, [client]);
 
   const loadPhotos = async (c: Client) => {
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return;
     const { data } = await (supabase as any)
       .from('client_photos')
       .select('id, storage_path, caption')
+      .eq('user_id', userId)
       .eq('client_name', c.name)
       .order('created_at', { ascending: false });
     if (!data) return;
@@ -238,9 +241,17 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
     if (!confirm(`¿Eliminar a "${client.name}" de tu lista de clientes? Sus citas históricas se mantendrán.`)) return;
     setSaving(true);
     try {
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      // Borrar fotos del storage antes de eliminar la clienta
+      if (photos.length > 0) {
+        await supabase.storage.from('client-photos').remove(photos.map(p => p.storage_path));
+        await (supabase as any).from('client_photos').delete().eq('user_id', userId).eq('client_name', client.name);
+      }
       if (client.importedId) {
         const { error } = await (supabase as any).from('salon_clients').delete().eq('id', client.importedId);
         if (error) throw error;
+      } else {
+        await (supabase as any).from('salon_clients').delete().eq('user_id', userId).eq('name', client.name);
       }
       toast({ title: '🗑️ Cliente eliminado' });
       onClose();
@@ -263,6 +274,14 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
           email: editEmail.trim() || null,
         }).eq('id', client.importedId);
         if (error) throw error;
+      } else {
+        // Clienta sin importedId: upsert por user_id+name
+        await (supabase as any).from('salon_clients').upsert({
+          user_id: userId,
+          name: editName.trim() || client.name,
+          phone: editPhone.trim() || null,
+          email: editEmail.trim() || null,
+        }, { onConflict: 'user_id,name' });
       }
       if (client.appointments.length > 0) {
         const { error } = await supabase.from('appointments').update({
