@@ -53,6 +53,14 @@ serve(async (req) => {
             <p style="margin:0"><strong>Salón:</strong> ${data.salonName}</p>
           </div>
           <p style="font-size:14px;color:#666">Si necesitas cancelar, hazlo con al menos 24h de antelación.</p>
+          <div style="background:#fdf4ff;border-radius:12px;padding:16px;margin:20px 0;text-align:center">
+            <p style="margin:0 0 10px;font-size:14px;color:#7c3aed;font-weight:600">¿Quieres gestionar tus citas desde el móvil?</p>
+            <p style="margin:0 0 14px;font-size:13px;color:#555">Accede a tu área de clienta para ver tus citas, tus sellos de fidelidad y mucho más.</p>
+            <a href="https://www.naiqo.es/cliente" style="display:inline-block;background:#d946ef;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+              Acceder a mi área 💅
+            </a>
+          </div>
+          <p style="font-size:12px;color:#999;text-align:center;margin-top:24px">NAIQO · El asistente IA para salones de uñas</p>
         </div>
       `;
     } else if (type === 'reminder') {
@@ -68,7 +76,10 @@ serve(async (req) => {
             <p style="margin:0"><strong>Salón:</strong> ${data.salonName}</p>
           </div>
           <p style="font-size:14px;color:#666">Si necesitas cancelar, avisa con antelación. ¡Hasta pronto! 💅</p>
-          <p style="font-size:13px;color:#999">NAIQO · El asistente IA para salones de uñas</p>
+          <p style="font-size:13px;text-align:center;margin-top:16px">
+            <a href="https://www.naiqo.es/cliente" style="color:#d946ef;text-decoration:none;font-weight:600">Ver mis citas en naiqo.es/cliente</a>
+          </p>
+          <p style="font-size:12px;color:#999;text-align:center;margin-top:8px">NAIQO · El asistente IA para salones de uñas</p>
         </div>
       `;
     } else if (type === 'waitlist_notify') {
