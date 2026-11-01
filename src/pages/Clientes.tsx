@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
   Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus, Star, StickyNote,
+  ImagePlus, Trash, Images,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -134,6 +135,9 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const [editingNotes, setEditingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [stamps, setStamps] = useState<number | null>(null);
+  const [photos, setPhotos] = useState<{ id: string; storage_path: string; url: string; caption: string | null }[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const prevClientRef = useRef<Client | null>(null);
   useEffect(() => {
@@ -145,6 +149,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       setEditPhone(client.phone || '');
       setEditEmail(client.email || '');
       setStamps(null);
+      setPhotos([]);
 
       // Load notes from salon_clients
       if (client.importedId) {
@@ -158,8 +163,60 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       loyaltyQuery.maybeSingle().then(({ data }: any) => {
         if (data) setStamps(data.stamps ?? 0);
       });
+
+      // Load gallery photos
+      loadPhotos(client);
     }
   }, [client]);
+
+  const loadPhotos = async (c: Client) => {
+    const { data } = await (supabase as any)
+      .from('client_photos')
+      .select('id, storage_path, caption')
+      .eq('client_name', c.name)
+      .order('created_at', { ascending: false });
+    if (!data) return;
+    const withUrls = await Promise.all(
+      (data as any[]).map(async (p) => {
+        const { data: urlData } = await supabase.storage
+          .from('client-photos')
+          .createSignedUrl(p.storage_path, 3600);
+        return { ...p, url: urlData?.signedUrl || '' };
+      })
+    );
+    setPhotos(withUrls);
+  };
+
+  const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!client || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    if (file.size > 5 * 1024 * 1024) { toast({ title: 'Archivo demasiado grande (máx 5 MB)' }); return; }
+    setUploadingPhoto(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${userId}/${client.name.replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('client-photos').upload(path, file);
+      if (upErr) throw upErr;
+      await (supabase as any).from('client_photos').insert({
+        user_id: userId, client_name: client.name, client_phone: client.phone || null, storage_path: path,
+      });
+      await loadPhotos(client);
+      toast({ title: '📸 Foto añadida a la galería' });
+    } catch (err: any) {
+      toast({ title: 'Error al subir la foto', description: err.message });
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string, storagePath: string) => {
+    if (!confirm('¿Eliminar esta foto?')) return;
+    await supabase.storage.from('client-photos').remove([storagePath]);
+    await (supabase as any).from('client_photos').delete().eq('id', photoId);
+    setPhotos(prev => prev.filter(p => p.id !== photoId));
+  };
 
   if (!client) return null;
 
@@ -398,6 +455,47 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
             <p className="text-sm text-muted-foreground bg-amber-50 rounded-xl px-4 py-3 leading-relaxed">{notes}</p>
           ) : (
             <p className="text-xs text-muted-foreground italic">Sin notas. Pulsa "Añadir nota" para guardar información sobre esta clienta.</p>
+          )}
+        </div>
+
+        {/* Galería de trabajos */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <Images className="w-4 h-4 text-pink-500" /> Galería de trabajos
+            </p>
+            <button
+              className="text-xs text-primary underline flex items-center gap-1"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={uploadingPhoto}
+            >
+              <ImagePlus className="w-3.5 h-3.5" />
+              {uploadingPhoto ? 'Subiendo...' : 'Añadir foto'}
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUploadPhoto}
+            />
+          </div>
+          {photos.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              {photos.map(p => (
+                <div key={p.id} className="relative group aspect-square rounded-xl overflow-hidden bg-muted">
+                  <img src={p.url} alt="trabajo" className="w-full h-full object-cover" />
+                  <button
+                    className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeletePhoto(p.id, p.storage_path)}
+                  >
+                    <Trash className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Sin fotos aún. Pulsa "Añadir foto" para guardar trabajos.</p>
           )}
         </div>
 
