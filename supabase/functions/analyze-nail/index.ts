@@ -70,9 +70,9 @@ serve(async (req) => {
     const mimeType = imageData.type || 'image/jpeg';
 
     // Analizar con Claude
-    const prompt = `Eres una especialista en estética y salud ungueal con años de experiencia en centros de uñas profesionales.
+    const prompt = `Eres una especialista en estética, salud ungueal y colorimetría personal con años de experiencia en centros de uñas profesionales.
 
-Analiza esta imagen de uñas y proporciona un diagnóstico detallado desde la perspectiva de una profesional de uñas.
+Analiza esta imagen de uñas y proporciona un diagnóstico completo que incluye salud ungueal Y análisis de colorimetría personalizada.
 
 Responde ÚNICAMENTE en formato JSON con esta estructura exacta:
 {
@@ -82,10 +82,20 @@ Responde ÚNICAMENTE en formato JSON con esta estructura exacta:
   "detailed_analysis": "análisis detallado de lo que observas: color, textura, forma, hidratación, cutículas, etc.",
   "recommendations": ["lista de recomendaciones específicas para la profesional o la clienta"],
   "requires_medical_attention": true o false,
-  "summary": "resumen breve en 1-2 frases del estado general de las uñas"
+  "summary": "resumen breve en 1-2 frases del estado general de las uñas",
+  "colorimetria": {
+    "tono_piel": "descripción del tono de piel detectado (ej: piel clara con subtono frío, piel media con subtono cálido, piel oscura con subtono neutro, etc.)",
+    "subtono": "frío | cálido | neutro",
+    "forma_uña": "descripción de la forma natural de la uña (ej: ovalada, cuadrada, redonda, almendra, puntiaguda, en pala)",
+    "colores_recomendados": ["lista de 5-7 colores de esmalte específicos que mejor favorecen a este tono de piel y forma de uña, con nombre del color y por qué favorece"],
+    "colores_evitar": ["lista de 2-3 colores que no favorecen y por qué"],
+    "acabados_recomendados": ["brillante | mate | satinado | glitter — cuáles favorecen más y por qué"],
+    "estilos_uña_recomendados": ["2-3 estilos de uña (forma + longitud) que mejor favorecen según la mano detectada"],
+    "consejo_profesional": "consejo personalizado de colorimetría para esta clienta en 1-2 frases"
+  }
 }
 
-Sé específica y práctica. Si las uñas están sanas, indícalo claramente con un severity_score bajo.`;
+Sé específica y práctica. Si las uñas están sanas, indícalo claramente con un severity_score bajo. Para la colorimetría, basa tus recomendaciones en lo que puedas observar de la piel de la mano en la imagen.`;
 
     const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -96,7 +106,7 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           {
             role: 'user',

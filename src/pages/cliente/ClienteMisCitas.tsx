@@ -17,7 +17,7 @@ interface Cita {
   start_time: string;
   end_time: string;
   status: string;
-  salons: { salon_name: string; id: string; user_id: string; work_start_hour: number; work_end_hour: number } | null;
+  salons: { salon_name: string; id: string; user_id: string; address: string | null; city: string | null; bio: string | null; phone: string | null } | null;
   services: { name: string; price: number | null; duration_minutes: number } | null;
 }
 
@@ -97,7 +97,7 @@ const ClienteMisCitas = () => {
         id: r.id, client_name: r.client_name, client_email: r.client_email,
         client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
         status: r.status, salon_id: r.salon_id, service_id: r.service_id,
-        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
+        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, address: r.salon_address ?? null, city: r.salon_city ?? null, bio: r.salon_bio ?? null, phone: r.salon_phone ?? null } : null,
         services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
       }));
       setCitas(mapped);
@@ -161,7 +161,7 @@ const ClienteMisCitas = () => {
         id: r.id, client_name: r.client_name, client_email: r.client_email,
         client_phone: r.client_phone, start_time: r.start_time, end_time: r.end_time,
         status: r.status, salon_id: r.salon_id, service_id: r.service_id,
-        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, work_start_hour: r.work_start_hour ?? 9, work_end_hour: r.work_end_hour ?? 19 } : null,
+        salons: r.salon_id ? { salon_name: r.salon_name, id: r.salon_id, user_id: r.salon_user_id, address: r.salon_address ?? null, city: r.salon_city ?? null, bio: r.salon_bio ?? null, phone: r.salon_phone ?? null } : null,
         services: r.service_id ? { name: r.service_name, price: r.service_price, duration_minutes: r.service_duration_minutes } : null,
       }));
       setCitas(mapped);
@@ -588,6 +588,19 @@ const CitaCard = ({
             <p className="font-semibold text-gray-900">
               {cita.salons?.salon_name || 'Salón'}
             </p>
+            {cita.salons?.bio && (
+              <p className="text-xs text-gray-500 italic leading-snug">{cita.salons.bio}</p>
+            )}
+            {(cita.salons?.address || cita.salons?.city) && (
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                📍 {[cita.salons.address, cita.salons.city].filter(Boolean).join(', ')}
+              </p>
+            )}
+            {cita.salons?.phone && (
+              <a href={`tel:${cita.salons.phone}`} className="text-xs text-purple-600 flex items-center gap-1">
+                📞 {cita.salons.phone}
+              </a>
+            )}
             {cita.services && (
               <p className="text-sm text-gray-600 flex items-center gap-1">
                 <Scissors className="w-3 h-3" />

@@ -610,7 +610,14 @@ const PublicBooking = () => {
                 {slots.length === 0 ? (
                   <div className="bg-muted/50 rounded-xl p-4 text-center space-y-3">
                     <p className="text-muted-foreground text-sm">
-                      No hay horarios disponibles para este día. Prueba con otro día.
+                      {(() => {
+                        if (salon?.day_schedules) {
+                          const dow = String(selectedDate.getDay());
+                          const sched = (salon.day_schedules as any)[dow];
+                          if (!sched) return 'Este día el salón está cerrado. Elige otro día.';
+                        }
+                        return 'No hay horarios disponibles para este día. Prueba con otro día.';
+                      })()}
                     </p>
                     {waitlistSent ? (
                       <div className="flex items-center justify-center gap-2 text-green-600 text-sm font-medium">

@@ -61,7 +61,13 @@ serve(async (req) => {
               <td style="color:#111827;font-size:14px;font-weight:600;">${salonAddress}</td>
             </tr></table></td></tr>` : ""}
           </table>
-          <p style="color:#6b7280;font-size:13px;text-align:center;margin:0;">¿Necesitas cancelar? Visita <a href="https://app.naiqo.es/cliente/mis-citas" style="color:#8b5cf6;">app.naiqo.es</a> o contacta con el salón.</p>
+          <div style="background:#fdf4ff;border-radius:12px;padding:16px;margin:20px 0;text-align:center;">
+            <p style="margin:0 0 10px;font-size:14px;color:#7c3aed;font-weight:600;">¿Quieres gestionar tus citas desde el móvil?</p>
+            <p style="margin:0 0 14px;font-size:13px;color:#555;">Accede a tu área de clienta para ver tus citas y mucho más.</p>
+            <a href="https://www.naiqo.es/cliente" style="display:inline-block;background:#d946ef;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+              Acceder a mi área 💅
+            </a>
+          </div>
         </td></tr>
         <tr><td style="background:#f3f4f6;padding:16px 32px;text-align:center;">
           <p style="color:#9ca3af;font-size:12px;margin:0;">Gestionado por <strong style="color:#8b5cf6;">NAIQO</strong> · naiqo.es</p>
