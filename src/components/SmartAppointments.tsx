@@ -1355,6 +1355,14 @@ const SmartAppointments = () => {
           )}
 
           {/* ── DAY VIEW ── */}
+          {view === 'day' && salonDaySchedules && !salonDaySchedules[String(new Date(selectedDate + 'T12:00:00').getDay())] && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="py-3 px-4 text-center text-sm text-amber-700 font-medium">
+                Este día el salón está cerrado
+              </CardContent>
+            </Card>
+          )}
+
           {view === 'day' && (
             <div className="flex gap-3">
 

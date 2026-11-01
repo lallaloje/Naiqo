@@ -105,6 +105,7 @@ const PublicBooking = () => {
   const [step, setStep]               = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading]     = useState(false);
   const [done, setDone]               = useState(false);
+  const [directlyConfirmed, setDirectlyConfirmed] = useState(false);
   const [notFound, setNotFound]       = useState(false);
   const [disabledDates, setDisabledDates] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -348,6 +349,7 @@ const PublicBooking = () => {
           });
           if (bookingError || !bookingData?.success) throw new Error(bookingData?.error || 'Error al crear la reserva');
           await sendConfirmations(start, localDate, localTime);
+          setDirectlyConfirmed(true);
           setDone(true);
           return;
         } else {
@@ -447,9 +449,9 @@ const PublicBooking = () => {
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold mb-1">¡Cita solicitada! 🎉</h2>
+              <h2 className="text-xl font-bold mb-1">{directlyConfirmed ? '¡Cita confirmada! 🎉' : '¡Cita solicitada! 🎉'}</h2>
               <p className="text-muted-foreground text-sm">
-                {salon.salon_name} confirmará tu cita en breve.
+                {directlyConfirmed ? `Tu cita en ${salon.salon_name} está confirmada.` : `${salon.salon_name} confirmará tu cita en breve.`}
               </p>
             </div>
             <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">

@@ -91,7 +91,7 @@ function aggregateClients(apts: RawApt[]): Client[] {
   const map = new Map<string, Client>();
 
   for (const apt of apts) {
-    const key = apt.client_phone?.trim() || apt.client_name.trim().toLowerCase();
+    const key = apt.client_phone?.trim() || apt.client_email?.trim() || apt.client_name.trim().toLowerCase();
     if (!map.has(key)) {
       map.set(key, {
         key,

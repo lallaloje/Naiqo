@@ -131,8 +131,6 @@ const Account = () => {
     address: '',
     city: '',
     phone: '',
-    work_start_hour: 9,
-    work_end_hour: 20,
   });
 
   const [weekSchedule, setWeekSchedule] = useState<WeekSchedule>(defaultWeekSchedule);
@@ -190,8 +188,6 @@ const Account = () => {
         phone: data.phone || '',
         address: (data as any).address || '',
         city: (data as any).city || '',
-        work_start_hour: data.work_start_hour ?? 9,
-        work_end_hour: data.work_end_hour ?? 20,
       });
       // Cargar horario semanal si existe
       if ((data as any).day_schedules) {

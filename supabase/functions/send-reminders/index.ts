@@ -68,7 +68,7 @@ serve(async (req) => {
       // Email (siempre que haya email)
       if (apt.client_email) {
         const hoursText = label === "24h" ? "mañana" : "en 2 horas";
-        await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+        const emailResp = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseService}` },
           body: JSON.stringify({
@@ -77,6 +77,8 @@ serve(async (req) => {
             data: { clientName: apt.client_name, serviceName, salonName, salonAddress: salonAddress || undefined, date, time, hoursText },
           }),
         });
+        const emailBody = await emailResp.json();
+        if (emailBody.error) throw new Error(`send-email: ${emailBody.error}`);
       }
     };
 

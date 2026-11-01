@@ -69,7 +69,8 @@ const ClienteHome = () => {
     const loadSalones = async () => {
       const { data, error } = await supabase
         .from('salons')
-        .select('id, salon_name, phone')
+        .select('id, salon_name, phone, address, city, subscription_status')
+        .in('subscription_status', ['active', 'trialing'])
         .order('salon_name');
       if (error) console.error('Error loading salons:', error);
       setSalones(data || []);
@@ -208,6 +209,11 @@ const ClienteHome = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 truncate">{salon.salon_name || 'Salón sin nombre'}</p>
+                        {(salon.address || salon.city) && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                            📍 <span className="truncate">{[salon.address, salon.city].filter(Boolean).join(', ')}</span>
+                          </p>
+                        )}
                         {salon.phone && (
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                             <span className="truncate">{salon.phone}</span>
