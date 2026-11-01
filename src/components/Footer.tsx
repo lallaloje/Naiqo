@@ -120,8 +120,8 @@ export const Footer = () => {
           </p>
           <div className="flex items-center gap-6 text-sm text-white/50">
             <span>📍 Albacete, España</span>
-            <a href="mailto:hola@naiqo.es" className="hover:text-white transition-colors">
-              hola@naiqo.es
+            <a href="mailto:naiqoia@gmail.com" className="hover:text-white transition-colors">
+              naiqoia@gmail.com
             </a>
           </div>
         </div>
