@@ -115,6 +115,8 @@ const Account = () => {
     salon_name: '',
     contact_name: '',
     phone: '',
+    work_start_hour: 9,
+    work_end_hour: 20,
   });
 
   const [loyaltyData, setLoyaltyData] = useState({
@@ -167,6 +169,8 @@ const Account = () => {
         salon_name: data.salon_name,
         contact_name: data.contact_name,
         phone: data.phone || '',
+        work_start_hour: data.work_start_hour ?? 9,
+        work_end_hour: data.work_end_hour ?? 20,
       });
       setSlugInput(data.booking_slug || '');
       setLoyaltyData({
@@ -233,6 +237,8 @@ const Account = () => {
         salon_name: formData.salon_name,
         contact_name: formData.contact_name,
         phone: formData.phone || null,
+        work_start_hour: formData.work_start_hour,
+        work_end_hour: formData.work_end_hour,
       })
       .eq('user_id', user.id);
 
@@ -553,6 +559,38 @@ const Account = () => {
               onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               className="h-12"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">Horario de apertura</Label>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">Abre</p>
+                <select
+                  value={formData.work_start_hour}
+                  onChange={e => setFormData(prev => ({ ...prev, work_start_hour: Number(e.target.value) }))}
+                  className="w-full h-12 border rounded-md px-3 bg-background text-sm"
+                >
+                  {Array.from({ length: 17 }, (_, i) => i + 6).map(h => (
+                    <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-muted-foreground mt-4">—</span>
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">Cierra</p>
+                <select
+                  value={formData.work_end_hour}
+                  onChange={e => setFormData(prev => ({ ...prev, work_end_hour: Number(e.target.value) }))}
+                  className="w-full h-12 border rounded-md px-3 bg-background text-sm"
+                >
+                  {Array.from({ length: 17 }, (_, i) => i + 6).map(h => (
+                    <option key={h} value={h}>{String(h).padStart(2,'0')}:00</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Estos horarios determinan los huecos disponibles en la reserva online.</p>
           </div>
 
           <TouchButton onClick={handleSave} disabled={saving} fullWidth>
