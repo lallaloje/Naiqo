@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
-  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus,
+  Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus, Star, StickyNote,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -130,15 +130,34 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [stamps, setStamps] = useState<number | null>(null);
 
   const prevClientRef = useRef<Client | null>(null);
   useEffect(() => {
     if (client && client !== prevClientRef.current) {
       prevClientRef.current = client;
       setEditing(false);
+      setEditingNotes(false);
       setEditName(client.name || '');
       setEditPhone(client.phone || '');
       setEditEmail(client.email || '');
+      setStamps(null);
+
+      // Load notes from salon_clients
+      if (client.importedId) {
+        (supabase as any).from('salon_clients').select('notes').eq('id', client.importedId).single()
+          .then(({ data }: any) => setNotes(data?.notes || ''));
+      }
+
+      // Load loyalty stamps
+      const loyaltyQuery = (supabase as any).from('loyalty_cards').select('stamps').eq('client_name', client.name);
+      if (client.email) loyaltyQuery.or(`client_email.eq.${client.email},client_phone.eq.${client.phone}`);
+      loyaltyQuery.maybeSingle().then(({ data }: any) => {
+        if (data) setStamps(data.stamps ?? 0);
+      });
     }
   }, [client]);
 
@@ -193,6 +212,21 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!client?.importedId) return;
+    setSavingNotes(true);
+    try {
+      const { error } = await (supabase as any).from('salon_clients').update({ notes: notes.trim() || null }).eq('id', client.importedId);
+      if (error) throw error;
+      toast({ title: '📝 Notas guardadas' });
+      setEditingNotes(false);
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setSavingNotes(false);
     }
   };
 
@@ -313,6 +347,59 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
             </span>
           </p>
         )}
+
+        {/* Sellos de fidelización */}
+        {stamps !== null && (
+          <div className="flex items-center gap-2 mb-4 bg-purple-50 rounded-xl px-4 py-3">
+            <Star className="w-4 h-4 text-purple-500 shrink-0" />
+            <span className="text-sm font-medium text-purple-700">Sellos de fidelización:</span>
+            <div className="flex gap-1 flex-wrap">
+              {Array.from({ length: Math.max(stamps, 1) }).map((_, i) => (
+                <span key={i} className={`text-base ${i < stamps ? '💅' : '⬜'}`}>
+                  {i < stamps ? '💅' : ''}
+                </span>
+              ))}
+            </div>
+            <span className="ml-auto text-sm font-bold text-purple-700">{stamps} sello{stamps !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+
+        {/* Notas internas */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <StickyNote className="w-4 h-4 text-amber-500" /> Notas internas
+            </p>
+            {!editingNotes && (
+              <button className="text-xs text-primary underline" onClick={() => setEditingNotes(true)}>
+                {notes ? 'Editar' : 'Añadir nota'}
+              </button>
+            )}
+          </div>
+          {editingNotes ? (
+            <div className="space-y-2">
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Ej: Alérgica al gel de color azul. Prefiere uñas cortas. Viene siempre con su hija..."
+                className="w-full text-sm border rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 bg-amber-50"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleSaveNotes} disabled={savingNotes}>
+                  <Check className="w-3.5 h-3.5 mr-1" />{savingNotes ? 'Guardando...' : 'Guardar'}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingNotes(false)}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          ) : notes ? (
+            <p className="text-sm text-muted-foreground bg-amber-50 rounded-xl px-4 py-3 leading-relaxed">{notes}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Sin notas. Pulsa "Añadir nota" para guardar información sobre esta clienta.</p>
+          )}
+        </div>
 
         {/* Historial */}
         <p className="text-sm font-semibold mb-3 flex items-center gap-2">
