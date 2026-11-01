@@ -17,6 +17,8 @@ interface Salon {
   id: string;
   salon_name: string | null;
   phone: string | null;
+  address: string | null;
+  city: string | null;
   user_id: string;
   day_schedules: DaySchedules | null;
 }
@@ -261,6 +263,7 @@ const PublicBooking = () => {
           clientEmail:     form.client_email,
           salonName:       salon.salon_name || salonDisplayName,
           salonPhone:      salon.phone || null,
+          salonAddress:    [salon.address, salon.city].filter(Boolean).join(', ') || null,
           serviceName:     selectedService.name,
           startTime:       start.toISOString(),
           localDate,

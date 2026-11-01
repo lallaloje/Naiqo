@@ -114,6 +114,8 @@ const Account = () => {
   const [formData, setFormData] = useState({
     salon_name: '',
     contact_name: '',
+    address: '',
+    city: '',
     phone: '',
     work_start_hour: 9,
     work_end_hour: 20,
@@ -169,6 +171,8 @@ const Account = () => {
         salon_name: data.salon_name,
         contact_name: data.contact_name,
         phone: data.phone || '',
+        address: (data as any).address || '',
+        city: (data as any).city || '',
         work_start_hour: data.work_start_hour ?? 9,
         work_end_hour: data.work_end_hour ?? 20,
       });
@@ -237,6 +241,8 @@ const Account = () => {
         salon_name: formData.salon_name,
         contact_name: formData.contact_name,
         phone: formData.phone || null,
+        address: formData.address || null,
+        city: formData.city || null,
         work_start_hour: formData.work_start_hour,
         work_end_hour: formData.work_end_hour,
       })
@@ -557,6 +563,28 @@ const Account = () => {
               inputMode="tel"
               value={formData.phone}
               onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              className="h-12"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="address" className="text-sm">Dirección</Label>
+            <Input
+              id="address"
+              placeholder="Calle Mayor 12, local 3"
+              value={formData.address}
+              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              className="h-12"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="city" className="text-sm">Ciudad</Label>
+            <Input
+              id="city"
+              placeholder="Madrid"
+              value={formData.city}
+              onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
               className="h-12"
             />
           </div>

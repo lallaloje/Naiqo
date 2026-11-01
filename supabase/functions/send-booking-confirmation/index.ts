@@ -18,7 +18,7 @@ serve(async (req) => {
 
     if (!smtpUser || !smtpPassword) throw new Error("SMTP credentials not configured");
 
-    const { clientName, clientEmail, salonName, salonPhone, serviceName, startTime, durationMinutes, localDate, localTime } = await req.json();
+    const { clientName, clientEmail, salonName, salonPhone, salonAddress, serviceName, startTime, durationMinutes, localDate, localTime } = await req.json();
     if (!clientEmail || !clientName) throw new Error("clientEmail and clientName required");
 
     // Usar localDate/localTime si vienen del cliente (ya en hora española)
@@ -53,8 +53,12 @@ serve(async (req) => {
               <td style="color:#111827;font-size:14px;font-weight:600;">${timeStr}${durationMinutes ? ` (${durationMinutes} min)` : ""}</td>
             </tr></table></td></tr>
             ${salonPhone ? `<tr><td style="padding:8px 0;border-top:1px solid #e5e7eb;"><table width="100%"><tr>
-              <td style="color:#6b7280;font-size:14px;width:40%;">📞 Salón</td>
+              <td style="color:#6b7280;font-size:14px;width:40%;">📞 Teléfono</td>
               <td style="color:#111827;font-size:14px;font-weight:600;">${salonPhone}</td>
+            </tr></table></td></tr>` : ""}
+            ${salonAddress ? `<tr><td style="padding:8px 0;border-top:1px solid #e5e7eb;"><table width="100%"><tr>
+              <td style="color:#6b7280;font-size:14px;width:40%;">📍 Dirección</td>
+              <td style="color:#111827;font-size:14px;font-weight:600;">${salonAddress}</td>
             </tr></table></td></tr>` : ""}
           </table>
           <p style="color:#6b7280;font-size:13px;text-align:center;margin:0;">¿Necesitas cancelar? Visita <a href="https://app.naiqo.es/cliente/mis-citas" style="color:#8b5cf6;">app.naiqo.es</a> o contacta con el salón.</p>

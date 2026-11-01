@@ -50,7 +50,8 @@ serve(async (req) => {
             <p style="margin:0 0 8px"><strong>Servicio:</strong> ${data.serviceName}</p>
             <p style="margin:0 0 8px"><strong>Fecha:</strong> ${data.date}</p>
             <p style="margin:0 0 8px"><strong>Hora:</strong> ${data.time}</p>
-            <p style="margin:0"><strong>Salón:</strong> ${data.salonName}</p>
+            <p style="margin:0 0 ${data.salonAddress ? '8px' : '0'}"><strong>Salón:</strong> ${data.salonName}</p>
+            ${data.salonAddress ? `<p style="margin:0;color:#555">📍 ${data.salonAddress}</p>` : ''}
           </div>
           <p style="font-size:14px;color:#666">Si necesitas cancelar, hazlo con al menos 24h de antelación.</p>
           <div style="background:#fdf4ff;border-radius:12px;padding:16px;margin:20px 0;text-align:center">
@@ -73,7 +74,8 @@ serve(async (req) => {
             <p style="margin:0 0 8px"><strong>Servicio:</strong> ${data.serviceName}</p>
             <p style="margin:0 0 8px"><strong>Fecha:</strong> ${data.date}</p>
             <p style="margin:0 0 8px"><strong>Hora:</strong> ${data.time}</p>
-            <p style="margin:0"><strong>Salón:</strong> ${data.salonName}</p>
+            <p style="margin:0 0 ${data.salonAddress ? '8px' : '0'}"><strong>Salón:</strong> ${data.salonName}</p>
+            ${data.salonAddress ? `<p style="margin:0;color:#555">📍 ${data.salonAddress}</p>` : ''}
           </div>
           <p style="font-size:14px;color:#666">Si necesitas cancelar, avisa con antelación. ¡Hasta pronto! 💅</p>
           <p style="font-size:13px;text-align:center;margin-top:16px">
