@@ -21,6 +21,7 @@ const navItems = [
 ];
 
 const moreItems = [
+  { path: '/informes',                    label: 'Informes'     },
   { path: '/servicios',                  label: 'Servicios'    },
   { path: '/lista-espera',              label: 'Lista de espera' },
   { path: '/equipo',                    label: 'Equipo'       },

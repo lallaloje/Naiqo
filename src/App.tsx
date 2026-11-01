@@ -41,6 +41,7 @@ import Account from "./pages/Account";
 import EmployeesPage from "./pages/EmployeesPage";
 import AdminPage from "./pages/AdminPage";
 import Clientes from "./pages/Clientes";
+import Informes from "./pages/Informes";
 import ServiciosPage from "./pages/ServiciosPage";
 import FichajePage from "./pages/FichajePage";
 import WaitlistPage from "./pages/Waitlist";
@@ -119,6 +120,9 @@ const App = () => (
             } />
             <Route path="/clientes" element={
               <ProtectedRoute><Clientes /></ProtectedRoute>
+            } />
+            <Route path="/informes" element={
+              <ProtectedRoute><Informes /></ProtectedRoute>
             } />
             <Route path="/servicios" element={
               <ProtectedRoute><ServiciosPage /></ProtectedRoute>
