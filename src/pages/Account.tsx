@@ -126,6 +126,7 @@ const Account = () => {
 
   const [formData, setFormData] = useState({
     salon_name: '',
+    bio: '',
     contact_name: '',
     address: '',
     city: '',
@@ -184,6 +185,7 @@ const Account = () => {
       setSalonData(data);
       setFormData({
         salon_name: data.salon_name,
+        bio: (data as any).bio || '',
         contact_name: data.contact_name,
         phone: data.phone || '',
         address: (data as any).address || '',
@@ -273,6 +275,7 @@ const Account = () => {
       .from('salons')
       .update({
         salon_name: formData.salon_name,
+        bio: formData.bio || null,
         contact_name: formData.contact_name,
         phone: formData.phone || null,
         address: formData.address || null,
@@ -553,7 +556,21 @@ const Account = () => {
               className="h-12"
             />
           </div>
-          
+
+          <div className="space-y-1.5">
+            <Label htmlFor="bio" className="text-sm">Descripción del salón</Label>
+            <textarea
+              id="bio"
+              rows={3}
+              placeholder="Ej: Especialistas en uñas acrílicas y nail art en Madrid. Te esperamos con cita previa."
+              value={formData.bio}
+              onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+              className="w-full border rounded-md px-3 py-2 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              maxLength={200}
+            />
+            <p className="text-xs text-muted-foreground text-right">{formData.bio.length}/200</p>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-sm">Email actual</Label>
             <Input

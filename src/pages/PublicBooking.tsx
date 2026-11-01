@@ -20,6 +20,7 @@ interface Salon {
   phone: string | null;
   address: string | null;
   city: string | null;
+  bio: string | null;
   user_id: string;
   day_schedules: DaySchedules | null;
 }
@@ -497,8 +498,10 @@ const PublicBooking = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold">{salonDisplayName}</h1>
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+                {salon.bio && <p className="text-sm text-muted-foreground mt-0.5 leading-snug">{salon.bio}</p>}
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground mt-0.5">
                   {salon.phone && <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" />{salon.phone}</span>}
+                  {(salon.address || salon.city) && <span className="flex items-center gap-1">📍 {[salon.address, salon.city].filter(Boolean).join(', ')}</span>}
                 </div>
               </div>
               <Button
