@@ -327,9 +327,11 @@ const ClienteMisCitas = () => {
     if (error || !rescheduled) {
       toast({ title: 'Error al modificar', description: error?.message || 'No se pudo modificar la cita.', variant: 'destructive' });
     } else {
+      // Auto-confirm after reschedule so owner doesn't need to re-confirm
+      await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', reschedulingId);
       setCitas(prev => prev.map(c =>
         c.id === reschedulingId
-          ? { ...c, start_time: newStart.toISOString(), end_time: newEnd.toISOString(), status: 'scheduled' }
+          ? { ...c, start_time: newStart.toISOString(), end_time: newEnd.toISOString(), status: 'confirmed' }
           : c
       ));
       toast({ title: '✅ Cita modificada', description: `Nueva cita el ${newStart.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${reschedSlot}.` });

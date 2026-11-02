@@ -59,6 +59,19 @@ const BookingSuccess = () => {
   // ── Éxito ──
   const startDate = data?.start_time ? new Date(data.start_time) : null;
 
+  const gcalUrl = (() => {
+    if (!startDate || !data?.service_name) return null;
+    const end = new Date(startDate.getTime() + (data.duration_minutes || 60) * 60000);
+    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `${data.service_name}${data.salon_name ? ` — ${data.salon_name}` : ''}`,
+      dates: `${fmt(startDate)}/${fmt(end)}`,
+      details: data.salon_name ? `Cita en ${data.salon_name}` : 'Cita confirmada',
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  })();
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-pink-50 to-purple-50">
       <Card className="max-w-md w-full">
@@ -91,6 +104,22 @@ const BookingSuccess = () => {
               Recuerda que si cancelas con menos de 24 h o no acudes, se aplicará una penalización del 50% del servicio.
             </p>
           </div>
+
+          {gcalUrl && (
+            <a
+              href={gcalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full bg-white border border-gray-200 rounded-lg py-2.5 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
+                <rect x="3" y="4" width="18" height="18" rx="2" stroke="#4285F4" strokeWidth="1.8"/>
+                <path d="M16 2v4M8 2v4M3 10h18" stroke="#4285F4" strokeWidth="1.8" strokeLinecap="round"/>
+                <text x="12" y="19" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#4285F4">G</text>
+              </svg>
+              Añadir a Google Calendar
+            </a>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Recibirás un recordatorio antes de tu cita. Para cambios o cancelaciones, contacta con el salón.

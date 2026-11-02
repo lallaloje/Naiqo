@@ -681,7 +681,8 @@ export default function Clientes() {
         s.appointments.push(apt);
       }
 
-      // Show ONLY salon_clients — use appointment stats for enrichment
+      // Clients in salon_clients — enriched with appointment stats
+      const importedNames = new Set(imported.map(ic => ic.name.trim().toLowerCase()));
       const merged: Client[] = imported.map(ic => {
         const key = ic.name.trim().toLowerCase();
         const stats = aptStatsMap.get(key);
@@ -702,6 +703,25 @@ export default function Clientes() {
           importedId: ic.id,
         };
       });
+
+      // Also add appointment-only clients (not yet in salon_clients)
+      for (const [nameKey, stats] of aptStatsMap.entries()) {
+        if (importedNames.has(nameKey)) continue;
+        const firstApt = stats.appointments[stats.appointments.length - 1] || stats.appointments[0];
+        merged.push({
+          key: firstApt?.client_phone?.trim() || firstApt?.client_email?.trim() || nameKey,
+          name: firstApt?.client_name || nameKey,
+          phone: firstApt?.client_phone || null,
+          email: firstApt?.client_email || null,
+          totalApts: stats.totalApts,
+          completedApts: stats.completedApts,
+          cancelledApts: stats.cancelledApts,
+          totalSpent: stats.totalSpent,
+          lastVisit: stats.lastVisit,
+          firstVisit: stats.firstVisit,
+          appointments: stats.appointments,
+        });
+      }
 
       merged.sort((a, b) => a.name.localeCompare(b.name, 'es'));
       setClients(merged);

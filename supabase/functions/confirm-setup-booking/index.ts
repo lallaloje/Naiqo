@@ -51,12 +51,24 @@ serve(async (req) => {
       .single();
 
     if (existing) {
+      let dur: number | null = null;
+      let sName: string | null = null;
+      try {
+        const [svcR, salR] = await Promise.all([
+          supabase.from('services').select('duration_minutes').eq('id', meta.service_id).single(),
+          supabase.from('salons').select('salon_name').eq('id', meta.salon_id).single(),
+        ]);
+        dur = svcR.data?.duration_minutes ?? null;
+        sName = salR.data?.salon_name ?? null;
+      } catch (_) {}
       return new Response(JSON.stringify({
         success: true, alreadyCreated: true,
         appointment: { id: existing.id },
-        client_name:  meta.client_name,
-        service_name: meta.service_name,
-        start_time:   meta.start_time,
+        client_name:      meta.client_name,
+        service_name:     meta.service_name,
+        start_time:       meta.start_time,
+        duration_minutes: dur,
+        salon_name:       sName,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -172,12 +184,26 @@ serve(async (req) => {
       console.error('Push error (non-fatal):', pushErr);
     }
 
+    // Fetch duration and salon name for Google Calendar link
+    let durationMinutes: number | null = null;
+    let salonName: string | null = null;
+    try {
+      const [svcRes, salonRes] = await Promise.all([
+        supabase.from('services').select('duration_minutes').eq('id', meta.service_id).single(),
+        supabase.from('salons').select('salon_name').eq('id', meta.salon_id).single(),
+      ]);
+      durationMinutes = svcRes.data?.duration_minutes ?? null;
+      salonName = salonRes.data?.salon_name ?? null;
+    } catch (_) { /* non-fatal */ }
+
     return new Response(JSON.stringify({
-      success:      true,
-      appointment:  apt,
-      client_name:  meta.client_name,
-      service_name: meta.service_name,
-      start_time:   meta.start_time,
+      success:           true,
+      appointment:       apt,
+      client_name:       meta.client_name,
+      service_name:      meta.service_name,
+      start_time:        meta.start_time,
+      duration_minutes:  durationMinutes,
+      salon_name:        salonName,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error) {

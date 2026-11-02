@@ -138,17 +138,18 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
     const aiResult = await aiResponse.json();
     const analysisText = aiResult.content[0].text;
 
-    // Parsear respuesta JSON
+    // Parsear respuesta JSON — extraer el objeto JSON aunque venga envuelto en markdown
     let analysisData;
     try {
-      const cleanText = analysisText.replace(/```json\n?|\n?```/g, '').trim();
+      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+      const cleanText = jsonMatch ? jsonMatch[0] : analysisText.replace(/```(?:json)?\s*/g, '').trim();
       analysisData = JSON.parse(cleanText);
     } catch {
       analysisData = {
         detected_issues: ['Análisis completado'],
         severity_score: 30,
         confidence_score: 0.70,
-        detailed_analysis: analysisText,
+        detailed_analysis: analysisText.replace(/```(?:json)?\s*/g, '').trim(),
         recommendations: ['Consultar con la especialista para evaluación detallada'],
         requires_medical_attention: false,
         summary: 'Análisis disponible en detalle'
