@@ -141,8 +141,15 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
     // Parsear respuesta JSON — extraer el objeto JSON aunque venga envuelto en markdown
     let analysisData;
     try {
-      const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      const cleanText = jsonMatch ? jsonMatch[0] : analysisText.replace(/```(?:json)?\s*/g, '').trim();
+      // Intentar parsear directo primero
+      let cleanText = analysisText.trim();
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      }
+      if (!cleanText.startsWith('{')) {
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        cleanText = jsonMatch ? jsonMatch[0] : cleanText;
+      }
       analysisData = JSON.parse(cleanText);
     } catch {
       analysisData = {

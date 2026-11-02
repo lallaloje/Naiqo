@@ -816,7 +816,22 @@ const NailHealthAnalyzer = () => {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {analysisResult.detailed_analysis}
+                {(() => {
+                  const raw = analysisResult.detailed_analysis;
+                  if (!raw) return '';
+                  // Si contiene JSON o backticks, intentar extraer el texto real
+                  if (raw.includes('```') || raw.trimStart().startsWith('{')) {
+                    try {
+                      const cleaned = raw.replace(/```(?:json)?\s*/g, '').trim();
+                      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+                      if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        if (parsed.detailed_analysis) return parsed.detailed_analysis;
+                      }
+                    } catch { /* ignorar */ }
+                  }
+                  return raw;
+                })()}
               </p>
             </CardContent>
           </Card>
