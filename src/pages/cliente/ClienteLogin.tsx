@@ -50,6 +50,24 @@ const ClienteLogin = () => {
           phone: phone.trim() || null,
           display_name: name.trim() || null,
         });
+
+        // Si la clienta viene desde la página de un salón, añadirla a salon_clients
+        try {
+          const pendingSalonId = sessionStorage.getItem('naiqo_pending_salon_id');
+          if (pendingSalonId) {
+            const { data: salonData } = await supabase
+              .from('salons').select('user_id').eq('id', pendingSalonId).maybeSingle();
+            if (salonData?.user_id) {
+              await supabase.from('salon_clients' as any).upsert({
+                user_id: salonData.user_id,
+                name: name.trim() || email,
+                phone: phone.trim() || null,
+                email: email.trim() || null,
+              }, { onConflict: 'user_id,name' });
+            }
+            sessionStorage.removeItem('naiqo_pending_salon_id');
+          }
+        } catch (_) {}
       }
 
       // Con autoconfirm activo siempre hay sesión; si por algún motivo no la hay, intentar login directo

@@ -91,6 +91,15 @@ function getSpainOffset(date: Date): string {
   return tz.replace('GMT', '');
 }
 
+function upsertClientToSalon(userId: string, name: string, email: string | null, phone: string | null) {
+  supabase.from('salon_clients' as any).upsert({
+    user_id: userId,
+    name,
+    phone: phone || null,
+    email: email || null,
+  }, { onConflict: 'user_id,name' }).then(() => {});
+}
+
 const PublicBooking = () => {
   const { centerId: salonId } = useParams<{ centerId: string }>();
   const [searchParams] = useSearchParams();
@@ -142,6 +151,13 @@ const PublicBooking = () => {
       }));
     });
   }, []);
+
+  // Guardar salonId para auto-registrar clienta al crear cuenta desde este salón
+  useEffect(() => {
+    if (salonId) {
+      try { sessionStorage.setItem('naiqo_pending_salon_id', salonId); } catch (_) {}
+    }
+  }, [salonId]);
 
   // ── Sobreescribir manifest PWA con URL real (para que iOS la lea correctamente) ──
   useEffect(() => {
@@ -348,6 +364,7 @@ const PublicBooking = () => {
             },
           });
           if (bookingError || !bookingData?.success) throw new Error(bookingData?.error || 'Error al crear la reserva');
+          upsertClientToSalon(salon.user_id, form.client_name, form.client_email || null, form.client_phone || null);
           await sendConfirmations(start, localDate, localTime);
           setDirectlyConfirmed(true);
           setDone(true);
@@ -393,6 +410,9 @@ const PublicBooking = () => {
         notes:        form.notes || null,
       } as any);
       if (error) throw error;
+
+      // Añadir clienta a salon_clients permanentemente
+      upsertClientToSalon(salon.user_id, form.client_name, form.client_email || null, form.client_phone || null);
 
       await sendConfirmations(start, localDate, localTime);
       setDone(true);
