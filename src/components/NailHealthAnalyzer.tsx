@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Camera,
   Upload,
@@ -18,7 +19,9 @@ import {
   WifiOff,
   Zap,
   Palette,
-  Sparkles
+  Sparkles,
+  UserCheck,
+  Search,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -82,6 +85,11 @@ const NailHealthAnalyzer = () => {
   const [compressionInfo, setCompressionInfo] = useState<string>('');
   const [online, setOnline] = useState(isOnline());
   const [pendingOffline, setPendingOffline] = useState(getOfflineQueue().length);
+  // Asignación de clienta
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientResults, setClientResults] = useState<{ id: string; name: string; phone: string | null }[]>([]);
+  const [assignedClient, setAssignedClient] = useState<{ id: string; name: string } | null>(null);
+  const [assigningSaved, setAssigningSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
@@ -364,6 +372,39 @@ const NailHealthAnalyzer = () => {
     return 'Requiere Atención';
   };
 
+  const searchClients = async (q: string) => {
+    setClientSearch(q);
+    if (q.trim().length < 2) { setClientResults([]); return; }
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+    const { data } = await (supabase as any)
+      .from('salon_clients')
+      .select('id, name, phone')
+      .eq('user_id', userData.user.id)
+      .ilike('name', `%${q.trim()}%`)
+      .limit(6);
+    setClientResults(data || []);
+  };
+
+  const assignToClient = async (client: { id: string; name: string; phone: string | null }) => {
+    if (!analysisResult) return;
+    setAssigningSaved(true);
+    try {
+      await supabase
+        .from('nail_analysis')
+        .update({ client_name: client.name, client_phone: client.phone })
+        .eq('id', analysisResult.analysisId);
+      setAssignedClient({ id: client.id, name: client.name });
+      setClientResults([]);
+      setClientSearch('');
+      toast({ title: `✅ Guardado en la ficha de ${client.name}` });
+    } catch {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    } finally {
+      setAssigningSaved(false);
+    }
+  };
+
   const resetAnalysis = () => {
     setSelectedImage(null);
     setImagePreview('');
@@ -374,6 +415,9 @@ const NailHealthAnalyzer = () => {
     setImageWarning('');
     setCompressionInfo('');
     setImageHash('');
+    setAssignedClient(null);
+    setClientSearch('');
+    setClientResults([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -774,6 +818,47 @@ const NailHealthAnalyzer = () => {
               <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 {analysisResult.detailed_analysis}
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Asignar a clienta */}
+          <Card className="border-purple-100">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <UserCheck className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-gray-700">Guardar en ficha de clienta</span>
+              </div>
+              {assignedClient ? (
+                <div className="flex items-center gap-2 bg-green-50 rounded-xl px-4 py-3">
+                  <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                  <span className="text-sm font-medium text-green-800">Guardado en la ficha de <strong>{assignedClient.name}</strong></span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Input
+                    value={clientSearch}
+                    onChange={e => searchClients(e.target.value)}
+                    placeholder="Buscar clienta por nombre..."
+                    className="pl-9"
+                  />
+                  {clientResults.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {clientResults.map(c => (
+                        <button
+                          key={c.id}
+                          disabled={assigningSaved}
+                          onClick={() => assignToClient(c)}
+                          className="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-0"
+                        >
+                          <p className="text-sm font-medium text-gray-800">{c.name}</p>
+                          {c.phone && <p className="text-xs text-gray-400">{c.phone}</p>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
   Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus, Star, StickyNote,
-  ImagePlus, Trash, Images,
+  ImagePlus, Trash, Images, Sparkles,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -142,6 +142,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const [photos, setPhotos] = useState<{ id: string; storage_path: string; url: string; caption: string | null }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [analyses, setAnalyses] = useState<{ id: string; created_at: string; severity_score: number; confidence_score: number; summary: string; image_url: string }[]>([]);
 
   const prevClientRef = useRef<Client | null>(null);
   useEffect(() => {
@@ -154,6 +155,28 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       setEditEmail(client.email || '');
       setStamps(null);
       setPhotos([]);
+      setAnalyses([]);
+
+      // Load nail analyses for this client
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase.from('nail_analysis' as any)
+          .select('id, created_at, severity_score, confidence_score, analysis_results, image_url')
+          .eq('user_id', user.id)
+          .eq('client_name', client.name)
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .then(({ data }: any) => {
+            setAnalyses((data || []).map((a: any) => ({
+              id: a.id,
+              created_at: a.created_at,
+              severity_score: a.severity_score ?? 0,
+              confidence_score: a.confidence_score ?? 0,
+              summary: a.analysis_results?.summary || 'Análisis completado',
+              image_url: a.image_url,
+            })));
+          });
+      });
 
       // Load notes from salon_clients
       if (client.importedId) {
@@ -540,6 +563,31 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
             <p className="text-xs text-muted-foreground italic">Sin fotos aún. Pulsa "Añadir foto" para guardar trabajos.</p>
           )}
         </div>
+
+        {/* Análisis ungueales */}
+        {analyses.length > 0 && (
+          <div className="mb-5">
+            <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-pink-500" /> Análisis ungueales
+            </p>
+            <div className="space-y-2">
+              {analyses.map(a => (
+                <div key={a.id} className="flex items-center gap-3 bg-pink-50 rounded-xl px-3 py-2.5">
+                  {a.image_url && (
+                    <img src={a.image_url} alt="uña" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-800 truncate">{a.summary}</p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(a.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' · '}Salud: {100 - a.severity_score}/100
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Historial */}
         <p className="text-sm font-semibold mb-3 flex items-center gap-2">
