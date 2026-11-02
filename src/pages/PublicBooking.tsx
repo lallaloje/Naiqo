@@ -91,13 +91,29 @@ function getSpainOffset(date: Date): string {
   return tz.replace('GMT', '');
 }
 
-function upsertClientToSalon(userId: string, name: string, email: string | null, phone: string | null) {
-  supabase.from('salon_clients' as any).upsert({
-    user_id: userId,
-    name,
-    phone: phone || null,
-    email: email || null,
-  }, { onConflict: 'user_id,name' }).then(() => {});
+async function upsertClientToSalon(userId: string, name: string, email: string | null, phone: string | null) {
+  try {
+    // Buscar si ya existe por teléfono o email para no duplicar
+    let existingId: string | null = null;
+    if (phone) {
+      const { data } = await (supabase as any)
+        .from('salon_clients').select('id').eq('user_id', userId).eq('phone', phone).maybeSingle();
+      existingId = data?.id ?? null;
+    }
+    if (!existingId && email) {
+      const { data } = await (supabase as any)
+        .from('salon_clients').select('id').eq('user_id', userId).eq('email', email).maybeSingle();
+      existingId = data?.id ?? null;
+    }
+    if (existingId) {
+      await (supabase as any).from('salon_clients').update({ phone, email }).eq('id', existingId);
+    } else {
+      await (supabase as any).from('salon_clients').upsert(
+        { user_id: userId, name, phone, email },
+        { onConflict: 'user_id,name' }
+      );
+    }
+  } catch (_) {}
 }
 
 const PublicBooking = () => {

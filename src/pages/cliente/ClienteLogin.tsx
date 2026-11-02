@@ -52,18 +52,40 @@ const ClienteLogin = () => {
         });
 
         // Si la clienta viene desde la página de un salón, añadirla a salon_clients
+        // sin duplicar si ya estaba registrada por teléfono o email
         try {
           const pendingSalonId = sessionStorage.getItem('naiqo_pending_salon_id');
           if (pendingSalonId) {
             const { data: salonData } = await supabase
               .from('salons').select('user_id').eq('id', pendingSalonId).maybeSingle();
             if (salonData?.user_id) {
-              await supabase.from('salon_clients' as any).upsert({
-                user_id: salonData.user_id,
-                name: name.trim() || email,
-                phone: phone.trim() || null,
-                email: email.trim() || null,
-              }, { onConflict: 'user_id,name' });
+              const ownerId = salonData.user_id;
+              // Buscar si ya existe por teléfono o email
+              let existingId: string | null = null;
+              if (phone.trim()) {
+                const { data: byPhone } = await (supabase as any)
+                  .from('salon_clients').select('id').eq('user_id', ownerId).eq('phone', phone.trim()).maybeSingle();
+                existingId = byPhone?.id ?? null;
+              }
+              if (!existingId && email.trim()) {
+                const { data: byEmail } = await (supabase as any)
+                  .from('salon_clients').select('id').eq('user_id', ownerId).eq('email', email.trim()).maybeSingle();
+                existingId = byEmail?.id ?? null;
+              }
+              if (existingId) {
+                // Ya existe — solo actualizar teléfono/email si faltaban
+                await (supabase as any).from('salon_clients').update({
+                  phone: phone.trim() || null,
+                  email: email.trim() || null,
+                }).eq('id', existingId);
+              } else {
+                await (supabase as any).from('salon_clients').upsert({
+                  user_id: ownerId,
+                  name: name.trim() || email,
+                  phone: phone.trim() || null,
+                  email: email.trim() || null,
+                }, { onConflict: 'user_id,name' });
+              }
             }
             sessionStorage.removeItem('naiqo_pending_salon_id');
           }
