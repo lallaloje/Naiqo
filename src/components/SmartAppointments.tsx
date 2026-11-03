@@ -490,13 +490,18 @@ const SmartAppointments = () => {
   };
 
   const loadLoyaltyCard = async (apt: Appointment) => {
-    if (!apt.client_email || !salonId) { setLoyaltyCard(null); return; }
-    const { data } = await supabase
-      .from('loyalty_cards')
-      .select('stamps, stamps_used')
-      .eq('salon_id', salonId)
-      .ilike('client_email' as any, apt.client_email)
-      .maybeSingle();
+    if (!salonId || (!apt.client_email && !apt.client_phone)) { setLoyaltyCard(null); return; }
+    let data = null;
+    if (apt.client_email) {
+      const res = await supabase.from('loyalty_cards').select('stamps, stamps_used')
+        .eq('salon_id', salonId).ilike('client_email' as any, apt.client_email).maybeSingle();
+      data = res.data;
+    }
+    if (!data && apt.client_phone) {
+      const res = await supabase.from('loyalty_cards').select('stamps, stamps_used')
+        .eq('salon_id', salonId).ilike('client_phone' as any, apt.client_phone).maybeSingle();
+      data = res.data;
+    }
     setLoyaltyCard(data as any || null);
   };
 
@@ -2327,7 +2332,7 @@ const SmartAppointments = () => {
                             </div>
 
                             {/* ── Tarjeta de sellos ── */}
-                            {loyaltyEnabled && apt.client_email && (
+                            {loyaltyEnabled && (apt.client_email || apt.client_phone) && (
                               <div className="border-t border-muted/40 pt-3">
                                 <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
                                   🎁 Tarjeta de fidelidad
