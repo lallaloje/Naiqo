@@ -140,27 +140,37 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
 
     // Parsear respuesta JSON — extraer el objeto JSON aunque venga envuelto en markdown
     let analysisData;
+    // Extraer el objeto JSON de la respuesta, ignorando texto extra antes/después
+    const extractJson = (text: string) => {
+      // Quitar bloques de código markdown
+      const stripped = text.replace(/```(?:json)?\s*/gi, '').trim();
+      // Buscar el bloque JSON más grande (desde el primer { hasta el último })
+      const start = stripped.indexOf('{');
+      const end = stripped.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        return stripped.slice(start, end + 1);
+      }
+      return stripped;
+    };
     try {
-      // Intentar parsear directo primero
-      let cleanText = analysisText.trim();
-      if (cleanText.startsWith('```')) {
-        cleanText = cleanText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-      }
-      if (!cleanText.startsWith('{')) {
-        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-        cleanText = jsonMatch ? jsonMatch[0] : cleanText;
-      }
-      analysisData = JSON.parse(cleanText);
+      analysisData = JSON.parse(extractJson(analysisText));
     } catch {
-      analysisData = {
-        detected_issues: ['Análisis completado'],
-        severity_score: 30,
-        confidence_score: 0.70,
-        detailed_analysis: analysisText.replace(/```(?:json)?\s*/g, '').trim(),
-        recommendations: ['Consultar con la especialista para evaluación detallada'],
-        requires_medical_attention: false,
-        summary: 'Análisis disponible en detalle'
-      };
+      // Segundo intento: regex por si extractJson no funcionó
+      try {
+        const m = analysisText.match(/\{[\s\S]*\}/);
+        if (m) analysisData = JSON.parse(m[0]);
+        else throw new Error('no json');
+      } catch {
+        analysisData = {
+          detected_issues: ['Análisis completado'],
+          severity_score: 30,
+          confidence_score: 0.70,
+          detailed_analysis: 'No se pudo procesar el análisis. Por favor, intenta de nuevo.',
+          recommendations: ['Consultar con la especialista para evaluación detallada'],
+          requires_medical_attention: false,
+          summary: 'Análisis disponible en detalle'
+        };
+      }
     }
 
     // Guardar resultados
