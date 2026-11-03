@@ -1061,18 +1061,18 @@ export default function Clientes() {
           {/* Alpha sidebar */}
           {!search && (
             <div
-              className="sticky top-0 self-start z-20 flex flex-col items-center select-none py-2"
-              style={{ maxHeight: '100dvh', overflowY: 'auto', touchAction: 'pan-y' }}
+              className="sticky top-0 self-start z-20 flex flex-col items-center select-none"
+              style={{ maxHeight: '100svh', overflowY: 'scroll', touchAction: 'none', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
             >
               {allLetters.map(letter => {
                 const hasClients = availableLetters.includes(letter);
                 return (
                   <button
                     key={letter}
-                    onPointerDown={() => hasClients && scrollToLetter(letter)}
+                    onPointerDown={(e) => { e.preventDefault(); if (hasClients) scrollToLetter(letter); }}
                     disabled={!hasClients}
                     style={{ lineHeight: 1 }}
-                    className={`w-5 text-[9px] font-bold flex items-center justify-center py-px transition-colors rounded-full
+                    className={`w-5 text-[8px] font-bold flex items-center justify-center py-[1px] transition-colors rounded-full
                       ${activeLetter === letter ? 'bg-primary text-white' :
                         hasClients ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground/30 cursor-default'}`}
                   >

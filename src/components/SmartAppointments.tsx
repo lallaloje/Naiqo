@@ -292,7 +292,7 @@ const SmartAppointments = () => {
   });
   const [editingApt, setEditingApt] = useState<Appointment | null>(null);
   const [editAptForm, setEditAptForm] = useState({
-    client_name: '', client_phone: '', client_email: '', service_id: '', appointment_time: '', notes: '', employee_id: '',
+    client_name: '', client_phone: '', client_email: '', service_id: '', appointment_date: '', appointment_time: '', notes: '', employee_id: '',
   });
 
   // ─── Load on mount ──────────────────────────────────────────────
@@ -702,6 +702,7 @@ const SmartAppointments = () => {
       client_phone: apt.client_phone || '',
       client_email: apt.client_email || '',
       service_id: apt.service_id || '',
+      appointment_date: apt.start_time.split('T')[0],
       appointment_time: `${hh}:${mm}`,
       notes: apt.notes || '',
       employee_id: (apt as any).employee_id || '',
@@ -716,7 +717,7 @@ const SmartAppointments = () => {
     try {
       const svc = services.find(s => s.id === editAptForm.service_id);
       const dur = svc?.duration_minutes || Math.round((new Date(editingApt.end_time).getTime() - new Date(editingApt.start_time).getTime()) / 60000);
-      const dateStr = editingApt.start_time.split('T')[0];
+      const dateStr = editAptForm.appointment_date || editingApt.start_time.split('T')[0];
       const start = new Date(`${dateStr}T${editAptForm.appointment_time}:00`);
       const end   = new Date(start.getTime() + dur * 60000);
       const { error } = await supabase.from('appointments').update({
@@ -1899,6 +1900,10 @@ const SmartAppointments = () => {
                               onFocus={() => { if (editClientSuggestions.length > 0 && editClientNameRef.current) { const r = editClientNameRef.current.getBoundingClientRect(); setEditDropdownRect({ top: r.bottom, left: r.left, width: r.width }); setShowEditSuggestions(true); } }}
                               autoComplete="off"
                               required />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Fecha *</Label>
+                            <Input type="date" value={editAptForm.appointment_date} onChange={e => setEditAptForm({...editAptForm, appointment_date: e.target.value})} required />
                           </div>
                           <div>
                             <Label className="text-xs">Hora *</Label>

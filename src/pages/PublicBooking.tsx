@@ -596,8 +596,8 @@ const PublicBooking = () => {
                         className={`p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-md
                           ${selectedService?.id === svc.id ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/40'}`}
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex-1 min-w-0">
                             <p className="font-semibold">{svc.name}</p>
                             {svc.description && <p className="text-sm text-muted-foreground mt-0.5">{svc.description}</p>}
                             <Badge variant="outline" className="mt-2 text-xs">
