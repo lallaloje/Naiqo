@@ -263,7 +263,7 @@ const SmartAppointments = () => {
   const [recurringForm,    setRecurringForm]    = useState({ title: 'Descanso', start_hour: '14:00', end_hour: '16:00', days_of_week: [1,2,3,4,5,6] });
   const [clientHistory,    setClientHistory]    = useState<any[]>([]);
   const [historyLoading,   setHistoryLoading]   = useState(false);
-  const [loyaltyCard,      setLoyaltyCard]      = useState<{stamps:number;stamps_used:number} | null>(null);
+  const [loyaltyCards,     setLoyaltyCards]     = useState<{stamps:number;stamps_used:number;service_name:string}[]>([]);
   const [redeemingLoyalty, setRedeemingLoyalty] = useState(false);
   const [employees,        setEmployees]        = useState<Employee[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -490,23 +490,19 @@ const SmartAppointments = () => {
   };
 
   const loadLoyaltyCard = async (apt: Appointment) => {
-    if (!salonId || (!apt.client_email && !apt.client_phone)) { setLoyaltyCard(null); return; }
+    if (!salonId || (!apt.client_email && !apt.client_phone)) { setLoyaltyCards([]); return; }
     let rows: any[] = [];
     if (apt.client_email) {
-      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used')
+      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used, service_name')
         .eq('salon_id', salonId).ilike('client_email', apt.client_email);
       rows = res.data || [];
     }
     if (rows.length === 0 && apt.client_phone) {
-      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used')
+      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used, service_name')
         .eq('salon_id', salonId).ilike('client_phone', apt.client_phone);
       rows = res.data || [];
     }
-    if (rows.length === 0) { setLoyaltyCard(null); return; }
-    // Sumar todas las filas (puede haber una por servicio)
-    const totalStamps = rows.reduce((s: number, r: any) => s + (r.stamps || 0), 0);
-    const totalUsed   = rows.reduce((s: number, r: any) => s + (r.stamps_used || 0), 0);
-    setLoyaltyCard({ stamps: totalStamps, stamps_used: totalUsed });
+    setLoyaltyCards(rows);
   };
 
   const loadWorkData = (apt: Appointment) => {
@@ -2339,37 +2335,44 @@ const SmartAppointments = () => {
                             {loyaltyEnabled && (apt.client_email || apt.client_phone) && (
                               <div className="border-t border-muted/40 pt-3">
                                 <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
-                                  🎁 Tarjeta de fidelidad
+                                  🎁 Tarjetas de fidelidad
                                 </p>
-                                {loyaltyCard ? (() => {
-                                  const available = loyaltyCard.stamps - loyaltyCard.stamps_used * loyaltyStampsRequired;
-                                  const current = available % loyaltyStampsRequired;
-                                  const rewards = Math.floor(available / loyaltyStampsRequired);
-                                  return (
-                                    <div className="space-y-2">
-                                      <div className="grid grid-cols-5 gap-1">
-                                        {Array.from({ length: loyaltyStampsRequired }).map((_, i) => (
-                                          <div key={i} className={`aspect-square rounded-lg flex items-center justify-center text-sm ${i < current ? 'bg-gradient-to-br from-pink-400 to-purple-500' : 'bg-gray-100'}`}>
-                                            {i < current ? '💅' : <span className="w-2 h-2 rounded-full bg-gray-300 block mx-auto" />}
+                                {loyaltyCards.length > 0 ? (
+                                  <div className="space-y-3">
+                                    {loyaltyCards.map((card, idx) => {
+                                      const available = card.stamps - (card.stamps_used || 0) * loyaltyStampsRequired;
+                                      const current = available % loyaltyStampsRequired;
+                                      const rewards = Math.floor(available / loyaltyStampsRequired);
+                                      return (
+                                        <div key={idx} className="space-y-1">
+                                          {card.service_name && (
+                                            <p className="text-xs font-medium text-gray-600">{card.service_name}</p>
+                                          )}
+                                          <div className="grid grid-cols-5 gap-1">
+                                            {Array.from({ length: loyaltyStampsRequired }).map((_, i) => (
+                                              <div key={i} className={`aspect-square rounded-lg flex items-center justify-center text-sm ${i < current ? 'bg-gradient-to-br from-pink-400 to-purple-500' : 'bg-gray-100'}`}>
+                                                {i < current ? '💅' : <span className="w-2 h-2 rounded-full bg-gray-300 block mx-auto" />}
+                                              </div>
+                                            ))}
                                           </div>
-                                        ))}
-                                      </div>
-                                      <p className="text-xs text-muted-foreground text-center">
-                                        {current} de {loyaltyStampsRequired} sellos · {loyaltyCard.stamps} visitas totales
-                                      </p>
-                                      {rewards > 0 && (
-                                        <div className="bg-pink-50 border border-pink-200 rounded-lg p-2 flex items-center justify-between gap-2">
-                                          <p className="text-xs font-semibold text-pink-700">🎉 {rewards} premio{rewards > 1 ? 's' : ''} disponible{rewards > 1 ? 's' : ''}</p>
-                                          <Button size="sm" className="h-7 text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white border-0"
-                                            onClick={() => redeemLoyalty(apt, loyaltyStampsRequired)}
-                                            disabled={redeemingLoyalty}>
-                                            {redeemingLoyalty ? '...' : 'Canjear'}
-                                          </Button>
+                                          <p className="text-xs text-muted-foreground text-center">
+                                            {current} de {loyaltyStampsRequired} sellos · {card.stamps} visitas totales
+                                          </p>
+                                          {rewards > 0 && (
+                                            <div className="bg-pink-50 border border-pink-200 rounded-lg p-2 flex items-center justify-between gap-2">
+                                              <p className="text-xs font-semibold text-pink-700">🎉 {rewards} premio{rewards > 1 ? 's' : ''} disponible{rewards > 1 ? 's' : ''}</p>
+                                              <Button size="sm" className="h-7 text-xs bg-gradient-to-r from-pink-500 to-purple-600 text-white border-0"
+                                                onClick={() => redeemLoyalty(apt, loyaltyStampsRequired)}
+                                                disabled={redeemingLoyalty}>
+                                                {redeemingLoyalty ? '...' : 'Canjear'}
+                                              </Button>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
-                                    </div>
-                                  );
-                                })() : (
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
                                   <p className="text-xs text-muted-foreground italic">Sin tarjeta de sellos aún</p>
                                 )}
                               </div>
