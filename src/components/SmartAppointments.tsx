@@ -491,15 +491,17 @@ const SmartAppointments = () => {
 
   const loadLoyaltyCard = async (apt: Appointment) => {
     if (!salonId || (!apt.client_email && !apt.client_phone)) { setLoyaltyCards([]); return; }
+    const serviceName = services.find(s => s.id === apt.service_id)?.name || null;
+    let query = (supabase as any).from('loyalty_cards').select('stamps, stamps_used, service_name')
+      .eq('salon_id', salonId);
+    if (serviceName) query = query.eq('service_name', serviceName);
     let rows: any[] = [];
     if (apt.client_email) {
-      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used, service_name')
-        .eq('salon_id', salonId).ilike('client_email', apt.client_email);
+      const res = await query.ilike('client_email', apt.client_email);
       rows = res.data || [];
     }
     if (rows.length === 0 && apt.client_phone) {
-      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used, service_name')
-        .eq('salon_id', salonId).ilike('client_phone', apt.client_phone);
+      const res = await query.ilike('client_phone', apt.client_phone);
       rows = res.data || [];
     }
     setLoyaltyCards(rows);
