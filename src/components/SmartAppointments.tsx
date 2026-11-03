@@ -491,18 +491,22 @@ const SmartAppointments = () => {
 
   const loadLoyaltyCard = async (apt: Appointment) => {
     if (!salonId || (!apt.client_email && !apt.client_phone)) { setLoyaltyCard(null); return; }
-    let data = null;
+    let rows: any[] = [];
     if (apt.client_email) {
-      const res = await supabase.from('loyalty_cards').select('stamps, stamps_used')
-        .eq('salon_id', salonId).ilike('client_email' as any, apt.client_email).maybeSingle();
-      data = res.data;
+      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used')
+        .eq('salon_id', salonId).ilike('client_email', apt.client_email);
+      rows = res.data || [];
     }
-    if (!data && apt.client_phone) {
-      const res = await supabase.from('loyalty_cards').select('stamps, stamps_used')
-        .eq('salon_id', salonId).ilike('client_phone' as any, apt.client_phone).maybeSingle();
-      data = res.data;
+    if (rows.length === 0 && apt.client_phone) {
+      const res = await (supabase as any).from('loyalty_cards').select('stamps, stamps_used')
+        .eq('salon_id', salonId).ilike('client_phone', apt.client_phone);
+      rows = res.data || [];
     }
-    setLoyaltyCard(data as any || null);
+    if (rows.length === 0) { setLoyaltyCard(null); return; }
+    // Sumar todas las filas (puede haber una por servicio)
+    const totalStamps = rows.reduce((s: number, r: any) => s + (r.stamps || 0), 0);
+    const totalUsed   = rows.reduce((s: number, r: any) => s + (r.stamps_used || 0), 0);
+    setLoyaltyCard({ stamps: totalStamps, stamps_used: totalUsed });
   };
 
   const loadWorkData = (apt: Appointment) => {
