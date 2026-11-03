@@ -258,7 +258,7 @@ const ClienteHome = () => {
         </button>
         <button
           className="flex flex-col items-center gap-1 text-gray-400"
-          onClick={() => navigate(clientUser ? '/cliente' : '/cliente/login')}
+          onClick={() => navigate(clientUser ? '/cliente/mi-cuenta' : '/cliente/login')}
         >
           <User className="w-5 h-5" />
           <span className="text-xs">{clientUser ? 'Mi cuenta' : 'Acceder'}</span>

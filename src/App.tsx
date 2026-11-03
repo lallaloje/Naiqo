@@ -23,6 +23,7 @@ import ClienteHome from "./pages/cliente/ClienteHome";
 import ClienteMisCitas from "./pages/cliente/ClienteMisCitas";
 import ClienteSellos from "./pages/cliente/ClienteSellos";
 import ClienteLogin from "./pages/cliente/ClienteLogin";
+import ClienteMiCuenta from "./pages/cliente/ClienteMiCuenta";
 import NotFound from "./pages/NotFound";
 
 // Protected pages
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/cliente/mis-citas" element={<ClienteMisCitas />} />
             <Route path="/cliente/mis-sellos" element={<ClienteSellos />} />
             <Route path="/cliente/login" element={<ClienteLogin />} />
+            <Route path="/cliente/mi-cuenta" element={<ClienteMiCuenta />} />
 
             {/* Protected routes */}
             <Route path="/dashboard" element={
