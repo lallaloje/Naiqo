@@ -990,7 +990,7 @@ export default function Clientes() {
       ) : (
         <div className="relative flex gap-0">
           {/* List */}
-          <div ref={listRef} className="flex-1 min-w-0 space-y-0 pr-6">
+          <div ref={listRef} className="flex-1 min-w-0 space-y-0 pr-8">
             {grouped.map(([letter, clients]) => (
               <div key={letter}>
                 {/* Letter header */}
@@ -1061,8 +1061,8 @@ export default function Clientes() {
           {/* Alpha sidebar */}
           {!search && (
             <div
-              className="sticky top-0 self-start z-20 flex flex-col items-center select-none"
-              style={{ maxHeight: '100svh', overflowY: 'scroll', touchAction: 'none', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+              className="fixed right-0 top-0 bottom-0 z-20 flex flex-col items-center justify-center select-none py-2 pr-1"
+              style={{ touchAction: 'none' }}
             >
               {allLetters.map(letter => {
                 const hasClients = availableLetters.includes(letter);
@@ -1071,8 +1071,8 @@ export default function Clientes() {
                     key={letter}
                     onPointerDown={(e) => { e.preventDefault(); if (hasClients) scrollToLetter(letter); }}
                     disabled={!hasClients}
-                    style={{ lineHeight: 1 }}
-                    className={`w-5 text-[8px] font-bold flex items-center justify-center py-[1px] transition-colors rounded-full
+                    style={{ lineHeight: 1, fontSize: '11px', minHeight: '18px' }}
+                    className={`w-6 font-bold flex items-center justify-center transition-colors rounded-full
                       ${activeLetter === letter ? 'bg-primary text-white' :
                         hasClients ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground/30 cursor-default'}`}
                   >
