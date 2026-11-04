@@ -900,19 +900,21 @@ const SmartAppointments = () => {
   };
 
   // ─── Dynamic calendar helpers ────────────────────────────────────
-  // If there are appointments earlier than workStart, extend the grid up
+  // Grid always covers 8:00–24:00 (or earlier if there's an apt before 8)
+  const GRID_DAY_START = 8;
+  const GRID_DAY_END   = 24;
   const earliestApt = appointments.reduce((min, apt) => {
     const h = new Date(apt.start_time).getHours();
     return h < min ? h : min;
-  }, workStart);
-  const gridStart   = Math.min(workStart, earliestApt);
-  const TOTAL_HOURS = workEnd - gridStart;
+  }, GRID_DAY_START);
+  const gridStart   = Math.min(GRID_DAY_START, earliestApt);
+  const TOTAL_HOURS = GRID_DAY_END - gridStart;
 
   const isToday     = selectedDate === toDateStr(new Date());
   const nowTop = (() => {
     const now = new Date();
     const h = now.getHours() + now.getMinutes() / 60;
-    if (h < gridStart || h > workEnd) return null;
+    if (h < gridStart || h > GRID_DAY_END) return null;
     return (h - gridStart) * HOUR_HEIGHT;
   })();
 
