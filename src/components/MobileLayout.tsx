@@ -114,7 +114,7 @@ export function MobileLayout({
       {/* Main Content */}
       <main
         ref={scrollRef}
-        className={noScroll ? "flex-1 overflow-hidden flex flex-col" : "flex-1 overflow-y-auto pb-20"}
+        className={noScroll ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto pb-20"}
         onTouchStart={noScroll ? undefined : handleTouchStart}
         onTouchMove={noScroll ? undefined : handleTouchMove}
         onTouchEnd={noScroll ? undefined : handleTouchEnd}

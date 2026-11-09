@@ -1045,10 +1045,10 @@ const SmartAppointments = () => {
   );
 
   return (
-    <div className={isMobile ? "flex flex-col h-full overflow-hidden" : "max-w-7xl mx-auto p-4 md:p-6 space-y-4"}>
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
 
       {/* ── Header ── */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 ${isMobile ? 'px-3 pt-2' : ''}`}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <CalendarIcon className="w-6 h-6 text-primary" />
@@ -1422,7 +1422,7 @@ const SmartAppointments = () => {
           )}
 
           {view === 'day' && (
-            <div className={`flex gap-3 ${isMobile ? 'flex-1 min-h-0' : ''}`}>
+            <div className="flex gap-3">
 
               {/* ── Mini calendar sidebar (desktop only) ── */}
               <div className="hidden lg:flex flex-col gap-3 w-44 shrink-0">
@@ -1636,8 +1636,8 @@ const SmartAppointments = () => {
               </div>
 
               {/* Calendar grid */}
-              <div className={`flex-1 min-w-0 ${isMobile ? 'min-h-0 flex flex-col' : ''}`}>
-                <Card className={`overflow-hidden ${isMobile ? 'flex-1 flex flex-col min-h-0' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <Card className="overflow-hidden">
                   {/* Employee column headers — only shown when multiple employees */}
                   {useEmployeeCols && (
                     <div className="flex border-b bg-muted/30 sticky top-0 z-30">
@@ -1654,8 +1654,8 @@ const SmartAppointments = () => {
                   )}
                   <div
                     ref={calendarRef}
-                    className={isMobile ? "flex-1 min-h-0 overflow-y-scroll" : "overflow-y-auto"}
-                    style={isMobile ? { WebkitOverflowScrolling: 'touch' } as React.CSSProperties : { maxHeight: '75vh' }}
+                    className="overflow-y-scroll"
+                    style={{ height: isMobile ? 'calc(100dvh - 280px)' : '75vh', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
                   >
                     <div className="flex">
                       {/* Time labels */}
