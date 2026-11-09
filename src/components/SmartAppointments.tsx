@@ -1665,7 +1665,7 @@ const SmartAppointments = () => {
                   <div
                     ref={calendarRef}
                     style={isMobile
-                      ? {} as React.CSSProperties
+                      ? { touchAction: 'pan-y' } as React.CSSProperties
                       : { maxHeight: '75vh', overflowY: 'auto' }
                     }
                   >
@@ -1774,7 +1774,7 @@ const SmartAppointments = () => {
                                     <div
                                       key={apt.id}
                                       className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none ${statusStyle} ${apt.status === 'pending' ? 'animate-pulse' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
-                                      style={{ top: pos.top + 2, height: pos.height - 4, left: `calc(${colL} + 2px)`, width: `calc(${colW} - 4px)` }}
+                                      style={{ top: pos.top + 2, height: pos.height - 4, left: `calc(${colL} + 2px)`, width: `calc(${colW} - 4px)`, touchAction: 'pan-y' }}
                                       onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
                                     >
                                       <p className="font-semibold text-xs leading-tight truncate">
@@ -1924,6 +1924,7 @@ const SmartAppointments = () => {
                                   height: pos.height - 4,
                                   left:   `calc(${colL} + 2px)`,
                                   width:  `calc(${colW} - 4px)`,
+                                  touchAction: 'pan-y',
                                 }}
                                 onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
                               >
