@@ -46,8 +46,8 @@ serve(async (req) => {
 
     const sendReminder = async (apt: any, label: "24h" | "2h") => {
       const dt = new Date(apt.start_time);
-      const date = dt.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
-      const time = dt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+      const date = dt.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Madrid" });
+      const time = dt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
       const salonName    = (apt.salons as any)?.salon_name || "tu salón";
       const salonAddress = [(apt.salons as any)?.address, (apt.salons as any)?.city].filter(Boolean).join(", ");
       const serviceName  = (apt.services as any)?.name || "";
