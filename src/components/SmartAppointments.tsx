@@ -1637,7 +1637,7 @@ const SmartAppointments = () => {
 
               {/* Calendar grid */}
               <div className="flex-1 min-w-0">
-                <Card className="overflow-hidden">
+                <Card className="rounded-lg border">
                   {/* Employee column headers — only shown when multiple employees */}
                   {useEmployeeCols && (
                     <div className="flex border-b bg-muted/30 sticky top-0 z-30">
