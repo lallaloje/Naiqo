@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import BookingLinkCard from "@/components/BookingLinkCard";
+import GiftCardsManager from "@/components/GiftCardsManager";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -30,7 +31,8 @@ import {
   LayoutGrid,
   List,
   AlertCircle,
-  Edit3
+  Edit3,
+  Gift
 } from "lucide-react";
 import { logError } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -1028,9 +1030,10 @@ const SmartAppointments = () => {
       </div>
 
       <Tabs defaultValue="agenda">
-        <TabsList className="grid w-full grid-cols-2 max-w-xs">
+        <TabsList className="grid w-full grid-cols-3 max-w-sm">
           <TabsTrigger value="agenda"><CalendarIcon className="w-4 h-4 mr-1" />Agenda</TabsTrigger>
           <TabsTrigger value="servicios"><Scissors className="w-4 h-4 mr-1" />Servicios</TabsTrigger>
+          <TabsTrigger value="regalos"><Gift className="w-4 h-4 mr-1" />Regalos</TabsTrigger>
         </TabsList>
 
         {/* ══════════════ AGENDA TAB ══════════════ */}
@@ -2574,6 +2577,14 @@ const SmartAppointments = () => {
           <p className="text-xs text-muted-foreground mt-4 text-center">
             El horario del calendario se configura en <a href="/account" className="text-primary underline">Mi Cuenta → Horario por día</a>.
           </p>
+        </TabsContent>
+
+        {/* ══════════════ REGALOS TAB ══════════════ */}
+        <TabsContent value="regalos" className="mt-3">
+          {salonId
+            ? <GiftCardsManager salonId={salonId} />
+            : <p className="text-sm text-gray-400 py-4 text-center">Cargando…</p>
+          }
         </TabsContent>
       </Tabs>
 

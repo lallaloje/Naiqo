@@ -65,6 +65,46 @@ serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+
+        // ── Tarjeta regalo ──────────────────────────────────────────
+        if (session.metadata?.type === 'gift_card') {
+          const { code, salon_id, service_id, service_name, price_cents,
+                  buyer_name, buyer_email, recipient_name, recipient_email, message } = session.metadata;
+
+          const expiresAt = new Date();
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+          await supabase.from('gift_cards').insert({
+            code,
+            salon_id,
+            service_id,
+            service_name,
+            price_cents: parseInt(price_cents, 10),
+            buyer_name: buyer_name || null,
+            buyer_email,
+            recipient_name,
+            recipient_email,
+            message: message || null,
+            status: 'active',
+            stripe_session_id: session.id,
+            expires_at: expiresAt.toISOString(),
+          });
+
+          // Enviar email con la tarjeta al destinatario
+          const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+          const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+          await fetch(`${supabaseUrl}/functions/v1/send-gift-card-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseService}` },
+            body: JSON.stringify({ code, salon_id, service_name, price_cents: parseInt(price_cents, 10),
+              buyer_name, recipient_name, recipient_email, message,
+              expires_at: expiresAt.toISOString() }),
+          });
+
+          console.log(`Tarjeta regalo creada: code=${code} recipient=${recipient_email}`);
+          break;
+        }
+
         if (session.mode !== 'subscription') break;
 
         const userId  = session.metadata?.user_id;
