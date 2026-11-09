@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -269,6 +270,7 @@ const SmartAppointments = () => {
   const [redeemingLoyalty, setRedeemingLoyalty] = useState(false);
   const [employees,        setEmployees]        = useState<Employee[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const calendarAnchorRef = useRef<HTMLDivElement>(null);
   const [calendarHeight, setCalendarHeight] = useState(600);
 
   const { user }  = useAuth();
@@ -1008,27 +1010,24 @@ const SmartAppointments = () => {
   const DAY_NAMES  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const today      = toDateStr(new Date());
 
-  // ─── Compute exact calendar height from window size ──────────────
+  // ─── Compute exact calendar height so outer main never overflows ──
   useEffect(() => {
     if (!isMobile) return;
-    const update = () => setCalendarHeight(window.innerHeight - 300);
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [isMobile]);
-
-  // ─── Stop touch propagation so pull-to-refresh doesn't interfere ─
-  useEffect(() => {
-    const el = calendarRef.current;
-    if (!el || !isMobile) return;
-    const stop = (e: TouchEvent) => e.stopPropagation();
-    el.addEventListener('touchstart', stop, { passive: true });
-    el.addEventListener('touchmove',  stop, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', stop);
-      el.removeEventListener('touchmove',  stop);
+    const compute = () => {
+      if (!calendarAnchorRef.current) return;
+      const anchorTop = calendarAnchorRef.current.getBoundingClientRect().top;
+      // anchorTop = viewport position of calendar start
+      // 64 = bottom nav, 80 = main pb-20, 32 = wrapper bottom paddings, 8 = safety
+      const h = window.innerHeight - anchorTop - 64 - 80 - 32 - 8;
+      if (h > 100) setCalendarHeight(h);
     };
-  }, [isMobile, view, selectedDate]);
+    const id = requestAnimationFrame(compute);
+    window.addEventListener('resize', compute);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('resize', compute);
+    };
+  }, [isMobile, view, selectedDate, appointments]);
 
   // ─── Scroll to first appointment or 8am on load ─────────────────
   useEffect(() => {
@@ -1662,12 +1661,12 @@ const SmartAppointments = () => {
                       ))}
                     </div>
                   )}
+                  <div ref={calendarAnchorRef} />
                   <div
                     ref={calendarRef}
-                    className="overflow-y-auto"
                     style={isMobile
-                      ? { height: calendarHeight, WebkitOverflowScrolling: 'touch' } as React.CSSProperties
-                      : { maxHeight: '75vh' }
+                      ? {} as React.CSSProperties
+                      : { maxHeight: '75vh', overflowY: 'auto' }
                     }
                   >
                     <div className="flex">
@@ -1703,7 +1702,7 @@ const SmartAppointments = () => {
                                     <div
                                       key={i}
                                       className="absolute w-full cursor-pointer hover:bg-primary/5 transition-colors"
-                                      style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2 }}
+                                      style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2, touchAction: 'pan-y' }}
                                       onClick={() => {
                                         setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
                                         setShowForm(true);
@@ -1812,7 +1811,7 @@ const SmartAppointments = () => {
                               <div
                                 key={i}
                                 className="absolute w-full cursor-pointer hover:bg-primary/5 transition-colors"
-                                style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2 }}
+                                style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2, touchAction: 'pan-y' }}
                                 onClick={() => {
                                   setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
                                   setShowForm(true);
