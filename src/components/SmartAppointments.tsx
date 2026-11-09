@@ -1009,12 +1009,17 @@ const SmartAppointments = () => {
 
   // ─── Scroll to first appointment or 8am on load ─────────────────
   useEffect(() => {
-    if (calendarRef.current && appointments.length > 0) {
-      const firstTime = new Date(appointments[0].start_time);
+    if (!calendarRef.current) return;
+    if (appointments.length > 0) {
+      const sorted = [...appointments].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      const firstTime = new Date(sorted[0].start_time);
       const h = firstTime.getHours() + firstTime.getMinutes() / 60;
       calendarRef.current.scrollTop = Math.max((h - gridStart - 1) * HOUR_HEIGHT, 0);
+    } else {
+      // No appointments: scroll to 8am so user doesn't see midnight
+      calendarRef.current.scrollTop = Math.max((8 - gridStart) * HOUR_HEIGHT, 0);
     }
-  }, [appointments, gridStart]);
+  }, [appointments, gridStart, selectedDate]);
 
   if (!user) return (
     <div className="max-w-xl mx-auto p-6 text-center">
@@ -1637,8 +1642,8 @@ const SmartAppointments = () => {
                   )}
                   <div
                     ref={calendarRef}
-                    className={isMobile ? "" : "overflow-y-auto"}
-                    style={isMobile ? {} : { maxHeight: useEmployeeCols ? '72vh' : '75vh' }}
+                    className="overflow-y-auto"
+                    style={{ maxHeight: useEmployeeCols ? '72vh' : '75vh' }}
                   >
                     <div className="flex">
                       {/* Time labels */}
