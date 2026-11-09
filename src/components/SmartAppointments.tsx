@@ -1643,7 +1643,13 @@ const SmartAppointments = () => {
                   <div
                     ref={calendarRef}
                     className="overflow-y-auto"
-                    style={{ maxHeight: useEmployeeCols ? '72vh' : '75vh' }}
+                    style={{
+                      height: useEmployeeCols ? 'calc(100svh - 220px)' : 'calc(100svh - 190px)',
+                      overscrollBehaviorY: 'contain',
+                      touchAction: 'pan-y',
+                    }}
+                    onTouchStart={e => e.stopPropagation()}
+                    onTouchMove={e => e.stopPropagation()}
                   >
                     <div className="flex">
                       {/* Time labels */}
