@@ -11,10 +11,8 @@ const AppointmentManagement = () => {
   // Mobile layout
   if (isMobile) {
     return (
-      <MobileLayout title="Gestión de Citas" showBack={true}>
-        <div className="p-4">
-          <SmartAppointments />
-        </div>
+      <MobileLayout title="Gestión de Citas" showBack={true} noScroll>
+        <SmartAppointments />
       </MobileLayout>
     );
   }
