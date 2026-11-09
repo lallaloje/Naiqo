@@ -565,7 +565,7 @@ const ClienteMisCitas = () => {
         </button>
         <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate('/cliente/regalo')}>
           <Gift className="w-5 h-5" />
-          <span className="text-xs">Regalo</span>
+          <span className="text-xs text-center leading-tight">Tarjeta<br/>regalo</span>
         </button>
         <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate('/cliente/mi-cuenta')}>
           <User className="w-5 h-5" />

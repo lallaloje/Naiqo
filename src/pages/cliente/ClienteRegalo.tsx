@@ -277,7 +277,7 @@ const ClienteRegalo = () => {
         </button>
         <button className="flex flex-col items-center gap-1 text-primary">
           <Gift className="w-5 h-5" />
-          <span className="text-xs font-medium">Regalo</span>
+          <span className="text-xs font-medium text-center leading-tight">Tarjeta<br/>regalo</span>
         </button>
         <button className="flex flex-col items-center gap-1 text-gray-400" onClick={() => navigate(clientUser ? '/cliente/mi-cuenta' : '/cliente/login')}>
           <User className="w-5 h-5" />
