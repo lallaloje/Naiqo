@@ -11,7 +11,6 @@ interface MobileLayoutProps {
   showHeader?: boolean;
   onRefresh?: () => Promise<void>;
   stickyBottom?: ReactNode;
-  noScroll?: boolean;
 }
 
 export function MobileLayout({
@@ -21,7 +20,6 @@ export function MobileLayout({
   showHeader = true,
   onRefresh,
   stickyBottom,
-  noScroll = false,
 }: MobileLayoutProps) {
   const navigate = useNavigate();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -114,10 +112,10 @@ export function MobileLayout({
       {/* Main Content */}
       <main
         ref={scrollRef}
-        className={noScroll ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto pb-20"}
-        onTouchStart={noScroll ? undefined : handleTouchStart}
-        onTouchMove={noScroll ? undefined : handleTouchMove}
-        onTouchEnd={noScroll ? undefined : handleTouchEnd}
+        className="flex-1 overflow-y-auto pb-20"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {children}
       </main>

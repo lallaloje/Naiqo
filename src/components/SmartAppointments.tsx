@@ -269,6 +269,7 @@ const SmartAppointments = () => {
   const [redeemingLoyalty, setRedeemingLoyalty] = useState(false);
   const [employees,        setEmployees]        = useState<Employee[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const [calendarHeight, setCalendarHeight] = useState(600);
 
   const { user }  = useAuth();
   const { toast } = useToast();
@@ -1007,10 +1008,19 @@ const SmartAppointments = () => {
   const DAY_NAMES  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const today      = toDateStr(new Date());
 
-  // ─── Block outer touch handlers so calendar scroll works on mobile
+  // ─── Compute exact calendar height from window size ──────────────
+  useEffect(() => {
+    if (!isMobile) return;
+    const update = () => setCalendarHeight(window.innerHeight - 300);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [isMobile]);
+
+  // ─── Stop touch propagation so pull-to-refresh doesn't interfere ─
   useEffect(() => {
     const el = calendarRef.current;
-    if (!el) return;
+    if (!el || !isMobile) return;
     const stop = (e: TouchEvent) => e.stopPropagation();
     el.addEventListener('touchstart', stop, { passive: true });
     el.addEventListener('touchmove',  stop, { passive: true });
@@ -1018,7 +1028,7 @@ const SmartAppointments = () => {
       el.removeEventListener('touchstart', stop);
       el.removeEventListener('touchmove',  stop);
     };
-  }, []);
+  }, [isMobile, view, selectedDate]);
 
   // ─── Scroll to first appointment or 8am on load ─────────────────
   useEffect(() => {
@@ -1654,8 +1664,11 @@ const SmartAppointments = () => {
                   )}
                   <div
                     ref={calendarRef}
-                    className="overflow-y-scroll"
-                    style={{ height: isMobile ? 'calc(100dvh - 280px)' : '75vh', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+                    className="overflow-y-auto"
+                    style={isMobile
+                      ? { height: calendarHeight, WebkitOverflowScrolling: 'touch' } as React.CSSProperties
+                      : { maxHeight: '75vh' }
+                    }
                   >
                     <div className="flex">
                       {/* Time labels */}
