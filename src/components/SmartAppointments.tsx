@@ -277,6 +277,7 @@ const SmartAppointments = () => {
     client_name: '', client_email: '', client_phone: '',
     service_id: '', appointment_time: '', notes: '', employee_id: '',
   });
+  const [newExtraServices, setNewExtraServices] = useState<{service_id:string;name:string;price:number;duration_minutes:number}[]>([]);
   const [clientSuggestions, setClientSuggestions] = useState<{name:string;phone:string|null;email:string|null;topServiceId:string|null}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const clientNameRef = useRef<HTMLInputElement>(null);
@@ -296,6 +297,7 @@ const SmartAppointments = () => {
   const [editAptForm, setEditAptForm] = useState({
     client_name: '', client_phone: '', client_email: '', service_id: '', appointment_date: '', appointment_time: '', notes: '', employee_id: '',
   });
+  const [editExtraServices, setEditExtraServices] = useState<{service_id:string;name:string;price:number;duration_minutes:number}[]>([]);
 
   // ─── Load on mount ──────────────────────────────────────────────
   useEffect(() => { if (user) loadSalon(); }, [user]);
@@ -667,7 +669,9 @@ const SmartAppointments = () => {
     setIsLoading(true);
     try {
       const svc = services.find(s => s.id === form.service_id);
-      const dur = svc?.duration_minutes || 60;
+      const baseDur = svc?.duration_minutes || 60;
+      const extraDurNew = newExtraServices.reduce((s, x) => s + x.duration_minutes, 0);
+      const dur = baseDur + extraDurNew;
       const timeValue = form.appointment_time || prefillTime;
       if (!timeValue) throw new Error('Por favor selecciona una hora');
       const start = new Date(`${selectedDate}T${timeValue}:00`);
@@ -681,9 +685,11 @@ const SmartAppointments = () => {
         client_phone: form.client_phone || null, start_time: start.toISOString(),
         end_time: end.toISOString(), status: 'scheduled', notes: form.notes || null,
         employee_id: form.employee_id || null,
+        additional_services: newExtraServices.length > 0 ? newExtraServices : null,
       } as any);
       if (error) throw error;
       setForm({ client_name:'', client_email:'', client_phone:'', service_id:'', appointment_time:'', notes:'', employee_id:'' });
+      setNewExtraServices([]);
       setClientSuggestions([]); setShowSuggestions(false);
       setShowForm(false);
       loadDayAppointments(); loadWeekAppointments();
@@ -709,6 +715,7 @@ const SmartAppointments = () => {
       notes: apt.notes || '',
       employee_id: (apt as any).employee_id || '',
     });
+    setEditExtraServices((apt as any).additional_services || []);
     setEditingApt(apt);
   };
 
@@ -718,15 +725,18 @@ const SmartAppointments = () => {
     setIsLoading(true);
     try {
       const svc = services.find(s => s.id === editAptForm.service_id);
-      const dur = svc?.duration_minutes || Math.round((new Date(editingApt.end_time).getTime() - new Date(editingApt.start_time).getTime()) / 60000);
+      const baseDur = svc?.duration_minutes || Math.round((new Date(editingApt.end_time).getTime() - new Date(editingApt.start_time).getTime()) / 60000);
+      const extraDur = editExtraServices.reduce((s, x) => s + x.duration_minutes, 0);
+      const dur = baseDur + extraDur;
       const dateStr = editAptForm.appointment_date || editingApt.start_time.split('T')[0];
       const start = new Date(`${dateStr}T${editAptForm.appointment_time}:00`);
       const end   = new Date(start.getTime() + dur * 60000);
       const { error } = await supabase.from('appointments').update({
-        client_name:  editAptForm.client_name,
-        client_phone: editAptForm.client_phone || null,
-        client_email: editAptForm.client_email || null,
-        service_id:   editAptForm.service_id || null,
+        client_name:         editAptForm.client_name,
+        client_phone:        editAptForm.client_phone || null,
+        client_email:        editAptForm.client_email || null,
+        service_id:          editAptForm.service_id || null,
+        additional_services: editExtraServices.length > 0 ? editExtraServices : null,
         start_time:          start.toISOString(),
         end_time:            end.toISOString(),
         notes:               editAptForm.notes || null,
@@ -1750,7 +1760,10 @@ const SmartAppointments = () => {
                                 <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>
                               )}
                               {!isPending && pos.height > 38 && svc && (
-                                <p className="text-xs opacity-75 truncate leading-tight">{svc.name}</p>
+                                <p className="text-xs opacity-75 truncate leading-tight">
+                                  {svc.name}
+                                  {((apt as any).additional_services?.length > 0) && ` + ${(apt as any).additional_services.map((x:any)=>x.name).join(', ')}`}
+                                </p>
                               )}
                               {pos.height > 58 && apt.client_phone && (
                                 <p className="text-xs opacity-60 truncate">{apt.client_phone}</p>
@@ -1880,6 +1893,45 @@ const SmartAppointments = () => {
                               )}
                             </div>
                           )}
+                          {/* Servicios adicionales - nueva cita */}
+                          <div>
+                            <Label className="text-xs">Servicios adicionales</Label>
+                            <div className="flex flex-wrap gap-1 mt-1 mb-1">
+                              {newExtraServices.map((svc, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-1 rounded-full">
+                                  {svc.name}
+                                  <button type="button" onClick={() => setNewExtraServices(prev => prev.filter((_,idx)=>idx!==i))} className="ml-0.5 text-purple-400 hover:text-purple-700">×</button>
+                                </span>
+                              ))}
+                            </div>
+                            {isMobile ? (
+                              <select
+                                className="w-full border rounded-md px-2 py-1 text-sm"
+                                onChange={e => {
+                                  const s = services.find(x => x.id === e.target.value);
+                                  if (s && !newExtraServices.find(x => x.service_id === s.id) && s.id !== form.service_id)
+                                    setNewExtraServices(prev => [...prev, { service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }]);
+                                  e.target.value = '';
+                                }}
+                                defaultValue=""
+                              >
+                                <option value="" disabled>+ Añadir servicio extra…</option>
+                                {services.filter(s => s.id !== form.service_id && !newExtraServices.find(x => x.service_id === s.id))
+                                  .map(s => <option key={s.id} value={s.id}>{s.name}{s.price ? ` · €${s.price}` : ''}</option>)}
+                              </select>
+                            ) : (
+                              <Select onValueChange={v => {
+                                const s = services.find(x => x.id === v);
+                                if (s) setNewExtraServices(prev => [...prev, { service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }]);
+                              }} value="">
+                                <SelectTrigger className="text-sm"><SelectValue placeholder="+ Añadir servicio extra…" /></SelectTrigger>
+                                <SelectContent position="popper">
+                                  {services.filter(s => s.id !== form.service_id && !newExtraServices.find(x => x.service_id === s.id))
+                                    .map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.price ? ` · €${s.price}` : ''}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
                           <div>
                             <Label className="text-xs">Notas</Label>
                             <Textarea rows={2} placeholder="Notas opcionales..."
@@ -1961,6 +2013,45 @@ const SmartAppointments = () => {
                               )}
                             </div>
                           )}
+                          {/* Servicios adicionales */}
+                          <div>
+                            <Label className="text-xs">Servicios adicionales</Label>
+                            <div className="flex flex-wrap gap-1 mt-1 mb-1">
+                              {editExtraServices.map((svc, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-1 rounded-full">
+                                  {svc.name}
+                                  <button type="button" onClick={() => setEditExtraServices(prev => prev.filter((_,idx)=>idx!==i))} className="ml-0.5 text-purple-400 hover:text-purple-700">×</button>
+                                </span>
+                              ))}
+                            </div>
+                            {isMobile ? (
+                              <select
+                                className="w-full border rounded-md px-2 py-1 text-sm"
+                                onChange={e => {
+                                  const s = services.find(x => x.id === e.target.value);
+                                  if (s && !editExtraServices.find(x => x.service_id === s.id) && s.id !== editAptForm.service_id)
+                                    setEditExtraServices(prev => [...prev, { service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }]);
+                                  e.target.value = '';
+                                }}
+                                defaultValue=""
+                              >
+                                <option value="" disabled>+ Añadir servicio extra…</option>
+                                {services.filter(s => s.id !== editAptForm.service_id && !editExtraServices.find(x => x.service_id === s.id))
+                                  .map(s => <option key={s.id} value={s.id}>{s.name}{s.price ? ` · €${s.price}` : ''}</option>)}
+                              </select>
+                            ) : (
+                              <Select onValueChange={v => {
+                                const s = services.find(x => x.id === v);
+                                if (s) setEditExtraServices(prev => [...prev, { service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }]);
+                              }} value="">
+                                <SelectTrigger className="text-sm"><SelectValue placeholder="+ Añadir servicio extra…" /></SelectTrigger>
+                                <SelectContent position="popper">
+                                  {services.filter(s => s.id !== editAptForm.service_id && !editExtraServices.find(x => x.service_id === s.id))
+                                    .map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.price ? ` · €${s.price}` : ''}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
                           <div>
                             <Label className="text-xs">Notas</Label>
                             <Textarea rows={2} value={editAptForm.notes} onChange={e => setEditAptForm({...editAptForm, notes: e.target.value})} />
@@ -2007,6 +2098,12 @@ const SmartAppointments = () => {
                                   {svc.name}{svc.price ? ` — €${svc.price}` : ''}
                                 </p>
                               )}
+                              {((apt as any).additional_services || []).map((x: any, i: number) => (
+                                <p key={i} className="flex items-center gap-2 text-sm pl-6">
+                                  <span className="opacity-60">+</span>
+                                  {x.name}{x.price ? ` — €${x.price}` : ''}
+                                </p>
+                              ))}
                               {emp && (
                                 <p className="flex items-center gap-2 text-sm">
                                   <span className="text-base">💅</span>

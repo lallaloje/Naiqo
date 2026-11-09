@@ -123,6 +123,7 @@ const PublicBooking = () => {
   const [salon, setSalon]             = useState<Salon | null>(null);
   const [services, setServices]       = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [extraServices, setExtraServices] = useState<Service[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [busyApts, setBusyApts]       = useState<SlimApt[]>([]);
   const [slots, setSlots]             = useState<string[]>([]);
@@ -256,9 +257,12 @@ const PublicBooking = () => {
   }, [selectedDate, selectedService, salonId]);
 
   // ── Recalcular franjas cuando cambia busy o servicio ───────────
+  const totalDuration = (selectedService?.duration_minutes || 0) + extraServices.reduce((s, x) => s + x.duration_minutes, 0);
+  const totalPrice    = (selectedService?.price || 0) + extraServices.reduce((s, x) => s + (x.price || 0), 0);
+
   useEffect(() => {
     if (!selectedService || !salon) return;
-    const s = generateSlots(selectedDate, selectedService.duration_minutes, busyApts, salon.day_schedules || {});
+    const s = generateSlots(selectedDate, totalDuration, busyApts, salon.day_schedules || {});
     setSlots(s);
     setSelectedSlot('');
     // Marcar día como completo si es laborable pero no tiene huecos
@@ -271,7 +275,7 @@ const PublicBooking = () => {
         setDisabledDates(prev => new Set([...prev, key]));
       }
     }
-  }, [busyApts, selectedService, selectedDate, salon]);
+  }, [busyApts, selectedService, extraServices, selectedDate, salon]);
 
   // ── Buscar cliente por teléfono al escribir ────────────────────
   const handlePhoneChange = (phone: string) => {
@@ -345,7 +349,8 @@ const PublicBooking = () => {
       const dateStr = `${selectedDate.getFullYear()}-${pad2(selectedDate.getMonth()+1)}-${pad2(selectedDate.getDate())}`;
       const offset = getSpainOffset(selectedDate);
       const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
-      const end    = new Date(start.getTime() + selectedService.duration_minutes * 60000);
+      const end    = new Date(start.getTime() + totalDuration * 60000);
+      const additionalServicesData = extraServices.map(s => ({ service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }));
 
       // Hora local española (para pasar a las Edge Functions sin depender de Intl en Deno)
       const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -366,7 +371,8 @@ const PublicBooking = () => {
               userId:                  salon.user_id,
               serviceId:               selectedService.id,
               serviceName:             selectedService.name,
-              servicePrice:            selectedService.price,
+              servicePrice:            totalPrice,
+              additionalServices:      additionalServicesData,
               clientName:              form.client_name,
               clientEmail:             form.client_email,
               clientPhone:             form.client_phone,
@@ -390,17 +396,18 @@ const PublicBooking = () => {
           const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
             body: {
               salonId,
-              userId:       salon.user_id,
-              serviceId:    selectedService.id,
-              serviceName:  selectedService.name,
-              servicePrice: selectedService.price,
-              clientName:   form.client_name,
-              clientEmail:  form.client_email,
-              clientPhone:  form.client_phone,
-              startTime:    start.toISOString(),
-              endTime:      end.toISOString(),
-              notes:        form.notes,
-              origin:       window.location.origin,
+              userId:             salon.user_id,
+              serviceId:          selectedService.id,
+              serviceName:        selectedService.name,
+              servicePrice:       totalPrice,
+              additionalServices: JSON.stringify(additionalServicesData),
+              clientName:         form.client_name,
+              clientEmail:        form.client_email,
+              clientPhone:        form.client_phone,
+              startTime:          start.toISOString(),
+              endTime:            end.toISOString(),
+              notes:              form.notes,
+              origin:             window.location.origin,
               localDate,
               localTime,
             }
@@ -413,17 +420,18 @@ const PublicBooking = () => {
 
       // Si no tiene precio → crear cita directamente (sin pago)
       const { error } = await supabase.from('appointments').insert({
-        salon_id:     salonId,
-        user_id:      salon.user_id,
-        service_id:   selectedService.id,
-        client_name:  form.client_name,
-        client_email: form.client_email || null,
-        client_phone: form.client_phone || null,
-        start_time:   start.toISOString(),
-        end_time:     end.toISOString(),
-        status:       'confirmed',
-        source:       'online',
-        notes:        form.notes || null,
+        salon_id:            salonId,
+        user_id:             salon.user_id,
+        service_id:          selectedService.id,
+        client_name:         form.client_name,
+        client_email:        form.client_email || null,
+        client_phone:        form.client_phone || null,
+        start_time:          start.toISOString(),
+        end_time:            end.toISOString(),
+        status:              'confirmed',
+        source:              'online',
+        notes:               form.notes || null,
+        additional_services: additionalServicesData.length > 0 ? additionalServicesData : null,
       } as any);
       if (error) throw error;
 
@@ -622,15 +630,66 @@ const PublicBooking = () => {
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setStep(1)}>
+                <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => { setStep(1); setExtraServices([]); }}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
                 <div>
                   <CardTitle className="text-lg">Elige fecha y hora</CardTitle>
-                  <CardDescription>{selectedService.name} · {selectedService.duration_minutes} min</CardDescription>
+                  <CardDescription>
+                    {[selectedService, ...extraServices].map(s => s.name).join(' + ')}
+                    {' · '}{totalDuration} min
+                    {totalPrice > 0 && ` · €${totalPrice}`}
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
+            {/* ── Servicios seleccionados + añadir más ── */}
+            <div className="px-6 pb-2 space-y-2">
+              {/* Chips de servicios */}
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-3 py-1.5 rounded-full">
+                  {selectedService.name}
+                  {selectedService.price ? ` · €${selectedService.price}` : ''}
+                </span>
+                {extraServices.map((svc, i) => (
+                  <span key={svc.id} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+                    {svc.name}
+                    {svc.price ? ` · €${svc.price}` : ''}
+                    <button
+                      type="button"
+                      onClick={() => setExtraServices(prev => prev.filter((_, idx) => idx !== i))}
+                      className="ml-1 text-purple-400 hover:text-purple-700 leading-none"
+                    >×</button>
+                  </span>
+                ))}
+              </div>
+              {/* Selector de servicios extra */}
+              {services.filter(s => s.id !== selectedService.id && !extraServices.find(e => e.id === s.id)).length > 0 && (
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-primary font-semibold flex items-center gap-1 py-1 list-none">
+                    <span className="text-base leading-none">+</span> Añadir otro servicio
+                  </summary>
+                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto pr-1">
+                    {services
+                      .filter(s => s.id !== selectedService.id && !extraServices.find(e => e.id === s.id))
+                      .map(svc => (
+                        <button
+                          key={svc.id}
+                          type="button"
+                          onClick={() => setExtraServices(prev => [...prev, svc])}
+                          className="w-full text-left flex justify-between items-center px-3 py-2 rounded-lg border border-gray-100 hover:border-primary/40 hover:bg-primary/5 transition-colors text-sm"
+                        >
+                          <span className="font-medium">{svc.name}
+                            <span className="text-xs text-muted-foreground ml-2">{svc.duration_minutes} min</span>
+                          </span>
+                          {svc.price && <span className="text-primary font-semibold">€{svc.price}</span>}
+                        </button>
+                      ))
+                    }
+                  </div>
+                </details>
+              )}
+            </div>
             <CardContent className="space-y-5">
               <CalendarComponent
                 mode="single"
@@ -826,23 +885,27 @@ const PublicBooking = () => {
                 {/* Resumen */}
                 <div className="bg-muted rounded-xl p-4 space-y-1.5 text-sm">
                   <p className="font-semibold mb-2">Resumen de tu cita</p>
-                  <p>💅 {selectedService?.name}</p>
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {[selectedService!, ...extraServices].map(s => (
+                      <span key={s.id} className="bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full">💅 {s.name}</span>
+                    ))}
+                  </div>
                   <p>📅 {selectedDate.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</p>
-                  <p>🕐 {selectedSlot} ({selectedService?.duration_minutes} min)</p>
-                  {selectedService?.price && <p>💰 €{selectedService.price}</p>}
+                  <p>🕐 {selectedSlot} ({totalDuration} min)</p>
+                  {totalPrice > 0 && <p>💰 Total: <strong>€{totalPrice}</strong></p>}
                 </div>
 
                 <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                   {isLoading ? 'Preparando reserva...' :
-                    selectedService?.price
+                    totalPrice > 0
                       ? '💳 Guardar tarjeta y confirmar cita (gratis)'
                       : '✅ Solicitar cita'}
                 </Button>
-                {selectedService?.price && (
+                {totalPrice > 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1">
                     <p className="font-semibold">ℹ️ Política de cancelación</p>
                     <p>La reserva es <strong>completamente gratuita</strong>. Solo guardamos tu tarjeta para proteger el hueco.</p>
-                    <p>Si cancelas <strong>con menos de 24 h de antelación</strong> o no acudes, se cobrará el <strong>50% del servicio (€{(selectedService.price * 0.5).toFixed(2)})</strong>.</p>
+                    <p>Si cancelas <strong>con menos de 24 h de antelación</strong> o no acudes, se cobrará el <strong>50% del total (€{(totalPrice * 0.5).toFixed(2)})</strong>.</p>
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground text-center">
