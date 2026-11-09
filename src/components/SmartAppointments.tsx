@@ -913,7 +913,7 @@ const SmartAppointments = () => {
 
   // ─── Dynamic calendar helpers ────────────────────────────────────
   // Grid always covers 8:00–24:00 (or earlier if there's an apt before 8)
-  const GRID_DAY_START = 8;
+  const GRID_DAY_START = 0;
   const GRID_DAY_END   = 24;
   const earliestApt = appointments.reduce((min, apt) => {
     const h = new Date(apt.start_time).getHours();
@@ -937,6 +937,24 @@ const SmartAppointments = () => {
   };
 
   const positions = assignColumns(appointments, gridStart);
+
+  // Employee columns: one column per active employee when there are multiple employees
+  const activeEmployees = employees.filter(e => e.active);
+  const useEmployeeCols = activeEmployees.length > 1;
+  const employeeColumns: { employee: Employee | null; apts: Appointment[]; positions: Map<string, AptPosition> }[] = useEmployeeCols
+    ? [
+        ...activeEmployees.map(emp => {
+          const apts = appointments.filter(a => (a as any).employee_id === emp.id);
+          return { employee: emp, apts, positions: assignColumns(apts, gridStart) };
+        }),
+        ...((() => {
+          const unassigned = appointments.filter(a => !(a as any).employee_id);
+          return unassigned.length > 0
+            ? [{ employee: null as Employee | null, apts: unassigned, positions: assignColumns(unassigned, gridStart) }]
+            : [];
+        })()),
+      ]
+    : [];
 
   const blockedPosition = (slot: BlockedSlot) => {
     const s  = new Date(slot.start_time);
@@ -1603,10 +1621,24 @@ const SmartAppointments = () => {
               {/* Calendar grid */}
               <div className="flex-1 min-w-0">
                 <Card className="overflow-hidden">
+                  {/* Employee column headers — only shown when multiple employees */}
+                  {useEmployeeCols && (
+                    <div className="flex border-b bg-muted/30 sticky top-0 z-30">
+                      <div className="w-12 md:w-16 shrink-0" />
+                      {employeeColumns.map(col => (
+                        <div
+                          key={col.employee?.id ?? 'unassigned'}
+                          className="flex-1 border-l border-muted/30 py-1.5 px-2 text-center text-xs font-semibold text-foreground truncate"
+                        >
+                          {col.employee?.name ?? 'Sin asignar'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div
                     ref={calendarRef}
                     className={isMobile ? "" : "overflow-y-auto"}
-                    style={isMobile ? {} : { maxHeight: '75vh' }}
+                    style={isMobile ? {} : { maxHeight: useEmployeeCols ? '72vh' : '75vh' }}
                   >
                     <div className="flex">
                       {/* Time labels */}
@@ -1622,159 +1654,275 @@ const SmartAppointments = () => {
                         ))}
                       </div>
 
-                      {/* Appointment area */}
-                      <div
-                        className="flex-1 relative border-l border-muted/30"
-                        style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}
-                      >
-                        {/* Hour lines + click zones */}
-                        {Array.from({ length: TOTAL_HOURS * 2 }, (_, i) => {
-                          const h = Math.floor(i / 2) + gridStart;
-                          const m = i % 2 === 0 ? '00' : '30';
-                          return (
-                            <div
-                              key={i}
-                              className="absolute w-full cursor-pointer hover:bg-primary/5 transition-colors"
-                              style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2 }}
-                              onClick={() => {
-                                setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
-                                setShowForm(true);
-                                setSelectedApt(null);
-                                setShowBlockForm(false);
-                              }}
-                            >
-                              {i % 2 === 1 && (
-                                <div className="absolute top-0 left-0 right-0 border-t border-dashed border-muted/20" />
-                              )}
-                              {i % 2 === 0 && i > 0 && (
-                                <div className="absolute top-0 left-0 right-0 border-t border-muted/30" />
-                              )}
-                            </div>
-                          );
-                        })}
+                      {useEmployeeCols ? (
+                        /* ── Multi-employee columns ── */
+                        <>
+                          {employeeColumns.map((col, colIdx) => {
+                            const colPositions = col.positions;
+                            return (
+                              <div
+                                key={col.employee?.id ?? 'unassigned'}
+                                className="flex-1 relative border-l border-muted/30"
+                                style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}
+                              >
+                                {/* Hour lines + click zones */}
+                                {Array.from({ length: TOTAL_HOURS * 2 }, (_, i) => {
+                                  const h = Math.floor(i / 2) + gridStart;
+                                  const m = i % 2 === 0 ? '00' : '30';
+                                  return (
+                                    <div
+                                      key={i}
+                                      className="absolute w-full cursor-pointer hover:bg-primary/5 transition-colors"
+                                      style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2 }}
+                                      onClick={() => {
+                                        setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
+                                        setShowForm(true);
+                                        setSelectedApt(null);
+                                        setShowBlockForm(false);
+                                      }}
+                                    >
+                                      {i % 2 === 1 && <div className="absolute top-0 left-0 right-0 border-t border-dashed border-muted/20" />}
+                                      {i % 2 === 0 && i > 0 && <div className="absolute top-0 left-0 right-0 border-t border-muted/30" />}
+                                    </div>
+                                  );
+                                })}
 
-                        {/* Blocked slots — hatched background */}
-                        {blockedSlots.map(slot => {
-                          const pos = blockedPosition(slot);
-                          if (pos.top < 0) return null;
-                          return (
-                            <div
-                              key={slot.id}
-                              className="absolute left-0 right-0 z-5 pointer-events-none"
-                              style={{ top: pos.top, height: pos.height }}
-                            >
-                              <div className="w-full h-full rounded-sm border border-gray-300"
-                                style={{
-                                  background: 'repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 4px, #f3f4f6 4px, #f3f4f6 12px)',
-                                  opacity: 0.85,
-                                }}
-                              />
-                              <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
-                                <span className="text-xs font-medium text-gray-500 truncate">{slot.title}</span>
-                                <button onClick={() => deleteBlockedSlot(slot.id)}
-                                  className="ml-auto text-gray-400 hover:text-red-500 shrink-0">
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
+                                {/* Blocked + recurring slots in first column only (salon-wide) */}
+                                {colIdx === 0 && blockedSlots.map(slot => {
+                                  const pos = blockedPosition(slot);
+                                  if (pos.top < 0) return null;
+                                  return (
+                                    <div key={slot.id} className="absolute left-0 right-0 z-5 pointer-events-none" style={{ top: pos.top, height: pos.height }}>
+                                      <div className="w-full h-full rounded-sm border border-gray-300" style={{ background: 'repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 4px, #f3f4f6 4px, #f3f4f6 12px)', opacity: 0.85 }} />
+                                      <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                        <span className="text-xs font-medium text-gray-500 truncate">{slot.title}</span>
+                                        <button onClick={() => deleteBlockedSlot(slot.id)} className="ml-auto text-gray-400 hover:text-red-500 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                {colIdx === 0 && activeRecurringBlocks.map(block => {
+                                  const pos = recurringPosition(block);
+                                  if (pos.top < 0) return null;
+                                  return (
+                                    <div key={block.id} className="absolute left-0 right-0 z-5 pointer-events-none" style={{ top: pos.top, height: pos.height }}>
+                                      <div className="w-full h-full rounded-sm border border-purple-300" style={{ background: 'repeating-linear-gradient(45deg, #e9d5ff, #e9d5ff 4px, #f5f3ff 4px, #f5f3ff 12px)', opacity: 0.85 }} />
+                                      <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                        <span className="text-xs font-medium text-purple-600 truncate">🔁 {block.title}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Current time indicator */}
+                                {isToday && nowTop !== null && (
+                                  <div className="absolute left-0 right-0 z-20 pointer-events-none flex items-center" style={{ top: nowTop }}>
+                                    {colIdx === 0 && <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0" />}
+                                    <div className="flex-1 h-0.5 bg-red-400" />
+                                  </div>
+                                )}
+
+                                {/* Appointment blocks for this employee */}
+                                {col.apts.map(apt => {
+                                  const pos = colPositions.get(apt.id);
+                                  if (!pos) return null;
+                                  const svc = services.find(s => s.id === apt.service_id);
+                                  const colW = `${100 / pos.totalCols}%`;
+                                  const colL = `${pos.col / pos.totalCols * 100}%`;
+                                  const isSelected = selectedApt?.id === apt.id;
+                                  const isPending = apt.status === 'pending';
+                                  const startFmt = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                                  const endFmt   = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                                  const statusStyle =
+                                    apt.status === 'confirmed' ? 'bg-green-100 border-l-green-500 text-green-900' :
+                                    apt.status === 'pending'   ? 'bg-yellow-100 border-l-yellow-400 text-yellow-900' :
+                                    apt.status === 'scheduled' ? 'bg-yellow-50 border-l-yellow-300 text-yellow-800' :
+                                    apt.status === 'completed' ? 'bg-gray-100 border-l-gray-400 text-gray-500' :
+                                    apt.status === 'no_show'   ? 'bg-orange-50 border-l-orange-300 text-orange-700' :
+                                    apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-60' :
+                                    'bg-yellow-50 border-l-yellow-300 text-yellow-800';
+                                  return (
+                                    <div
+                                      key={apt.id}
+                                      className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none ${statusStyle} ${apt.status === 'pending' ? 'animate-pulse' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
+                                      style={{ top: pos.top + 2, height: pos.height - 4, left: `calc(${colL} + 2px)`, width: `calc(${colW} - 4px)` }}
+                                      onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
+                                    >
+                                      <p className="font-semibold text-xs leading-tight truncate">
+                                        {isPending && '⏳ '}
+                                        <span className="opacity-70">{startFmt}–{endFmt} </span>
+                                        {apt.client_name}
+                                      </p>
+                                      {isPending && pos.height > 28 && <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>}
+                                      {!isPending && pos.height > 38 && svc && (
+                                        <p className="text-xs opacity-75 truncate leading-tight">
+                                          {svc.name}{((apt as any).additional_services?.length > 0) && ` + ${(apt as any).additional_services.map((x:any)=>x.name).join(', ')}`}
+                                        </p>
+                                      )}
+                                      {pos.height > 58 && apt.client_phone && <p className="text-xs opacity-60 truncate">{apt.client_phone}</p>}
+                                      {pos.height > 76 && svc?.price && <p className="text-xs font-medium opacity-80">€{svc.price}</p>}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Recurring blocked slots — hatched purple */}
-                        {activeRecurringBlocks.map(block => {
-                          const pos = recurringPosition(block);
-                          if (pos.top < 0) return null;
-                          return (
-                            <div
-                              key={block.id}
-                              className="absolute left-0 right-0 z-5 pointer-events-none"
-                              style={{ top: pos.top, height: pos.height }}
-                            >
-                              <div className="w-full h-full rounded-sm border border-purple-300"
-                                style={{
-                                  background: 'repeating-linear-gradient(45deg, #e9d5ff, #e9d5ff 4px, #f5f3ff 4px, #f5f3ff 12px)',
-                                  opacity: 0.85,
+                            );
+                          })}
+                        </>
+                      ) : (
+                        /* ── Single column (no employees or only one) ── */
+                        <div
+                          className="flex-1 relative border-l border-muted/30"
+                          style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}
+                        >
+                          {/* Hour lines + click zones */}
+                          {Array.from({ length: TOTAL_HOURS * 2 }, (_, i) => {
+                            const h = Math.floor(i / 2) + gridStart;
+                            const m = i % 2 === 0 ? '00' : '30';
+                            return (
+                              <div
+                                key={i}
+                                className="absolute w-full cursor-pointer hover:bg-primary/5 transition-colors"
+                                style={{ top: i * (HOUR_HEIGHT / 2), height: HOUR_HEIGHT / 2 }}
+                                onClick={() => {
+                                  setPrefillTime(`${String(h).padStart(2,'0')}:${m}`);
+                                  setShowForm(true);
+                                  setSelectedApt(null);
+                                  setShowBlockForm(false);
                                 }}
-                              />
-                              <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
-                                <span className="text-xs font-medium text-purple-600 truncate">🔁 {block.title}</span>
+                              >
+                                {i % 2 === 1 && (
+                                  <div className="absolute top-0 left-0 right-0 border-t border-dashed border-muted/20" />
+                                )}
+                                {i % 2 === 0 && i > 0 && (
+                                  <div className="absolute top-0 left-0 right-0 border-t border-muted/30" />
+                                )}
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
 
-                        {/* Current time indicator */}
-                        {isToday && nowTop !== null && (
-                          <div
-                            className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
-                            style={{ top: nowTop }}
-                          >
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0" />
-                            <div className="flex-1 h-0.5 bg-red-400" />
-                          </div>
-                        )}
+                          {/* Blocked slots — hatched background */}
+                          {blockedSlots.map(slot => {
+                            const pos = blockedPosition(slot);
+                            if (pos.top < 0) return null;
+                            return (
+                              <div
+                                key={slot.id}
+                                className="absolute left-0 right-0 z-5 pointer-events-none"
+                                style={{ top: pos.top, height: pos.height }}
+                              >
+                                <div className="w-full h-full rounded-sm border border-gray-300"
+                                  style={{
+                                    background: 'repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 4px, #f3f4f6 4px, #f3f4f6 12px)',
+                                    opacity: 0.85,
+                                  }}
+                                />
+                                <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                  <span className="text-xs font-medium text-gray-500 truncate">{slot.title}</span>
+                                  <button onClick={() => deleteBlockedSlot(slot.id)}
+                                    className="ml-auto text-gray-400 hover:text-red-500 shrink-0">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
 
-                        {/* Appointment blocks */}
-                        {appointments.map(apt => {
-                          const pos    = positions.get(apt.id);
-                          if (!pos) return null;
-                          const svc    = services.find(s => s.id === apt.service_id);
-                          const colW   = `${100 / pos.totalCols}%`;
-                          const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
-                          const isSelected = selectedApt?.id === apt.id;
-                          const isPending  = apt.status === 'pending';
-                          const startFmt   = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-                          const endFmt     = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                          {/* Recurring blocked slots — hatched purple */}
+                          {activeRecurringBlocks.map(block => {
+                            const pos = recurringPosition(block);
+                            if (pos.top < 0) return null;
+                            return (
+                              <div
+                                key={block.id}
+                                className="absolute left-0 right-0 z-5 pointer-events-none"
+                                style={{ top: pos.top, height: pos.height }}
+                              >
+                                <div className="w-full h-full rounded-sm border border-purple-300"
+                                  style={{
+                                    background: 'repeating-linear-gradient(45deg, #e9d5ff, #e9d5ff 4px, #f5f3ff 4px, #f5f3ff 12px)',
+                                    opacity: 0.85,
+                                  }}
+                                />
+                                <div className="absolute inset-0 flex items-center px-2 pointer-events-auto">
+                                  <span className="text-xs font-medium text-purple-600 truncate">🔁 {block.title}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
 
-                          // ── Status-based colors ──
-                          const statusStyle =
-                            apt.status === 'confirmed' ? 'bg-green-100 border-l-green-500 text-green-900' :
-                            apt.status === 'pending'   ? 'bg-yellow-100 border-l-yellow-400 text-yellow-900' :
-                            apt.status === 'scheduled' ? 'bg-yellow-50 border-l-yellow-300 text-yellow-800' :
-                            apt.status === 'completed' ? 'bg-gray-100 border-l-gray-400 text-gray-500' :
-                            apt.status === 'no_show'   ? 'bg-orange-50 border-l-orange-300 text-orange-700' :
-                            apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-60' :
-                            /* default */ 'bg-yellow-50 border-l-yellow-300 text-yellow-800';
-
-                          return (
+                          {/* Current time indicator */}
+                          {isToday && nowTop !== null && (
                             <div
-                              key={apt.id}
-                              className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none
-                                ${statusStyle}
-                                ${apt.status === 'pending' ? 'animate-pulse' : ''}
-                                ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
-                              style={{
-                                top:    pos.top + 2,
-                                height: pos.height - 4,
-                                left:   `calc(${colL} + 2px)`,
-                                width:  `calc(${colW} - 4px)`,
-                              }}
-                              onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
+                              className="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+                              style={{ top: nowTop }}
                             >
-                              <p className="font-semibold text-xs leading-tight truncate">
-                                {isPending && '⏳ '}
-                                <span className="opacity-70">{startFmt}–{endFmt} </span>
-                                {apt.client_name}
-                              </p>
-                              {isPending && pos.height > 28 && (
-                                <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>
-                              )}
-                              {!isPending && pos.height > 38 && svc && (
-                                <p className="text-xs opacity-75 truncate leading-tight">
-                                  {svc.name}
-                                  {((apt as any).additional_services?.length > 0) && ` + ${(apt as any).additional_services.map((x:any)=>x.name).join(', ')}`}
+                              <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0" />
+                              <div className="flex-1 h-0.5 bg-red-400" />
+                            </div>
+                          )}
+
+                          {/* Appointment blocks */}
+                          {appointments.map(apt => {
+                            const pos    = positions.get(apt.id);
+                            if (!pos) return null;
+                            const svc    = services.find(s => s.id === apt.service_id);
+                            const colW   = `${100 / pos.totalCols}%`;
+                            const colL   = `${(apt.service_id ? pos.col : 0) / pos.totalCols * 100}%`;
+                            const isSelected = selectedApt?.id === apt.id;
+                            const isPending  = apt.status === 'pending';
+                            const startFmt   = new Date(apt.start_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+                            const endFmt     = new Date(apt.end_time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+
+                            // ── Status-based colors ──
+                            const statusStyle =
+                              apt.status === 'confirmed' ? 'bg-green-100 border-l-green-500 text-green-900' :
+                              apt.status === 'pending'   ? 'bg-yellow-100 border-l-yellow-400 text-yellow-900' :
+                              apt.status === 'scheduled' ? 'bg-yellow-50 border-l-yellow-300 text-yellow-800' :
+                              apt.status === 'completed' ? 'bg-gray-100 border-l-gray-400 text-gray-500' :
+                              apt.status === 'no_show'   ? 'bg-orange-50 border-l-orange-300 text-orange-700' :
+                              apt.status === 'cancelled' ? 'bg-red-50 border-l-red-300 text-red-400 opacity-60' :
+                              /* default */ 'bg-yellow-50 border-l-yellow-300 text-yellow-800';
+
+                            return (
+                              <div
+                                key={apt.id}
+                                className={`absolute rounded-lg border-l-4 px-2 py-1 cursor-pointer overflow-hidden transition-all z-10 select-none
+                                  ${statusStyle}
+                                  ${apt.status === 'pending' ? 'animate-pulse' : ''}
+                                  ${isSelected ? 'ring-2 ring-primary ring-offset-1 shadow-lg' : 'hover:shadow-md hover:z-20'}`}
+                                style={{
+                                  top:    pos.top + 2,
+                                  height: pos.height - 4,
+                                  left:   `calc(${colL} + 2px)`,
+                                  width:  `calc(${colW} - 4px)`,
+                                }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedApt(apt); setShowForm(false); setShowBlockForm(false); loadClientHistory(apt); loadLoyaltyCard(apt); loadWorkData(apt); }}
+                              >
+                                <p className="font-semibold text-xs leading-tight truncate">
+                                  {isPending && '⏳ '}
+                                  <span className="opacity-70">{startFmt}–{endFmt} </span>
+                                  {apt.client_name}
                                 </p>
-                              )}
-                              {pos.height > 58 && apt.client_phone && (
-                                <p className="text-xs opacity-60 truncate">{apt.client_phone}</p>
-                              )}
-                              {pos.height > 76 && svc?.price && (
-                                <p className="text-xs font-medium opacity-80">€{svc.price}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                                {isPending && pos.height > 28 && (
+                                  <p className="text-xs font-medium opacity-90 leading-tight">Online · Pendiente</p>
+                                )}
+                                {!isPending && pos.height > 38 && svc && (
+                                  <p className="text-xs opacity-75 truncate leading-tight">
+                                    {svc.name}
+                                    {((apt as any).additional_services?.length > 0) && ` + ${(apt as any).additional_services.map((x:any)=>x.name).join(', ')}`}
+                                  </p>
+                                )}
+                                {pos.height > 58 && apt.client_phone && (
+                                  <p className="text-xs opacity-60 truncate">{apt.client_phone}</p>
+                                )}
+                                {pos.height > 76 && svc?.price && (
+                                  <p className="text-xs font-medium opacity-80">€{svc.price}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
