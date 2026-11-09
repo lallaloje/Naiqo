@@ -1007,6 +1007,13 @@ const SmartAppointments = () => {
   const DAY_NAMES  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const today      = toDateStr(new Date());
 
+  // ─── Disable outer page scroll so only the calendar scrolls ────
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (main) (main as HTMLElement).style.overflow = 'hidden';
+    return () => { if (main) (main as HTMLElement).style.overflow = ''; };
+  }, []);
+
   // ─── Scroll to first appointment or 8am on load ─────────────────
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -1033,7 +1040,7 @@ const SmartAppointments = () => {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 h-[100svh] flex flex-col overflow-hidden" style={{ paddingBottom: 0 }}>
 
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1410,7 +1417,7 @@ const SmartAppointments = () => {
           )}
 
           {view === 'day' && (
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-1 min-h-0">
 
               {/* ── Mini calendar sidebar (desktop only) ── */}
               <div className="hidden lg:flex flex-col gap-3 w-44 shrink-0">
@@ -1624,8 +1631,8 @@ const SmartAppointments = () => {
               </div>
 
               {/* Calendar grid */}
-              <div className="flex-1 min-w-0">
-                <Card className="overflow-hidden">
+              <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+                <Card className="overflow-hidden flex-1 flex flex-col min-h-0">
                   {/* Employee column headers — only shown when multiple employees */}
                   {useEmployeeCols && (
                     <div className="flex border-b bg-muted/30 sticky top-0 z-30">
@@ -1642,14 +1649,8 @@ const SmartAppointments = () => {
                   )}
                   <div
                     ref={calendarRef}
-                    className="overflow-y-auto"
-                    style={{
-                      height: useEmployeeCols ? 'calc(100svh - 220px)' : 'calc(100svh - 190px)',
-                      overscrollBehaviorY: 'contain',
-                      touchAction: 'pan-y',
-                    }}
-                    onTouchStart={e => e.stopPropagation()}
-                    onTouchMove={e => e.stopPropagation()}
+                    className="overflow-y-auto flex-1 min-h-0"
+                    style={{ overscrollBehaviorY: 'contain' }}
                   >
                     <div className="flex">
                       {/* Time labels */}
