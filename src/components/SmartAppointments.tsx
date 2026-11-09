@@ -1007,6 +1007,19 @@ const SmartAppointments = () => {
   const DAY_NAMES  = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
   const today      = toDateStr(new Date());
 
+  // ─── Block outer touch handlers so calendar scroll works on mobile
+  useEffect(() => {
+    const el = calendarRef.current;
+    if (!el) return;
+    const stop = (e: TouchEvent) => e.stopPropagation();
+    el.addEventListener('touchstart', stop, { passive: true });
+    el.addEventListener('touchmove',  stop, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', stop);
+      el.removeEventListener('touchmove',  stop);
+    };
+  }, []);
+
   // ─── Scroll to first appointment or 8am on load ─────────────────
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -1016,7 +1029,6 @@ const SmartAppointments = () => {
       const h = firstTime.getHours() + firstTime.getMinutes() / 60;
       calendarRef.current.scrollTop = Math.max((h - gridStart - 1) * HOUR_HEIGHT, 0);
     } else {
-      // No appointments: scroll to 8am so user doesn't see midnight
       calendarRef.current.scrollTop = Math.max((8 - gridStart) * HOUR_HEIGHT, 0);
     }
   }, [appointments, gridStart, selectedDate]);
@@ -1640,7 +1652,11 @@ const SmartAppointments = () => {
                       ))}
                     </div>
                   )}
-                  <div ref={calendarRef}>
+                  <div
+                    ref={calendarRef}
+                    className="overflow-y-scroll"
+                    style={{ height: '70vh', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+                  >
                     <div className="flex">
                       {/* Time labels */}
                       <div className="w-12 md:w-16 shrink-0 select-none">
