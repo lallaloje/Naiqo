@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Calendar, TrendingUp, ArrowRight, Clock,
   Users, Euro, CheckCircle2, XCircle, Scissors,
-  BarChart3, Sparkles, Star, BookOpen, Download, Gift
+  BarChart3, Sparkles, Star, BookOpen, Download, Gift, Camera, X
 } from 'lucide-react';
 import { format, startOfMonth, startOfDay, endOfDay, eachDayOfInterval, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -63,6 +63,10 @@ export default function Dashboard() {
   const [giftResult,   setGiftResult]   = useState<null | { found: boolean; card?: any; error?: string }>(null);
   const [giftLoading,  setGiftLoading]  = useState(false);
   const [salonId,      setSalonId]      = useState<string | null>(null);
+  const [scanning,     setScanning]     = useState(false);
+  const scanningRef = { current: false };
+  const videoRef = useState<{ el: HTMLVideoElement | null }>({ el: null })[0];
+  const streamRef = useState<{ stream: MediaStream | null }>({ stream: null })[0];
 
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
@@ -210,7 +214,76 @@ export default function Dashboard() {
   };
 
   // ── Gift card helpers ─────────────────────────────────────────────
+  const startQrScan = async () => {
+    scanningRef.current = true;
+    setScanning(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.stream = stream;
+      if (videoRef.el) {
+        videoRef.el.srcObject = stream;
+        videoRef.el.play();
+      }
+      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+      const scan = async () => {
+        if (!scanningRef.current) return;
+        try {
+          if (videoRef.el) {
+            const codes = await detector.detect(videoRef.el);
+            if (codes.length > 0) {
+              const raw: string = codes[0].rawValue;
+              const code = raw.includes('/') ? raw.split('/').pop()! : raw;
+              stopQrScan();
+              setGiftCode(code.toUpperCase());
+              setTimeout(() => lookupGiftCardCode(code.toUpperCase()), 100);
+              return;
+            }
+          }
+        } catch {}
+        if (scanningRef.current) requestAnimationFrame(scan);
+      };
+      requestAnimationFrame(scan);
+    } catch {
+      toast.error('No se pudo acceder a la cámara.');
+      scanningRef.current = false;
+      setScanning(false);
+    }
+  };
+
+  const stopQrScan = () => {
+    scanningRef.current = false;
+    if (streamRef.stream) {
+      streamRef.stream.getTracks().forEach(t => t.stop());
+      streamRef.stream = null;
+    }
+    setScanning(false);
+  };
+
+  const lookupGiftCardCode = async (code: string) => {
+    if (!code.trim() || !salonId) return;
+    setGiftLoading(true);
+    setGiftResult(null);
+    const { data, error } = await supabase
+      .from('gift_cards')
+      .select('*')
+      .eq('code', code.trim().toUpperCase())
+      .eq('salon_id', salonId)
+      .maybeSingle();
+    if (error || !data) {
+      setGiftResult({ found: false, error: 'Código no encontrado o no pertenece a este salón.' });
+    } else if (data.status === 'redeemed') {
+      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ya fue canjeada.' });
+    } else if (new Date(data.expires_at) < new Date()) {
+      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ha caducado.' });
+    } else {
+      setGiftResult({ found: true, card: data });
+    }
+    setGiftLoading(false);
+  };
+
   const lookupGiftCard = async () => {
+    await lookupGiftCardCode(giftCode);
+  };
     if (!giftCode.trim() || !salonId) return;
     setGiftLoading(true);
     setGiftResult(null);
@@ -557,23 +630,50 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <input
-              value={giftCode}
-              onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftResult(null); }}
-              onKeyDown={e => e.key === 'Enter' && lookupGiftCard()}
-              placeholder="Código (ej: OLALLA5E)"
-              maxLength={12}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
-            <TouchButton
-              onClick={lookupGiftCard}
-              disabled={giftLoading || !giftCode.trim()}
-              className="bg-purple-500 hover:bg-purple-600 text-white rounded-xl px-4"
-            >
-              {giftLoading ? '…' : 'Buscar'}
-            </TouchButton>
-          </div>
+          {scanning ? (
+            <div className="relative rounded-xl overflow-hidden bg-black">
+              <video
+                ref={el => { videoRef.el = el; }}
+                className="w-full h-48 object-cover"
+                playsInline muted
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-36 h-36 border-2 border-white/70 rounded-xl" />
+              </div>
+              <TouchButton
+                onClick={stopQrScan}
+                className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 h-7 w-7"
+              >
+                <X className="w-4 h-4" />
+              </TouchButton>
+              <p className="absolute bottom-2 left-0 right-0 text-center text-white text-xs">Apunta al código QR</p>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                value={giftCode}
+                onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftResult(null); }}
+                onKeyDown={e => e.key === 'Enter' && lookupGiftCard()}
+                placeholder="Código (ej: OLALLA5E)"
+                maxLength={12}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <TouchButton
+                onClick={startQrScan}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl px-3"
+                title="Escanear QR"
+              >
+                <Camera className="w-4 h-4" />
+              </TouchButton>
+              <TouchButton
+                onClick={lookupGiftCard}
+                disabled={giftLoading || !giftCode.trim()}
+                className="bg-purple-500 hover:bg-purple-600 text-white rounded-xl px-4"
+              >
+                {giftLoading ? '…' : 'Buscar'}
+              </TouchButton>
+            </div>
+          )}
 
           {giftResult && (
             <div className={`rounded-xl p-3 ${giftResult.error ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
