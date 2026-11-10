@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Calendar, TrendingUp, ArrowRight, Clock,
   Users, Euro, CheckCircle2, XCircle, Scissors,
-  BarChart3, Sparkles, Star, BookOpen, Download
+  BarChart3, Sparkles, Star, BookOpen, Download, Gift
 } from 'lucide-react';
 import { format, startOfMonth, startOfDay, endOfDay, eachDayOfInterval, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -58,6 +58,12 @@ export default function Dashboard() {
   const [employeeStats, setEmployeeStats] = useState<{ name: string; color: string; citas: number; revenue: number; cancelled: number }[]>([]);
   const [loading,    setLoading]        = useState(true);
 
+  // ── Gift card redemption ──────────────────────────────────────────
+  const [giftCode,     setGiftCode]     = useState('');
+  const [giftResult,   setGiftResult]   = useState<null | { found: boolean; card?: any; error?: string }>(null);
+  const [giftLoading,  setGiftLoading]  = useState(false);
+  const [salonId,      setSalonId]      = useState<string | null>(null);
+
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
       toast.success('¡Suscripción activada! Bienvenida a NAIQO 🎉');
@@ -72,10 +78,13 @@ export default function Dashboard() {
       // ── Salon info ────────────────────────────────────────────────
       const { data: salon } = await supabase
         .from('salons')
-        .select('salon_name, contact_name, trial_ends_at, subscription_status')
+        .select('id, salon_name, contact_name, trial_ends_at, subscription_status')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (salon) setSalonData(salon);
+      if (salon) {
+        setSalonData(salon);
+        setSalonId((salon as any).id);
+      }
 
       const now       = new Date();
       const todayStr  = format(now, 'yyyy-MM-dd');
@@ -198,6 +207,46 @@ export default function Dashboard() {
   const STATUS_LABEL: Record<string, string> = {
     pending: 'Pendiente', scheduled: 'Programada',
     confirmed: 'Confirmada', completed: 'Completada', cancelled: 'Cancelada',
+  };
+
+  // ── Gift card helpers ─────────────────────────────────────────────
+  const lookupGiftCard = async () => {
+    if (!giftCode.trim() || !salonId) return;
+    setGiftLoading(true);
+    setGiftResult(null);
+    const { data, error } = await supabase
+      .from('gift_cards')
+      .select('*')
+      .eq('code', giftCode.trim().toUpperCase())
+      .eq('salon_id', salonId)
+      .maybeSingle();
+    if (error || !data) {
+      setGiftResult({ found: false, error: 'Código no encontrado o no pertenece a este salón.' });
+    } else if (data.status === 'redeemed') {
+      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ya fue canjeada.' });
+    } else if (new Date(data.expires_at) < new Date()) {
+      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ha caducado.' });
+    } else {
+      setGiftResult({ found: true, card: data });
+    }
+    setGiftLoading(false);
+  };
+
+  const redeemGiftCard = async () => {
+    if (!giftResult?.card) return;
+    setGiftLoading(true);
+    const { error } = await supabase
+      .from('gift_cards')
+      .update({ status: 'redeemed', used_at: new Date().toISOString() })
+      .eq('id', giftResult.card.id);
+    if (error) {
+      toast.error('Error al canjear la tarjeta.');
+    } else {
+      toast.success('¡Tarjeta regalo canjeada correctamente! 🎉');
+      setGiftResult({ found: true, card: { ...giftResult.card, status: 'redeemed' } });
+      setGiftCode('');
+    }
+    setGiftLoading(false);
   };
 
   // ── Exportar CSV ─────────────────────────────────────────────────
@@ -498,6 +547,75 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Tarjetas regalo — canjear */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gift className="w-4 h-4 text-purple-500" />
+            Canjear tarjeta regalo
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={giftCode}
+              onChange={e => { setGiftCode(e.target.value.toUpperCase()); setGiftResult(null); }}
+              onKeyDown={e => e.key === 'Enter' && lookupGiftCard()}
+              placeholder="Código (ej: OLALLA5E)"
+              maxLength={12}
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <TouchButton
+              onClick={lookupGiftCard}
+              disabled={giftLoading || !giftCode.trim()}
+              className="bg-purple-500 hover:bg-purple-600 text-white rounded-xl px-4"
+            >
+              {giftLoading ? '…' : 'Buscar'}
+            </TouchButton>
+          </div>
+
+          {giftResult && (
+            <div className={`rounded-xl p-3 ${giftResult.error ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
+              {giftResult.error ? (
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <XCircle className="w-4 h-4 shrink-0" /> {giftResult.error}
+                </p>
+              ) : giftResult.card && (
+                <>
+                  <div className="space-y-1 mb-3">
+                    <p className="text-sm font-semibold text-green-800 flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" /> Tarjeta válida
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      <span className="font-medium">Servicio:</span> {giftResult.card.service_name}
+                      {' · '}
+                      <span className="font-medium text-purple-600">€{(giftResult.card.price_cents / 100).toFixed(2)}</span>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Para:</span> {giftResult.card.recipient_name}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Caduca:</span> {format(new Date(giftResult.card.expires_at), "d MMM yyyy", { locale: es })}
+                    </p>
+                  </div>
+                  {giftResult.card.status !== 'redeemed' ? (
+                    <TouchButton
+                      onClick={redeemGiftCard}
+                      disabled={giftLoading}
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white rounded-xl"
+                    >
+                      {giftLoading ? 'Canjeando…' : '✓ Marcar como canjeada'}
+                    </TouchButton>
+                  ) : (
+                    <p className="text-sm text-center text-green-700 font-medium">✓ Canjeada correctamente</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
     {/* Herramientas IA — solo escritorio */}
     {!isMobile && (
