@@ -302,7 +302,8 @@ export default function Dashboard() {
       .update({ status: 'redeemed', used_at: new Date().toISOString() })
       .eq('id', giftResult.card.id);
     if (error) {
-      toast.error('Error al canjear la tarjeta.');
+      console.error('Redeem error:', error);
+      toast.error(`Error: ${error.message || error.code || 'desconocido'}`);
     } else {
       toast.success('¡Tarjeta regalo canjeada correctamente! 🎉');
       setGiftResult({ found: true, card: { ...giftResult.card, status: 'redeemed' } });
