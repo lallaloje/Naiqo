@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import jsQR from 'jsqr';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,9 +65,10 @@ export default function Dashboard() {
   const [giftLoading,  setGiftLoading]  = useState(false);
   const [salonId,      setSalonId]      = useState<string | null>(null);
   const [scanning,     setScanning]     = useState(false);
-  const scanningRef = { current: false };
-  const videoRef = useState<{ el: HTMLVideoElement | null }>({ el: null })[0];
-  const streamRef = useState<{ stream: MediaStream | null }>({ stream: null })[0];
+  const scanningRef = useRef(false);
+  const videoRef    = useRef<HTMLVideoElement | null>(null);
+  const canvasRef   = useRef<HTMLCanvasElement | null>(null);
+  const streamRef   = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
@@ -215,27 +217,30 @@ export default function Dashboard() {
 
   // ── Gift card helpers ─────────────────────────────────────────────
   const startQrScan = async () => {
-    if (!(window as any).BarcodeDetector) {
-      toast.error('Tu navegador no soporta escaneo QR. Escribe el código manualmente o usa Chrome.');
-      return;
-    }
     scanningRef.current = true;
     setScanning(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.stream = stream;
-      if (videoRef.el) {
-        videoRef.el.srcObject = stream;
-        videoRef.el.play();
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
-      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+
       const scan = async () => {
         if (!scanningRef.current) return;
-        try {
-          if (videoRef.el) {
-            const codes = await detector.detect(videoRef.el);
-            if (codes.length > 0) {
-              const raw: string = codes[0].rawValue;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const result = jsQR(imageData.data, imageData.width, imageData.height);
+            if (result?.data) {
+              const raw = result.data;
               const code = raw.includes('/') ? raw.split('/').pop()! : raw;
               stopQrScan();
               setGiftCode(code.toUpperCase());
@@ -243,7 +248,7 @@ export default function Dashboard() {
               return;
             }
           }
-        } catch {}
+        }
         if (scanningRef.current) requestAnimationFrame(scan);
       };
       requestAnimationFrame(scan);
@@ -256,9 +261,9 @@ export default function Dashboard() {
 
   const stopQrScan = () => {
     scanningRef.current = false;
-    if (streamRef.stream) {
-      streamRef.stream.getTracks().forEach(t => t.stop());
-      streamRef.stream = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     }
     setScanning(false);
   };
@@ -617,10 +622,11 @@ export default function Dashboard() {
           {scanning ? (
             <div className="relative rounded-xl overflow-hidden bg-black">
               <video
-                ref={el => { videoRef.el = el; }}
+                ref={videoRef}
                 className="w-full h-48 object-cover"
                 playsInline muted
               />
+              <canvas ref={canvasRef} className="hidden" />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-36 h-36 border-2 border-white/70 rounded-xl" />
               </div>
