@@ -69,7 +69,8 @@ serve(async (req) => {
         // ── Tarjeta regalo ──────────────────────────────────────────
         if (session.metadata?.type === 'gift_card') {
           const { code, salon_id, service_id, service_name, price_cents,
-                  buyer_name, buyer_email, recipient_name, recipient_email, message } = session.metadata;
+                  buyer_name, buyer_email, recipient_name, recipient_email, message,
+                  occasion, design } = session.metadata;
 
           const expiresAt = new Date();
           expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -98,6 +99,7 @@ serve(async (req) => {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseService}` },
             body: JSON.stringify({ code, salon_id, service_name, price_cents: parseInt(price_cents, 10),
               buyer_name, recipient_name, recipient_email, message,
+              occasion: occasion || 'general', design: design || 'classic',
               expires_at: expiresAt.toISOString() }),
           });
 

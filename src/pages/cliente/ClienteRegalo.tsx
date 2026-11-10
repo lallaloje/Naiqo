@@ -32,7 +32,26 @@ const ClienteRegalo = () => {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1); // 1=elegir, 2=datos destinatario
+  const [step, setStep] = useState<1 | 2 | 3>(1); // 1=servicio, 2=estilo, 3=destinatario
+  const [occasion, setOccasion] = useState('general');
+  const [design, setDesign] = useState('classic');
+
+  type Occasion = { id: string; label: string; emoji: string };
+  type DesignOpt = { id: string; label: string; colors: string; emoji: string };
+
+  const occasions: Occasion[] = [
+    { id: 'general',     label: 'Sin ocasión',    emoji: '🎁' },
+    { id: 'birthday',    label: 'Cumpleaños',      emoji: '🎂' },
+    { id: 'christmas',   label: 'Navidad',         emoji: '🎄' },
+    { id: 'valentine',   label: 'San Valentín',    emoji: '💝' },
+    { id: 'anniversary', label: 'Aniversario',     emoji: '💍' },
+  ];
+  const designs: DesignOpt[] = [
+    { id: 'classic',  label: 'Clásica elegante', colors: 'from-purple-600 to-pink-500',   emoji: '💜' },
+    { id: 'romantic', label: 'Rosa romántica',   colors: 'from-pink-400 to-rose-400',     emoji: '🌸' },
+    { id: 'minimal',  label: 'Minimalista',      colors: 'from-gray-800 to-gray-600',     emoji: '◼' },
+    { id: 'golden',   label: 'Dorada premium',   colors: 'from-yellow-600 to-yellow-400', emoji: '✨' },
+  ];
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -92,6 +111,8 @@ const ClienteRegalo = () => {
           recipientName: recipientName.trim(),
           recipientEmail: recipientEmail.trim().toLowerCase(),
           message: message.trim(),
+          occasion,
+          design,
           origin: window.location.origin,
         },
       });
@@ -113,7 +134,7 @@ const ClienteRegalo = () => {
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white pb-24 max-w-lg mx-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => step === 2 ? setStep(1) : navigate('/cliente')} className="p-1 rounded-full hover:bg-gray-100">
+        <button onClick={() => step === 3 ? setStep(2) : step === 2 ? setStep(1) : navigate('/cliente')} className="p-1 rounded-full hover:bg-gray-100">
           <ChevronLeft className="w-5 h-5 text-gray-600" />
         </button>
         <h1 className="font-bold text-lg flex items-center gap-2">
@@ -191,6 +212,61 @@ const ClienteRegalo = () => {
         )}
 
         {step === 2 && selectedService && (
+          <>
+            {/* Ocasión */}
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-3">¿Para qué ocasión es?</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {occasions.map(occ => (
+                  <button
+                    key={occ.id}
+                    onClick={() => setOccasion(occ.id)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      occasion === occ.id
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-100 bg-white hover:border-purple-200'
+                    }`}
+                  >
+                    <span className="text-2xl">{occ.emoji}</span>
+                    <span className="text-xs font-medium text-gray-700 text-center leading-tight">{occ.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Diseño */}
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-3">¿Qué diseño prefieres?</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {designs.map(d => (
+                  <button
+                    key={d.id}
+                    onClick={() => setDesign(d.id)}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
+                      design === d.id
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-100 bg-white hover:border-purple-200'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${d.colors} flex items-center justify-center text-white text-base flex-shrink-0`}>
+                      {d.emoji}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 text-left leading-tight">{d.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setStep(3)}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl py-3 font-semibold text-base"
+            >
+              Continuar
+            </Button>
+          </>
+        )}
+
+        {step === 3 && selectedService && (
           <>
             {/* Resumen */}
             <div className="bg-white rounded-2xl border border-purple-100 p-4 shadow-sm">

@@ -21,6 +21,7 @@ serve(async (req) => {
       salonId, serviceId, serviceName, servicePrice,
       buyerName, buyerEmail,
       recipientName, recipientEmail, message,
+      occasion, design,
       origin,
     } = await req.json();
 
@@ -59,6 +60,8 @@ serve(async (req) => {
       'metadata[recipient_name]': recipientName,
       'metadata[recipient_email]':recipientEmail,
       'metadata[message]':        message || '',
+      'metadata[occasion]':       occasion || 'general',
+      'metadata[design]':         design || 'classic',
     });
 
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
