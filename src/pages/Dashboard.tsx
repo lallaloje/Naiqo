@@ -284,26 +284,6 @@ export default function Dashboard() {
   const lookupGiftCard = async () => {
     await lookupGiftCardCode(giftCode);
   };
-    if (!giftCode.trim() || !salonId) return;
-    setGiftLoading(true);
-    setGiftResult(null);
-    const { data, error } = await supabase
-      .from('gift_cards')
-      .select('*')
-      .eq('code', giftCode.trim().toUpperCase())
-      .eq('salon_id', salonId)
-      .maybeSingle();
-    if (error || !data) {
-      setGiftResult({ found: false, error: 'Código no encontrado o no pertenece a este salón.' });
-    } else if (data.status === 'redeemed') {
-      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ya fue canjeada.' });
-    } else if (new Date(data.expires_at) < new Date()) {
-      setGiftResult({ found: true, card: data, error: 'Esta tarjeta ha caducado.' });
-    } else {
-      setGiftResult({ found: true, card: data });
-    }
-    setGiftLoading(false);
-  };
 
   const redeemGiftCard = async () => {
     if (!giftResult?.card) return;
