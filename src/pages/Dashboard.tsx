@@ -215,6 +215,10 @@ export default function Dashboard() {
 
   // ── Gift card helpers ─────────────────────────────────────────────
   const startQrScan = async () => {
+    if (!(window as any).BarcodeDetector) {
+      toast.error('Tu navegador no soporta escaneo QR. Escribe el código manualmente o usa Chrome.');
+      return;
+    }
     scanningRef.current = true;
     setScanning(true);
     try {
@@ -244,7 +248,7 @@ export default function Dashboard() {
       };
       requestAnimationFrame(scan);
     } catch {
-      toast.error('No se pudo acceder a la cámara.');
+      toast.error('No se pudo acceder a la cámara. Comprueba los permisos del navegador.');
       scanningRef.current = false;
       setScanning(false);
     }
