@@ -142,7 +142,8 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const [photos, setPhotos] = useState<{ id: string; storage_path: string; url: string; caption: string | null }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const [analyses, setAnalyses] = useState<{ id: string; created_at: string; severity_score: number; confidence_score: number; summary: string; image_url: string }[]>([]);
+  const [analyses, setAnalyses] = useState<{ id: string; created_at: string; severity_score: number; confidence_score: number; summary: string; image_url: string; full?: any }[]>([]);
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [giftCards, setGiftCards] = useState<{ id: string; code: string; service_name: string; price_cents: number; recipient_name: string; status: string; created_at: string; expires_at: string }[]>([]);
 
   const prevClientRef = useRef<Client | null>(null);
@@ -158,6 +159,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       setPhotos([]);
       setAnalyses([]);
       setGiftCards([]);
+      setExpandedAnalysis(null);
 
       // Load nail analyses for this client
       supabase.auth.getUser().then(({ data: { user } }) => {
@@ -176,6 +178,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
               confidence_score: a.confidence_score ?? 0,
               summary: a.analysis_results?.summary || 'Análisis completado',
               image_url: a.image_url,
+              full: a.analysis_results,
             })));
           });
       });
@@ -618,20 +621,77 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
               <Sparkles className="w-4 h-4 text-pink-500" /> Análisis ungueales
             </p>
             <div className="space-y-2">
-              {analyses.map(a => (
-                <div key={a.id} className="flex items-center gap-3 bg-pink-50 rounded-xl px-3 py-2.5">
-                  {a.image_url && (
-                    <img src={a.image_url} alt="uña" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-800 truncate">{a.summary}</p>
-                    <p className="text-[10px] text-gray-400">
-                      {new Date(a.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {' · '}Salud: {100 - a.severity_score}/100
-                    </p>
+              {analyses.map(a => {
+                const isOpen = expandedAnalysis === a.id;
+                const f = a.full;
+                return (
+                  <div key={a.id} className="bg-pink-50 rounded-xl overflow-hidden">
+                    <button
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                      onClick={() => setExpandedAnalysis(isOpen ? null : a.id)}
+                    >
+                      {a.image_url && (
+                        <img src={a.image_url} alt="uña" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{a.summary}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {new Date(a.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {' · '}Salud: {100 - a.severity_score}/100
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-pink-400 shrink-0">{isOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {isOpen && f && (
+                      <div className="px-3 pb-3 space-y-3 border-t border-pink-100">
+                        {f.detected_issues?.length > 0 && (
+                          <div className="pt-2">
+                            <p className="text-[10px] font-semibold text-pink-600 uppercase mb-1">Observaciones</p>
+                            <div className="flex flex-wrap gap-1">
+                              {f.detected_issues.map((issue: string, i: number) => (
+                                <span key={i} className="text-[11px] bg-white border border-pink-200 text-pink-700 rounded-full px-2 py-0.5">{issue}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {f.recommendations?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-pink-600 uppercase mb-1">Recomendaciones</p>
+                            <ul className="space-y-1">
+                              {f.recommendations.map((r: string, i: number) => (
+                                <li key={i} className="text-[11px] text-gray-700 flex items-start gap-1">
+                                  <span className="text-pink-400 shrink-0">•</span>{r}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {f.colorimetria && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-pink-600 uppercase mb-1">Colorimetría</p>
+                            <p className="text-[11px] text-gray-700">{f.colorimetria.tono_piel} · subtono {f.colorimetria.subtono}</p>
+                            {f.colorimetria.colores_recomendados?.length > 0 && (
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                <span className="font-medium text-gray-700">Colores: </span>
+                                {f.colorimetria.colores_recomendados.slice(0, 3).join(', ')}
+                              </p>
+                            )}
+                            {f.colorimetria.consejo_profesional && (
+                              <p className="text-[11px] text-gray-500 italic mt-1">"{f.colorimetria.consejo_profesional}"</p>
+                            )}
+                          </div>
+                        )}
+                        {f.detailed_analysis && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-pink-600 uppercase mb-1">Análisis detallado</p>
+                            <p className="text-[11px] text-gray-600 leading-relaxed">{f.detailed_analysis}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
