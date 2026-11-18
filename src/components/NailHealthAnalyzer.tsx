@@ -311,10 +311,12 @@ const NailHealthAnalyzer = () => {
 
       setAnalysisStage('analyzing');
 
+      const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await supabase.functions.invoke('analyze-nail', {
         body: {
           imageUrl: imageUrl,
-          sessionId: sessionId
+          sessionId: sessionId,
+          userId: userData.user?.id,
         },
       });
 

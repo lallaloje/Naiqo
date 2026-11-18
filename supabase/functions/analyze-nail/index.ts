@@ -105,7 +105,7 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-5-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2048,
         messages: [
           {
@@ -136,7 +136,10 @@ Sé específica y práctica. Si las uñas están sanas, indícalo claramente con
     }
 
     const aiResult = await aiResponse.json();
-    const analysisText = aiResult.content[0].text;
+    // Find the text block (skip any thinking blocks)
+    const textBlock = aiResult.content?.find((b: any) => b.type === 'text');
+    if (!textBlock) throw new Error('La IA no devolvió texto');
+    const analysisText = textBlock.text;
 
     // Parsear respuesta JSON — extraer el objeto JSON aunque venga envuelto en markdown
     let analysisData;
