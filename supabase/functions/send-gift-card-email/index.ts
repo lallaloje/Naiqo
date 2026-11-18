@@ -56,10 +56,7 @@ function buildClassicHtml(params: {
     <div style="background:white">
       <div style="padding:28px 32px;text-align:center;border-bottom:1px solid #f3e8ff">
         <p style="margin:0 0 6px;font-size:11px;color:#c084fc;letter-spacing:2px;text-transform:uppercase;font-weight:600">Servicio incluido</p>
-        <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1a1a1a">${serviceName}</p>
-        <div style="display:inline-block;background:linear-gradient(135deg,#d946ef,#9333ea);border-radius:50px;padding:8px 24px">
-          <span style="font-size:26px;font-weight:800;color:white">${priceEuros}€</span>
-        </div>
+        <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a1a">${serviceName}</p>
       </div>
       ${message ? `<div style="padding:22px 32px;border-bottom:1px solid #f3e8ff;background:#fdf8ff;text-align:center">
         <p style="margin:0;font-size:15px;color:#4b5563;line-height:1.7;font-style:italic">"${message}"</p>
@@ -126,9 +123,8 @@ function buildRomanticHtml(params: {
     </svg>
     <div style="background:#fff">
       <div style="padding:22px 28px 18px;text-align:center">
-        <p style="font-size:18px;font-weight:600;color:#1f2937;margin:0 0 8px">${serviceName}</p>
-        <span style="font-size:32px;font-weight:800;color:${priceColor};font-family:sans-serif">${priceEuros}€</span>
-        <p style="font-size:12px;color:#9ca3af;margin:4px 0 0">en ${salonName}</p>
+        <p style="font-size:18px;font-weight:600;color:#1f2937;margin:0 0 4px">${serviceName}</p>
+        <p style="font-size:12px;color:#9ca3af;margin:0">en ${salonName}</p>
       </div>
       <div style="height:1px;background:linear-gradient(90deg,transparent,#fce7f3,transparent);margin:0 28px"></div>
       ${message ? `<div style="padding:18px 28px;text-align:center">
@@ -177,10 +173,6 @@ function buildMinimalHtml(params: {
       <div>
         <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;margin-bottom:5px">Servicio</div>
         <div style="font-size:15px;font-weight:600;color:#111">${serviceName}</div>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;margin-bottom:5px">Valor</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800;color:#111">${priceEuros}€</div>
       </div>
       <div>
         <div style="font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#9ca3af;margin-bottom:5px">Salón</div>
@@ -234,10 +226,7 @@ function buildGoldenHtml(params: {
     </div>
     <div style="padding:24px 32px;text-align:center;border-bottom:1px solid rgba(212,175,55,.12)">
       <p style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(201,168,76,.6);margin:0 0 6px">${theme.label}</p>
-      <p style="font-size:20px;font-weight:500;color:#f0e8d0;margin:0 0 12px">${serviceName}</p>
-      <div style="display:inline-block;border:1px solid rgba(212,175,55,.4);border-radius:4px;padding:8px 28px">
-        <span style="font-size:32px;font-weight:800;color:#c9a84c;font-family:'Space Grotesk',sans-serif">${priceEuros}€</span>
-      </div>
+      <p style="font-size:20px;font-weight:500;color:#f0e8d0;margin:0">${serviceName}</p>
     </div>
     ${message ? `<div style="padding:20px 32px;border-bottom:1px solid rgba(212,175,55,.12);text-align:center">
       <p style="font-size:14px;color:rgba(240,232,208,.7);line-height:1.75;font-style:italic;margin:0">"${message}"</p>
