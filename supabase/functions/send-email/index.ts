@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const FROM_EMAIL     = Deno.env.get('FROM_EMAIL') || 'hola@naiqo.com';
+const FROM_EMAIL     = Deno.env.get('FROM_EMAIL') || 'hola@naiqo.es';
+const REPLY_TO       = 'naiqoia@gmail.com';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -96,6 +97,39 @@ serve(async (req) => {
           <p style="font-size:13px;color:#999">NAIQO · El asistente IA para salones de uñas</p>
         </div>
       `;
+    } else if (type === 'new_client_notification') {
+      subject = `🆕 Nueva clienta registrada: ${data.clientName}`;
+      html = `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 16px;color:#1a1a1a">
+          <h1 style="color:#d946ef;margin-bottom:8px">¡Nueva clienta en Naiqo! 🎉</h1>
+          <p style="font-size:16px;line-height:1.6">Se ha registrado una nueva clienta en tu salón:</p>
+          <div style="background:#fdf4ff;border-radius:12px;padding:20px;margin:20px 0">
+            <p style="margin:0 0 8px"><strong>Nombre:</strong> ${data.clientName}</p>
+            ${data.clientEmail ? `<p style="margin:0 0 8px"><strong>Email:</strong> ${data.clientEmail}</p>` : ''}
+            ${data.clientPhone ? `<p style="margin:0"><strong>Teléfono:</strong> ${data.clientPhone}</p>` : ''}
+          </div>
+          <p style="font-size:13px;color:#666">Puedes verla en tu lista de clientes en <a href="https://www.naiqo.es/clientes" style="color:#d946ef">naiqo.es/clientes</a></p>
+          <p style="font-size:12px;color:#999;margin-top:24px">NAIQO · El asistente IA para salones de uñas</p>
+        </div>
+      `;
+    } else if (type === 'gift_card_purchased_notification') {
+      subject = `🎁 Nueva tarjeta regalo vendida — ${data.serviceName}`;
+      html = `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 16px;color:#1a1a1a">
+          <h1 style="color:#d946ef;margin-bottom:8px">¡Tarjeta regalo vendida! 🎁</h1>
+          <p style="font-size:16px;line-height:1.6">Se acaba de comprar una tarjeta regalo en tu salón:</p>
+          <div style="background:#fdf4ff;border-radius:12px;padding:20px;margin:20px 0">
+            <p style="margin:0 0 8px"><strong>Servicio:</strong> ${data.serviceName}</p>
+            <p style="margin:0 0 8px"><strong>Valor:</strong> €${(data.priceCents / 100).toFixed(2)}</p>
+            <p style="margin:0 0 8px"><strong>Código:</strong> <span style="font-family:monospace;background:#f3e8ff;padding:2px 8px;border-radius:6px;font-size:15px">${data.code}</span></p>
+            <p style="margin:0 0 8px"><strong>Comprador:</strong> ${data.buyerName || data.buyerEmail}</p>
+            <p style="margin:0 0 ${data.message ? '8px' : '0'}"><strong>Para:</strong> ${data.recipientName}</p>
+            ${data.message ? `<p style="margin:0;font-style:italic;color:#666">"${data.message}"</p>` : ''}
+          </div>
+          <p style="font-size:13px;color:#666">El email con la tarjeta ya se ha enviado automáticamente a <strong>${data.buyerEmail}</strong>.</p>
+          <p style="font-size:12px;color:#999;margin-top:24px">NAIQO · El asistente IA para salones de uñas</p>
+        </div>
+      `;
     } else {
       throw new Error(`Tipo de email desconocido: ${type}`);
     }
@@ -106,7 +140,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+      body: JSON.stringify({ from: `Naiqo <${FROM_EMAIL}>`, reply_to: REPLY_TO, to, subject, html }),
     });
 
     const result = await res.json();

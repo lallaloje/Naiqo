@@ -30,9 +30,9 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  // Reject events older than 5 minutes
+  // Reject events older than 10 minutes
   const eventTime = parseInt(timestamp, 10);
-  if (Math.abs(Date.now() / 1000 - eventTime) > 300) return false;
+  if (Math.abs(Date.now() / 1000 - eventTime) > 600) return false;
 
   return computedSig === sig;
 }
@@ -91,7 +91,7 @@ serve(async (req) => {
             expires_at: expiresAt.toISOString(),
           });
 
-          // Enviar email con la tarjeta al destinatario
+          // Enviar email con la tarjeta al comprador
           const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
           const supabaseService = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
           await fetch(`${supabaseUrl}/functions/v1/send-gift-card-email`, {
@@ -102,6 +102,30 @@ serve(async (req) => {
               occasion: occasion || 'general', design: design || 'classic',
               expires_at: expiresAt.toISOString() }),
           });
+
+          // Notificar al dueño del salón
+          const { data: salonRow } = await supabase
+            .from('salons').select('email').eq('id', salon_id).maybeSingle();
+          const ownerEmail = (salonRow as any)?.email;
+          if (ownerEmail) {
+            await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseService}` },
+              body: JSON.stringify({
+                type: 'gift_card_purchased_notification',
+                to: ownerEmail,
+                data: {
+                  code,
+                  serviceName: service_name,
+                  priceCents: parseInt(price_cents, 10),
+                  buyerName: buyer_name || null,
+                  buyerEmail: buyer_email,
+                  recipientName: recipient_name,
+                  message: message || null,
+                },
+              }),
+            });
+          }
 
           console.log(`Tarjeta regalo creada: code=${code} recipient=${recipient_email}`);
           break;

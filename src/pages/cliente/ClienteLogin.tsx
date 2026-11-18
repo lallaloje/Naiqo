@@ -87,6 +87,26 @@ const ClienteLogin = () => {
                 }, { onConflict: 'user_id,name' });
               }
             }
+            // Notificar al dueño del salón sobre la nueva clienta
+            try {
+              const { data: salonOwner } = await supabase
+                .from('salons').select('email, salon_name').eq('id', pendingSalonId).maybeSingle();
+              if ((salonOwner as any)?.email) {
+                await supabase.functions.invoke('send-email', {
+                  body: {
+                    type: 'new_client_notification',
+                    to: (salonOwner as any).email,
+                    data: {
+                      clientName: name.trim() || email,
+                      clientEmail: email.trim() || null,
+                      clientPhone: phone.trim() || null,
+                      salonName: (salonOwner as any).salon_name,
+                    },
+                  },
+                });
+              }
+            } catch (_) {}
+
             sessionStorage.removeItem('naiqo_pending_salon_id');
           }
         } catch (_) {}

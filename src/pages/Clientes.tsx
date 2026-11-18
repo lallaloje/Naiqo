@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Search, Phone, Mail, Calendar, Euro,
   Scissors, Users, TrendingUp, Clock, Pencil, Check, X, ChevronLeft, Trash2, UserPlus, Star, StickyNote,
-  ImagePlus, Trash, Images, Sparkles,
+  ImagePlus, Trash, Images, Sparkles, Gift,
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -143,6 +143,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [analyses, setAnalyses] = useState<{ id: string; created_at: string; severity_score: number; confidence_score: number; summary: string; image_url: string }[]>([]);
+  const [giftCards, setGiftCards] = useState<{ id: string; code: string; service_name: string; price_cents: number; recipient_name: string; status: string; created_at: string; expires_at: string }[]>([]);
 
   const prevClientRef = useRef<Client | null>(null);
   useEffect(() => {
@@ -156,6 +157,7 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
       setStamps(null);
       setPhotos([]);
       setAnalyses([]);
+      setGiftCards([]);
 
       // Load nail analyses for this client
       supabase.auth.getUser().then(({ data: { user } }) => {
@@ -199,6 +201,15 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
 
       // Load gallery photos
       loadPhotos(client);
+
+      // Load gift cards bought by this client
+      if (client.email) {
+        (supabase as any).from('gift_cards')
+          .select('id, code, service_name, price_cents, recipient_name, status, created_at, expires_at')
+          .eq('buyer_email', client.email)
+          .order('created_at', { ascending: false })
+          .then(({ data }: any) => setGiftCards(data || []));
+      }
     }
   }, [client]);
 
@@ -483,6 +494,42 @@ function ClientDetail({ client, open, onClose, onUpdate }: {
               ))}
             </div>
             <span className="ml-auto text-sm font-bold text-purple-700">{stamps} sello{stamps !== 1 ? 's' : ''}</span>
+          </div>
+        )}
+
+        {/* Tarjetas regalo */}
+        {giftCards.length > 0 && (
+          <div className="mb-5">
+            <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Gift className="w-4 h-4 text-pink-500" /> Tarjetas regalo compradas
+            </p>
+            <div className="space-y-2">
+              {giftCards.map(gc => (
+                <div key={gc.id} className="bg-pink-50 rounded-xl px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{gc.service_name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Para: {gc.recipient_name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Código: <span className="font-mono font-semibold text-pink-600">{gc.code}</span>
+                        {' · '}€{(gc.price_cents / 100).toFixed(0)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {new Date(gc.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {' · Caduca: '}{new Date(gc.expires_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                      gc.status === 'active' ? 'bg-green-100 text-green-700' :
+                      gc.status === 'used' ? 'bg-gray-100 text-gray-500' :
+                      'bg-red-100 text-red-500'
+                    }`}>
+                      {gc.status === 'active' ? 'Activa' : gc.status === 'used' ? 'Usada' : 'Caducada'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
