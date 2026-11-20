@@ -104,6 +104,14 @@ const ClienteLogin = () => {
                     },
                   },
                 });
+                await supabase.functions.invoke('send-push', {
+                  body: {
+                    user_id: ownerId,
+                    title:   '👤 Nueva clienta registrada',
+                    body:    `${name.trim() || email} se ha registrado en tu salón`,
+                    url:     '/clientes',
+                  },
+                });
               }
             } catch (_) {}
 
