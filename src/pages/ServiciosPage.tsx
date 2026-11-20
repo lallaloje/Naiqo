@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Clock, Euro, Scissors, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Clock, Euro, Scissors, Tag, Search } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -54,6 +54,7 @@ export default function ServiciosPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(empty());
+  const [search, setSearch] = useState('');
 
   useEffect(() => { if (user) loadData(); }, [user]);
 
@@ -147,11 +148,15 @@ export default function ServiciosPage() {
     ...Array.from(new Set(services.map(s => s.category).filter(Boolean) as string[]))
       .filter(c => !CATEGORIES.includes(c)),
   ];
+  const q = search.trim().toLowerCase();
+  const filteredServices = q
+    ? services.filter(s => s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q))
+    : services;
   const byCategory = allCategories.reduce<Record<string, Service[]>>((acc, cat) => {
-    acc[cat] = services.filter(s => s.category === cat);
+    acc[cat] = filteredServices.filter(s => s.category === cat);
     return acc;
   }, {});
-  const uncategorized = services.filter(s => !s.category);
+  const uncategorized = filteredServices.filter(s => !s.category);
 
   const content = (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
@@ -171,6 +176,18 @@ export default function ServiciosPage() {
           </Button>
         </div>
       </div>
+
+      {services.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar servicio..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">
