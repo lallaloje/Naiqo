@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays, Bell } from "lucide-react";
+import { CheckCircle, Clock, Phone, ChevronLeft, ChevronRight, Scissors, CalendarDays, Bell, Search } from "lucide-react";
 
 type DaySchedule = { start: number; end: number; break_start?: number; break_end?: number };
 type DaySchedules = Record<string, DaySchedule>;
@@ -145,6 +145,7 @@ const PublicBooking = () => {
   const [waitlistSaving, setWaitlistSaving] = useState(false);
   const [clientSuggestions, setClientSuggestions] = useState<Array<{name:string;phone:string;email:string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [serviceSearch, setServiceSearch] = useState('');
   const phoneSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Pre-rellenar formulario con datos de sesión si la clienta está logueada
@@ -605,11 +606,27 @@ const PublicBooking = () => {
               {services.length === 0 ? (
                 <p className="text-muted-foreground text-center py-6">Este salón aún no tiene servicios publicados.</p>
               ) : (() => {
-                const cats = Array.from(new Set(services.map(s => s.category || 'Otros')));
-                return cats.map(cat => (
+                const q = serviceSearch.trim().toLowerCase();
+                const filtered = q ? services.filter(s => s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q)) : services;
+                const cats = Array.from(new Set(filtered.map(s => s.category || 'Otros')));
+                return (
+                  <>
+                    <div className="relative mb-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar servicio..."
+                        value={serviceSearch}
+                        onChange={e => setServiceSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    {filtered.length === 0 && (
+                      <p className="text-muted-foreground text-center py-4 text-sm">No se encontraron servicios</p>
+                    )}
+                    {cats.map(cat => (
                   <div key={cat} className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-1">{cat}</p>
-                    {services.filter(s => (s.category || 'Otros') === cat).map(svc => (
+                    {filtered.filter(s => (s.category || 'Otros') === cat).map(svc => (
                       <div
                         key={svc.id}
                         onClick={() => { setSelectedService(svc); setStep(2); }}
@@ -631,7 +648,9 @@ const PublicBooking = () => {
                       </div>
                     ))}
                   </div>
-                ));
+                ))}
+                  </>
+                );
               })()}
             </CardContent>
           </Card>
