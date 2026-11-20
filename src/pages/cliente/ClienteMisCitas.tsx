@@ -240,6 +240,22 @@ const ClienteMisCitas = () => {
       if (!cancelled) throw new Error('No se pudo cancelar. La cita puede que ya haya pasado o esté completada.');
       setCitas(prev => prev.map(c => c.id === citaId ? { ...c, status: 'cancelled' } : c));
       toast({ title: '✅ Cita cancelada', description: 'Tu cita ha sido cancelada correctamente.' });
+
+      // Notificar al salón por push
+      const cita = citas.find(c => c.id === citaId);
+      if (cita?.salons?.user_id) {
+        const dt = new Date(cita.start_time);
+        const fechaStr = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+        const horaStr  = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        supabase.functions.invoke('send-push', {
+          body: {
+            user_id: cita.salons.user_id,
+            title:   '❌ Cita cancelada',
+            body:    `${cita.client_name} ha cancelado su cita de ${cita.services?.name || 'servicio'} del ${fechaStr} a las ${horaStr}`,
+            url:     '/gestion-citas',
+          },
+        }).catch(console.error);
+      }
     } catch (err: any) {
       toast({ title: 'Error al cancelar', description: err.message || 'Inténtalo de nuevo.', variant: 'destructive' });
     }
