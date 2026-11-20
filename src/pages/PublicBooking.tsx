@@ -295,10 +295,11 @@ const PublicBooking = () => {
   };
 
   // ── Enviar confirmaciones (email, push, WhatsApp) ─────────────
-  const sendConfirmations = async (start: Date, localDate: string, localTime: string) => {
+  const sendConfirmations = async (start: Date, localDate: string, localTime: string, phoneOverride?: string) => {
     if (!selectedService || !salon) return;
     const date = localDate;
     const time = localTime;
+    const clientPhone = phoneOverride ?? form.client_phone;
     if (form.client_email) {
       supabase.functions.invoke('send-booking-confirmation', {
         body: {
@@ -323,11 +324,11 @@ const PublicBooking = () => {
         url:     '/gestion-citas',
       },
     }).catch(console.error);
-    if (form.client_phone) {
+    if (clientPhone) {
       supabase.functions.invoke('send-whatsapp', {
         body: {
           type:        'cita_confirmada',
-          to:          form.client_phone,
+          to:          clientPhone,
           clientName:  form.client_name,
           serviceName: selectedService.name,
           salonName:   salon.salon_name || salonDisplayName,
@@ -351,6 +352,17 @@ const PublicBooking = () => {
       const start  = new Date(`${dateStr}T${selectedSlot}:00${offset}`);
       const end    = new Date(start.getTime() + totalDuration * 60000);
       const additionalServicesData = extraServices.map(s => ({ service_id: s.id, name: s.name, price: s.price || 0, duration_minutes: s.duration_minutes }));
+
+      // Asegurar que el teléfono del perfil está cargado (por si el useEffect no terminó)
+      let resolvedPhone = form.client_phone;
+      if (!resolvedPhone) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase.from('client_profiles' as any).select('phone').eq('user_id', user.id).maybeSingle();
+          resolvedPhone = (profile as any)?.phone || '';
+          if (resolvedPhone) setForm(f => ({ ...f, client_phone: resolvedPhone }));
+        }
+      }
 
       // Hora local española (para pasar a las Edge Functions sin depender de Intl en Deno)
       const localDate = selectedDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -425,7 +437,7 @@ const PublicBooking = () => {
         service_id:          selectedService.id,
         client_name:         form.client_name,
         client_email:        form.client_email || null,
-        client_phone:        form.client_phone || null,
+        client_phone:        resolvedPhone || null,
         start_time:          start.toISOString(),
         end_time:            end.toISOString(),
         status:              'confirmed',
@@ -438,7 +450,7 @@ const PublicBooking = () => {
       // Añadir clienta a salon_clients permanentemente
       upsertClientToSalon(salon.user_id, form.client_name, form.client_email || null, form.client_phone || null);
 
-      await sendConfirmations(start, localDate, localTime);
+      await sendConfirmations(start, localDate, localTime, resolvedPhone || undefined);
       setDone(true);
     } catch (err: any) {
       toast({ title: 'Error', description: err?.message || 'No se pudo crear la cita.', variant: 'destructive' });
